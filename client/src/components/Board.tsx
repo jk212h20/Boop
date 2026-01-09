@@ -1,6 +1,13 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Board as BoardType, PlayerColor, PieceType, Cell } from '../types';
+import { Board as BoardType, PlayerColor, PieceType, Cell, Piece as PieceData } from '../types';
 import { Piece } from './Piece';
+
+// Ghost piece data to show where pieces were before being booped
+interface GhostPiece {
+  row: number;
+  col: number;
+  piece: PieceData;
+}
 
 interface BoardProps {
   board: BoardType;
@@ -8,10 +15,43 @@ interface BoardProps {
   isMyTurn: boolean;
   lastMove: Cell | null;
   selectedPieceType: PieceType | null;
+  boopedPieces?: { from: Cell; to: Cell | null }[];
+  graduatedPieces?: Cell[];
+  ghostPieces?: GhostPiece[];
 }
 
-export function Board({ board, onCellClick, isMyTurn, lastMove, selectedPieceType }: BoardProps) {
+export function Board({ 
+  board, 
+  onCellClick, 
+  isMyTurn, 
+  lastMove, 
+  selectedPieceType,
+  boopedPieces = [],
+  graduatedPieces = [],
+  ghostPieces = []
+}: BoardProps) {
   const BOARD_SIZE = 6;
+  const CELL_SIZE = 64; // Size in pixels for animation calculations
+
+  // Check if a piece at this position was just booped (moved from somewhere)
+  const getBoopAnimation = (row: number, col: number): { fromRow: number; fromCol: number } | null => {
+    const booped = boopedPieces.find(bp => bp.to?.row === row && bp.to?.col === col);
+    if (booped) {
+      return { fromRow: booped.from.row, fromCol: booped.from.col };
+    }
+    return null;
+  };
+
+  // Check if a piece at this position is graduating
+  const isGraduating = (row: number, col: number): boolean => {
+    return graduatedPieces.some(gp => gp.row === row && gp.col === col);
+  };
+
+  // Check if there's a ghost at this position
+  const getGhost = (row: number, col: number): PieceData | null => {
+    const ghost = ghostPieces.find(gp => gp.row === row && gp.col === col);
+    return ghost?.piece || null;
+  };
 
   return (
     <div className="relative">
@@ -25,6 +65,9 @@ export function Board({ board, onCellClick, isMyTurn, lastMove, selectedPieceTyp
                 const piece = board[row][col];
                 const isLastMove = lastMove?.row === row && lastMove?.col === col;
                 const canPlace = !piece && isMyTurn && selectedPieceType;
+                const boopAnim = getBoopAnimation(row, col);
+                const graduating = isGraduating(row, col);
+                const ghostPiece = getGhost(row, col);
 
                 return (
                   <motion.div
@@ -33,24 +76,76 @@ export function Board({ board, onCellClick, isMyTurn, lastMove, selectedPieceTyp
                     whileTap={canPlace ? { scale: 0.95 } : undefined}
                     onClick={() => canPlace && onCellClick(row, col)}
                     className={`
+                      relative
                       w-14 h-14 sm:w-16 sm:h-16
                       bg-amber-50 rounded-lg
                       border-2 border-amber-200
                       stitched
                       flex items-center justify-center
-                      transition-all duration-200
+                      transition-colors duration-200
                       ${canPlace ? 'cursor-pointer hover:bg-amber-100 cell-empty' : ''}
-                      ${isLastMove ? 'ring-2 ring-yellow-400' : ''}
+                      ${isLastMove ? 'ring-2 ring-yellow-400 ring-offset-1' : ''}
                     `}
                   >
+                    {/* Ghost piece (where a piece was before booping) */}
+                    {ghostPiece && !piece && (
+                      <div className="absolute inset-0 flex items-center justify-center ghost-piece">
+                        <Piece 
+                          piece={ghostPiece} 
+                          size="lg"
+                          isGhost={true}
+                        />
+                      </div>
+                    )}
+
+                    {/* Actual piece */}
                     <AnimatePresence mode="wait">
                       {piece && (
-                        <Piece 
-                          key={`piece-${row}-${col}`}
-                          piece={piece} 
-                          size="lg"
-                          isNew={isLastMove}
-                        />
+                        <motion.div
+                          key={`piece-${row}-${col}-${piece.color}-${piece.type}`}
+                          initial={
+                            boopAnim 
+                              ? { 
+                                  x: (boopAnim.fromCol - col) * CELL_SIZE,
+                                  y: (boopAnim.fromRow - row) * CELL_SIZE,
+                                  scale: 1
+                                }
+                              : isLastMove
+                              ? { scale: 0, opacity: 0 }
+                              : false
+                          }
+                          animate={{ 
+                            x: 0, 
+                            y: 0, 
+                            scale: graduating ? [1, 1.2, 1] : 1,
+                            opacity: 1
+                          }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ 
+                            type: 'spring', 
+                            stiffness: 300, 
+                            damping: 25,
+                            scale: graduating ? { duration: 0.5, times: [0, 0.5, 1] } : undefined
+                          }}
+                          className={`relative ${graduating ? 'graduating-piece' : ''}`}
+                        >
+                          <Piece 
+                            piece={piece} 
+                            size="lg"
+                            isNew={isLastMove && !boopAnim}
+                            isGraduating={graduating}
+                          />
+                          
+                          {/* Graduation sparkles */}
+                          {graduating && (
+                            <div className="graduation-sparkles">
+                              <span className="sparkle sparkle-1">✨</span>
+                              <span className="sparkle sparkle-2">⭐</span>
+                              <span className="sparkle sparkle-3">✨</span>
+                              <span className="sparkle sparkle-4">⭐</span>
+                            </div>
+                          )}
+                        </motion.div>
                       )}
                     </AnimatePresence>
                   </motion.div>

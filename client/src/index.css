@@ -107,3 +107,126 @@ body {
 .input {
   @apply w-full px-4 py-3 border-2 border-boop-orange-200 rounded-xl focus:border-boop-orange-400 focus:outline-none focus:ring-2 focus:ring-boop-orange-200 transition-all;
 }
+
+/* Ghost piece styling (shows where booped pieces came from) */
+.ghost-piece {
+  pointer-events: none;
+}
+
+/* Graduation glow effect */
+.graduating-glow {
+  animation: graduation-glow 0.6s ease-in-out;
+}
+
+@keyframes graduation-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px 8px rgba(251, 191, 36, 0.8), 0 0 40px 16px rgba(251, 191, 36, 0.4);
+  }
+}
+
+/* Graduation sparkles container */
+.graduation-sparkles {
+  position: absolute;
+  inset: -20px;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Individual sparkles */
+.sparkle {
+  position: absolute;
+  font-size: 16px;
+  animation-duration: 0.8s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+  opacity: 0;
+}
+
+.sparkle-1 {
+  top: 0;
+  left: 50%;
+  animation-name: sparkle-up;
+}
+
+.sparkle-2 {
+  top: 50%;
+  right: 0;
+  animation-name: sparkle-right;
+  animation-delay: 0.1s;
+}
+
+.sparkle-3 {
+  bottom: 0;
+  left: 50%;
+  animation-name: sparkle-down;
+  animation-delay: 0.2s;
+}
+
+.sparkle-4 {
+  top: 50%;
+  left: 0;
+  animation-name: sparkle-left;
+  animation-delay: 0.15s;
+}
+
+@keyframes sparkle-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-25px) scale(1.2);
+  }
+}
+
+@keyframes sparkle-right {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(25px) scale(1.2);
+  }
+}
+
+@keyframes sparkle-down {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(25px) scale(1.2);
+  }
+}
+
+@keyframes sparkle-left {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-25px) scale(1.2);
+  }
+}
+
+/* Graduating piece pulse */
+.graduating-piece {
+  z-index: 10;
+}
+
+/* Pulsing glow for turn indicator */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(251, 191, 36, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.8), 0 0 30px rgba(251, 191, 36, 0.4);
+  }
+}

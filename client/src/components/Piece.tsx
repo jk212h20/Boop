@@ -5,12 +5,23 @@ interface PieceProps {
   piece: PieceType;
   size?: 'sm' | 'md' | 'lg';
   isNew?: boolean;
+  isGhost?: boolean;
+  isGraduating?: boolean;
   onClick?: () => void;
   selected?: boolean;
   disabled?: boolean;
 }
 
-export function Piece({ piece, size = 'md', isNew = false, onClick, selected = false, disabled = false }: PieceProps) {
+export function Piece({ 
+  piece, 
+  size = 'md', 
+  isNew = false, 
+  isGhost = false,
+  isGraduating = false,
+  onClick, 
+  selected = false, 
+  disabled = false 
+}: PieceProps) {
   const sizeClasses = {
     sm: 'w-8 h-8',
     md: 'w-12 h-12',
@@ -24,10 +35,32 @@ export function Piece({ piece, size = 'md', isNew = false, onClick, selected = f
   const emoji = piece.type === 'cat' ? '😼' : '🐱';
   const emojiSize = size === 'sm' ? 'text-lg' : size === 'md' ? 'text-2xl' : 'text-3xl';
 
+  // Ghost pieces are semi-transparent with dashed border
+  if (isGhost) {
+    return (
+      <div
+        className={`
+          ${sizeClasses[size]}
+          ${typeClass}
+          flex items-center justify-center
+          opacity-30
+          border-2 border-dashed
+          ${piece.color === 'orange' ? 'border-boop-orange-400 bg-boop-orange-100' : 'border-boop-gray-400 bg-boop-gray-100'}
+          select-none
+        `}
+      >
+        <span className={`${emojiSize} drop-shadow-md grayscale`}>{emoji}</span>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={isNew ? { scale: 0, opacity: 0 } : false}
-      animate={{ scale: 1, opacity: 1 }}
+      animate={{ 
+        scale: 1, 
+        opacity: 1,
+      }}
       transition={{ type: 'spring', stiffness: 500, damping: 25 }}
       whileHover={!disabled ? { scale: 1.1 } : undefined}
       whileTap={!disabled ? { scale: 0.95 } : undefined}
@@ -40,6 +73,7 @@ export function Piece({ piece, size = 'md', isNew = false, onClick, selected = f
         ${onClick && !disabled ? 'cursor-pointer hover:shadow-piece-hover' : ''}
         ${selected ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
         ${disabled ? 'opacity-50' : ''}
+        ${isGraduating ? 'graduating-glow' : ''}
         select-none
       `}
     >

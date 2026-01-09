@@ -1,8 +1,18 @@
 import { Server, Socket } from 'socket.io';
 import { RoomManager } from '../rooms/RoomManager';
+import { LobbyManager } from '../lobby/LobbyManager';
 import { PieceType } from '../game/types';
 
-export function setupSocketHandlers(io: Server, roomManager: RoomManager): void {
+export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyManager: LobbyManager): void {
+  // Helper to broadcast lobby updates to all players in the lobby
+  const broadcastLobbyUpdate = () => {
+    // Send personalized list to each player in lobby (excluding themselves)
+    for (const player of lobbyManager.getWaitingPlayers()) {
+      const waitlist = lobbyManager.getPublicWaitlist(player.socketId);
+      io.to(player.socketId).emit('lobby_update', { players: waitlist });
+    }
+  };
+
   io.on('connection', (socket: Socket) => {
     console.log(`Client connected: ${socket.id}`);
 
@@ -196,10 +206,133 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager): void 
       }
     });
 
+    // ==================== LOBBY HANDLERS ====================
+
+    // Join the lobby waitlist
+    socket.on('join_lobby', (data: { playerName: string }, callback) => {
+      try {
+        // Remove from any existing room first
+        const existingRoom = roomManager.getPlayerRoom(socket.id);
+        if (existingRoom) {
+          roomManager.leaveRoom(socket.id);
+        }
+
+        // Add to lobby
+        const player = lobbyManager.addPlayer(socket.id, data.playerName);
+        
+        // Send initial lobby state to this player
+        const waitlist = lobbyManager.getPublicWaitlist(socket.id);
+        
+        callback({
+          success: true,
+          players: waitlist,
+        });
+
+        // Broadcast update to all other lobby players
+        broadcastLobbyUpdate();
+      } catch (error) {
+        console.error('Error joining lobby:', error);
+        callback({ success: false, error: 'Failed to join lobby' });
+      }
+    });
+
+    // Leave the lobby
+    socket.on('leave_lobby', (callback) => {
+      try {
+        lobbyManager.removePlayer(socket.id);
+        callback({ success: true });
+        
+        // Broadcast update to remaining lobby players
+        broadcastLobbyUpdate();
+      } catch (error) {
+        console.error('Error leaving lobby:', error);
+        callback({ success: false, error: 'Failed to leave lobby' });
+      }
+    });
+
+    // Select a player to start a game with
+    socket.on('select_opponent', (data: { opponentId: string }, callback) => {
+      try {
+        const challenger = lobbyManager.getPlayer(socket.id);
+        const opponent = lobbyManager.getPlayer(data.opponentId);
+
+        if (!challenger) {
+          callback({ success: false, error: 'You are not in the lobby' });
+          return;
+        }
+
+        if (!opponent) {
+          callback({ success: false, error: 'Player not found or no longer waiting' });
+          return;
+        }
+
+        // Remove both players from lobby
+        lobbyManager.removePlayer(socket.id);
+        lobbyManager.removePlayer(data.opponentId);
+
+        // Create a new room
+        const room = roomManager.createRoom();
+
+        // Add challenger (orange - first player)
+        const challengerResult = roomManager.joinRoom(room.id, socket.id, challenger.name);
+        socket.join(room.id);
+
+        // Add opponent (gray - second player)
+        const opponentResult = roomManager.joinRoom(room.id, data.opponentId, opponent.name);
+        const opponentSocket = io.sockets.sockets.get(data.opponentId);
+        if (opponentSocket) {
+          opponentSocket.join(room.id);
+        }
+
+        const gameState = room.game.getState();
+
+        // Notify challenger
+        callback({
+          success: true,
+          roomCode: room.code,
+          roomId: room.id,
+          playerColor: challengerResult.color,
+          gameState,
+        });
+
+        // Notify opponent
+        io.to(data.opponentId).emit('match_started', {
+          roomCode: room.code,
+          roomId: room.id,
+          playerColor: opponentResult.color,
+          opponentName: challenger.name,
+          gameState,
+        });
+
+        // Broadcast lobby update to remaining players
+        broadcastLobbyUpdate();
+
+        console.log(`Match started: ${challenger.name} vs ${opponent.name} in room ${room.code}`);
+      } catch (error) {
+        console.error('Error selecting opponent:', error);
+        callback({ success: false, error: 'Failed to start match' });
+      }
+    });
+
+    // Heartbeat for lobby (keeps player active)
+    socket.on('lobby_heartbeat', () => {
+      lobbyManager.updateActivity(socket.id);
+    });
+
+    // ==================== END LOBBY HANDLERS ====================
+
     // Handle disconnection
     socket.on('disconnect', () => {
       console.log(`Client disconnected: ${socket.id}`);
       
+      // Remove from lobby if present
+      const wasInLobby = lobbyManager.isInLobby(socket.id);
+      if (wasInLobby) {
+        lobbyManager.removePlayer(socket.id);
+        broadcastLobbyUpdate();
+      }
+      
+      // Remove from room if present
       const result = roomManager.leaveRoom(socket.id);
       
       if (result) {

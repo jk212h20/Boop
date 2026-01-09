@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 import { RoomManager } from './rooms/RoomManager';
+import { LobbyManager } from './lobby/LobbyManager';
 import { setupSocketHandlers } from './socket/handlers';
 
 const app = express();
@@ -39,11 +40,12 @@ const io = new Server(httpServer, {
   pingInterval: 25000
 });
 
-// Room manager instance
+// Room and lobby manager instances
 const roomManager = new RoomManager();
+const lobbyManager = new LobbyManager();
 
 // Setup socket handlers
-setupSocketHandlers(io, roomManager);
+setupSocketHandlers(io, roomManager, lobbyManager);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameState, PlayerColor, PieceType, GameUpdate, GameOverInfo, RoomInfo } from '../types';
+import { GameState, PlayerColor, PieceType, GameUpdate, GameOverInfo, RoomInfo, WaitingPlayer } from '../types';
 
 const SOCKET_URL = import.meta.env.PROD 
   ? window.location.origin 
@@ -16,11 +16,20 @@ interface UseSocketReturn {
   gameOver: GameOverInfo | null;
   opponentDisconnected: boolean;
   
+  // Lobby state
+  inLobby: boolean;
+  lobbyPlayers: WaitingPlayer[];
+  
   createRoom: (playerName: string) => Promise<RoomInfo>;
   joinRoom: (roomCode: string, playerName: string) => Promise<RoomInfo>;
   placePiece: (row: number, col: number, pieceType: PieceType) => Promise<boolean>;
   selectGraduation: (optionIndex: number) => Promise<boolean>;
   leaveRoom: () => void;
+  
+  // Lobby functions
+  joinLobby: (playerName: string) => Promise<WaitingPlayer[]>;
+  leaveLobby: () => void;
+  selectOpponent: (opponentId: string) => Promise<RoomInfo>;
 }
 
 export function useSocket(): UseSocketReturn {
@@ -33,6 +42,11 @@ export function useSocket(): UseSocketReturn {
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
   const [gameOver, setGameOver] = useState<GameOverInfo | null>(null);
   const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+  
+  // Lobby state
+  const [inLobby, setInLobby] = useState(false);
+  const [lobbyPlayers, setLobbyPlayers] = useState<WaitingPlayer[]>([]);
+  const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -86,6 +100,36 @@ export function useSocket(): UseSocketReturn {
     socket.on('player_left', (data: { playerColor: string }) => {
       console.log('Player left:', data.playerColor);
       setOpponentDisconnected(true);
+    });
+
+    // Lobby events
+    socket.on('lobby_update', (data: { players: WaitingPlayer[] }) => {
+      setLobbyPlayers(data.players);
+    });
+
+    socket.on('match_started', (data: {
+      roomCode: string;
+      roomId: string;
+      playerColor: PlayerColor;
+      opponentName: string;
+      gameState: GameState;
+    }) => {
+      console.log('Match started! Opponent:', data.opponentName);
+      // Clear lobby state
+      setInLobby(false);
+      setLobbyPlayers([]);
+      
+      // Set game state
+      const info: RoomInfo = {
+        roomCode: data.roomCode,
+        roomId: data.roomId,
+        playerColor: data.playerColor,
+      };
+      setRoomInfo(info);
+      setPlayerColor(data.playerColor);
+      setGameState(data.gameState);
+      setGameOver(null);
+      setOpponentDisconnected(false);
     });
 
     return () => {
@@ -218,6 +262,101 @@ export function useSocket(): UseSocketReturn {
     }
   }, []);
 
+  // Join the lobby waitlist
+  const joinLobby = useCallback((playerName: string): Promise<WaitingPlayer[]> => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Not connected'));
+        return;
+      }
+
+      socketRef.current.emit('join_lobby', { playerName }, (response: {
+        success: boolean;
+        players?: WaitingPlayer[];
+        error?: string;
+      }) => {
+        if (response.success) {
+          setInLobby(true);
+          setLobbyPlayers(response.players || []);
+          
+          // Start heartbeat to keep player active
+          if (heartbeatRef.current) {
+            clearInterval(heartbeatRef.current);
+          }
+          heartbeatRef.current = setInterval(() => {
+            socketRef.current?.emit('lobby_heartbeat');
+          }, 10000); // Every 10 seconds
+          
+          resolve(response.players || []);
+        } else {
+          reject(new Error(response.error || 'Failed to join lobby'));
+        }
+      });
+    });
+  }, []);
+
+  // Leave the lobby
+  const leaveLobby = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.emit('leave_lobby', () => {
+        setInLobby(false);
+        setLobbyPlayers([]);
+        
+        // Stop heartbeat
+        if (heartbeatRef.current) {
+          clearInterval(heartbeatRef.current);
+          heartbeatRef.current = null;
+        }
+      });
+    }
+  }, []);
+
+  // Select an opponent from the lobby to start a game
+  const selectOpponent = useCallback((opponentId: string): Promise<RoomInfo> => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Not connected'));
+        return;
+      }
+
+      socketRef.current.emit('select_opponent', { opponentId }, (response: {
+        success: boolean;
+        roomCode?: string;
+        roomId?: string;
+        playerColor?: PlayerColor;
+        gameState?: GameState;
+        error?: string;
+      }) => {
+        if (response.success && response.roomCode && response.roomId && response.playerColor) {
+          // Stop heartbeat
+          if (heartbeatRef.current) {
+            clearInterval(heartbeatRef.current);
+            heartbeatRef.current = null;
+          }
+          
+          // Clear lobby state
+          setInLobby(false);
+          setLobbyPlayers([]);
+          
+          // Set game state
+          const info: RoomInfo = {
+            roomCode: response.roomCode,
+            roomId: response.roomId,
+            playerColor: response.playerColor,
+          };
+          setRoomInfo(info);
+          setPlayerColor(response.playerColor);
+          setGameState(response.gameState || null);
+          setGameOver(null);
+          setOpponentDisconnected(false);
+          resolve(info);
+        } else {
+          reject(new Error(response.error || 'Failed to start match'));
+        }
+      });
+    });
+  }, []);
+
   return {
     connected,
     connecting,
@@ -227,10 +366,15 @@ export function useSocket(): UseSocketReturn {
     roomInfo,
     gameOver,
     opponentDisconnected,
+    inLobby,
+    lobbyPlayers,
     createRoom,
     joinRoom,
     placePiece,
     selectGraduation,
     leaveRoom,
+    joinLobby,
+    leaveLobby,
+    selectOpponent,
   };
 }

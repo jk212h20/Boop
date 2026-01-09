@@ -64,3 +64,16 @@ export interface GameOverInfo {
 export type GameScreen = 'lobby' | 'waiting' | 'playing' | 'gameover';
 
 export type GameMode = 'online' | 'bot' | null;
+
+// Lobby/Waitlist types
+export interface WaitingPlayer {
+  id: string;
+  name: string;
+  waitingFor: number; // seconds
+}
+
+export interface LobbyState {
+  inLobby: boolean;
+  playerName: string | null;
+  players: WaitingPlayer[];
+}

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { useBotGame } from './hooks/useBotGame';
-import { Lobby, WaitingRoom } from './components/Lobby';
+import { Lobby, WaitingRoom, QuickMatchLobby } from './components/Lobby';
 import { Game } from './components/Game';
 import { GameMode } from './types';
 
@@ -18,11 +18,16 @@ function App() {
     roomInfo,
     gameOver: onlineGameOver,
     opponentDisconnected,
+    inLobby,
+    lobbyPlayers,
     createRoom,
     joinRoom,
     placePiece: onlinePlacePiece,
     selectGraduation: onlineSelectGraduation,
     leaveRoom,
+    joinLobby,
+    leaveLobby,
+    selectOpponent,
   } = useSocket();
 
   // Bot game hook
@@ -64,6 +69,21 @@ function App() {
     setGameMode(null);
   }, [endBotGame]);
 
+  // Lobby handlers
+  const handleJoinLobby = useCallback(async (name: string) => {
+    setGameMode('online');
+    await joinLobby(name);
+  }, [joinLobby]);
+
+  const handleLeaveLobby = useCallback(() => {
+    leaveLobby();
+    setGameMode(null);
+  }, [leaveLobby]);
+
+  const handleSelectOpponent = useCallback(async (opponentId: string) => {
+    await selectOpponent(opponentId);
+  }, [selectOpponent]);
+
   // Determine which screen to show
   const getScreen = () => {
     // Bot game mode
@@ -87,6 +107,17 @@ function App() {
 
     // Online game mode
     if (gameMode === 'online') {
+      // In the quick match lobby (waiting to select opponent)
+      if (inLobby) {
+        return (
+          <QuickMatchLobby
+            players={lobbyPlayers}
+            onSelectOpponent={handleSelectOpponent}
+            onLeave={handleLeaveLobby}
+          />
+        );
+      }
+
       // In a room but game hasn't started (waiting for opponent)
       if (roomInfo && onlinePlayerColor && (!onlineGameState || onlineGameState.phase === 'waiting')) {
         return (
@@ -121,6 +152,7 @@ function App() {
         onCreateGame={handleCreateGame}
         onJoinGame={handleJoinGame}
         onPlayBot={handlePlayBot}
+        onJoinLobby={handleJoinLobby}
         connecting={connecting}
         error={error}
       />

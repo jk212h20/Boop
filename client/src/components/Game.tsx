@@ -1,7 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GameState, PlayerColor, PieceType, GameOverInfo, Cell } from '../types';
+import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece } from '../types';
 import { Board, PlayerPool } from './Board';
+import { useSound } from '../hooks/useSound';
+
+// Ghost piece data to show where pieces were before being booped
+interface GhostPiece {
+  row: number;
+  col: number;
+  piece: Piece;
+}
 
 interface GameProps {
   gameState: GameState;
@@ -34,6 +42,17 @@ export function Game({
   const [selectedPieceType, setSelectedPieceType] = useState<PieceType>('kitten');
   const [error, setError] = useState<string | null>(null);
   const [highlightedOption, setHighlightedOption] = useState<number | null>(null);
+  
+  // Animation state - tracks the current move's effects for animation
+  const [animatingBoops, setAnimatingBoops] = useState<{ from: Cell; to: Cell | null }[]>([]);
+  const [animatingGraduations, setAnimatingGraduations] = useState<Cell[]>([]);
+  const [ghostPieces, setGhostPieces] = useState<GhostPiece[]>([]);
+  
+  // Track previous board state to get piece data for ghosts
+  const prevBoardRef = useRef(gameState.board);
+  
+  // Sound system
+  const { playSound } = useSound();
 
   const isMyTurn = gameState.currentTurn === playerColor;
   const myPlayer = gameState.players[playerColor];
@@ -44,6 +63,74 @@ export function Game({
   const isSelectingGraduation = gameState.phase === 'selecting_graduation' && 
     gameState.pendingGraduationPlayer === playerColor;
   const graduationOptions = gameState.pendingGraduationOptions || [];
+
+  // Handle game state updates - trigger animations and sounds
+  useEffect(() => {
+    const booped = gameState.boopedPieces || [];
+    const graduated = gameState.graduatedPieces || [];
+    
+    // Only animate if there are new boops or graduations
+    if (booped.length > 0 || graduated.length > 0) {
+      // Create ghost pieces from the previous board state
+      const newGhosts: GhostPiece[] = [];
+      for (const bp of booped) {
+        const piece = prevBoardRef.current[bp.from.row]?.[bp.from.col];
+        if (piece) {
+          newGhosts.push({
+            row: bp.from.row,
+            col: bp.from.col,
+            piece: { ...piece }
+          });
+        }
+      }
+      
+      // Set animation state
+      setAnimatingBoops(booped);
+      setAnimatingGraduations(graduated);
+      setGhostPieces(newGhosts);
+      
+      // Play sounds
+      if (gameState.lastMove) {
+        playSound('place');
+      }
+      
+      if (booped.length > 0) {
+        // Slight delay for boop sound after place sound
+        setTimeout(() => playSound('boop'), 100);
+      }
+      
+      if (graduated.length > 0) {
+        // Delay graduation sound to sync with animation
+        setTimeout(() => playSound('graduate'), 300);
+      }
+      
+      // Clear animation state after animations complete (keep ghosts)
+      const timer = setTimeout(() => {
+        setAnimatingBoops([]);
+        setAnimatingGraduations([]);
+      }, 800);
+      
+      return () => clearTimeout(timer);
+    } else if (gameState.lastMove) {
+      // Just a placement with no boops - still play place sound and clear ghosts
+      playSound('place');
+      setGhostPieces([]);
+    }
+    
+    // Update previous board reference
+    prevBoardRef.current = gameState.board;
+  }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, playSound]);
+
+  // Handle game over sound
+  useEffect(() => {
+    if (gameOver) {
+      const isWinner = gameOver.winner === playerColor;
+      // Delay to let the final move animate
+      setTimeout(() => {
+        playSound(isWinner ? 'win' : 'lose');
+      }, 500);
+    }
+  }, [gameOver, playerColor, playSound]);
 
   // Auto-select available piece type
   useEffect(() => {
@@ -147,6 +234,9 @@ export function Game({
               isMyTurn={isMyTurn}
               lastMove={gameState.lastMove}
               selectedPieceType={isMyTurn ? selectedPieceType : null}
+              boopedPieces={animatingBoops}
+              graduatedPieces={animatingGraduations}
+              ghostPieces={ghostPieces}
             />
           </div>
 

@@ -46,7 +46,7 @@ export function useSocket(): UseSocketReturn {
   // Lobby state
   const [inLobby, setInLobby] = useState(false);
   const [lobbyPlayers, setLobbyPlayers] = useState<WaitingPlayer[]>([]);
-  const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Initialize socket connection
   useEffect(() => {

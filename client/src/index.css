@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles */
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%);
+}
+
+/* Quilted pattern for the game board */
+.quilt-pattern {
+  background-image: 
+    linear-gradient(45deg, rgba(251, 191, 36, 0.3) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(251, 191, 36, 0.3) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(251, 191, 36, 0.3) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(251, 191, 36, 0.3) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
+/* Stitched border effect */
+.stitched {
+  position: relative;
+}
+
+.stitched::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 2px dashed rgba(0, 0, 0, 0.2);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Piece styles */
+.piece-kitten {
+  @apply rounded-full shadow-piece transition-all duration-200;
+}
+
+.piece-cat {
+  @apply rounded-lg shadow-piece transition-all duration-200;
+}
+
+.piece-orange {
+  background: linear-gradient(135deg, #fb923c 0%, #f97316 50%, #ea580c 100%);
+}
+
+.piece-gray {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 50%, #475569 100%);
+}
+
+/* Cell hover effect */
+.cell-empty:hover {
+  @apply bg-yellow-200/50;
+}
+
+/* Turn indicator glow */
+.turn-active {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Win celebration */
+@keyframes celebrate {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.1) rotate(-5deg); }
+  75% { transform: scale(1.1) rotate(5deg); }
+}
+
+.celebrating {
+  animation: celebrate 0.5s ease-in-out infinite;
+}
+
+/* Loading spinner */
+.spinner {
+  border: 3px solid rgba(251, 191, 36, 0.3);
+  border-top-color: #f97316;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Room code styling */
+.room-code {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.1em;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply px-6 py-3 bg-boop-orange-500 hover:bg-boop-orange-600 text-white font-bold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200;
+}
+
+.btn-secondary {
+  @apply px-6 py-3 bg-boop-gray-500 hover:bg-boop-gray-600 text-white font-bold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6;
+}
+
+/* Input styles */
+.input {
+  @apply w-full px-4 py-3 border-2 border-boop-orange-200 rounded-xl focus:border-boop-orange-400 focus:outline-none focus:ring-2 focus:ring-boop-orange-200 transition-all;
+}

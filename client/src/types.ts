@@ -60,3 +60,5 @@ export interface GameOverInfo {
 }
 
 export type GameScreen = 'lobby' | 'waiting' | 'playing' | 'gameover';
+
+export type GameMode = 'online' | 'bot' | null;

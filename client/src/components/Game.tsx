@@ -11,6 +11,10 @@ interface GameProps {
   onLeave: () => void;
   gameOver: GameOverInfo | null;
   opponentDisconnected: boolean;
+  // Bot game specific props
+  isBotGame?: boolean;
+  botThinking?: boolean;
+  onRematch?: () => void;
 }
 
 export function Game({ 
@@ -20,7 +24,10 @@ export function Game({
   onPlacePiece, 
   onLeave,
   gameOver,
-  opponentDisconnected 
+  opponentDisconnected,
+  isBotGame = false,
+  botThinking = false,
+  onRematch,
 }: GameProps) {
   const [selectedPieceType, setSelectedPieceType] = useState<PieceType>('kitten');
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +169,11 @@ export function Game({
                 {selectedPieceType === 'kitten' ? '🐱 Placing Kitten' : '😼 Placing Cat'}
               </span>
             </p>
+          ) : botThinking ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="spinner w-4 h-4"></div>
+              <span>🤖 Bot is thinking...</span>
+            </div>
           ) : (
             <p>Waiting for opponent's move...</p>
           )}
@@ -174,7 +186,9 @@ export function Game({
           <GameOverModal 
             gameOver={gameOver} 
             playerColor={playerColor} 
-            onLeave={onLeave} 
+            onLeave={onLeave}
+            isBotGame={isBotGame}
+            onRematch={onRematch}
           />
         )}
       </AnimatePresence>
@@ -186,9 +200,11 @@ interface GameOverModalProps {
   gameOver: GameOverInfo;
   playerColor: PlayerColor;
   onLeave: () => void;
+  isBotGame?: boolean;
+  onRematch?: () => void;
 }
 
-function GameOverModal({ gameOver, playerColor, onLeave }: GameOverModalProps) {
+function GameOverModal({ gameOver, playerColor, onLeave, isBotGame = false, onRematch }: GameOverModalProps) {
   const isWinner = gameOver.winner === playerColor;
   
   const winMessage = gameOver.winCondition === 'three_cats_in_row' 
@@ -235,11 +251,19 @@ function GameOverModal({ gameOver, playerColor, onLeave }: GameOverModalProps) {
         </div>
 
         <div className="space-y-2">
+          {isBotGame && onRematch && (
+            <button
+              onClick={onRematch}
+              className="btn-primary w-full"
+            >
+              🔄 Rematch
+            </button>
+          )}
           <button
             onClick={onLeave}
-            className="btn-primary w-full"
+            className={isBotGame ? "btn-secondary w-full" : "btn-primary w-full"}
           >
-            Play Again
+            {isBotGame ? '← Back to Menu' : 'Play Again'}
           </button>
         </div>
       </motion.div>

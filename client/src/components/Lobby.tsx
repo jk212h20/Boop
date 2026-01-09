@@ -4,14 +4,15 @@ import { motion } from 'framer-motion';
 interface LobbyProps {
   onCreateGame: (playerName: string) => Promise<void>;
   onJoinGame: (roomCode: string, playerName: string) => Promise<void>;
+  onPlayBot: (playerName: string) => void;
   connecting: boolean;
   error: string | null;
 }
 
-export function Lobby({ onCreateGame, onJoinGame, connecting, error }: LobbyProps) {
+export function Lobby({ onCreateGame, onJoinGame, onPlayBot, connecting, error }: LobbyProps) {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const [mode, setMode] = useState<'menu' | 'create' | 'join'>('menu');
+  const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'bot'>('menu');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -49,6 +50,15 @@ export function Lobby({ onCreateGame, onJoinGame, connecting, error }: LobbyProp
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePlayBot = () => {
+    if (!playerName.trim()) {
+      setLocalError('Please enter your name');
+      return;
+    }
+    setLocalError(null);
+    onPlayBot(playerName.trim());
   };
 
   const displayError = localError || error;
@@ -113,6 +123,12 @@ export function Lobby({ onCreateGame, onJoinGame, connecting, error }: LobbyProp
               className="btn-secondary w-full text-xl"
             >
               🔗 Join Game
+            </button>
+            <button
+              onClick={() => setMode('bot')}
+              className="btn-secondary w-full text-xl bg-gray-100 hover:bg-gray-200 border-gray-300"
+            >
+              🤖 Play vs Bot
             </button>
 
             <div className="mt-8 p-4 bg-amber-50 rounded-xl">
@@ -211,6 +227,46 @@ export function Lobby({ onCreateGame, onJoinGame, connecting, error }: LobbyProp
               ) : (
                 'Join Game'
               )}
+            </button>
+
+            <button
+              onClick={() => { setMode('menu'); setLocalError(null); }}
+              className="w-full text-gray-500 hover:text-gray-700"
+            >
+              ← Back
+            </button>
+          </motion.div>
+        )}
+
+        {mode === 'bot' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-4"
+          >
+            <div className="text-center mb-4">
+              <span className="text-4xl">🤖</span>
+              <h3 className="font-display text-xl font-bold text-gray-700 mt-2">Play vs Bot</h3>
+              <p className="text-gray-500 text-sm">Practice against our AI opponent!</p>
+            </div>
+
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">Your Name</label>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Enter your name"
+                className="input"
+                maxLength={20}
+              />
+            </div>
+
+            <button
+              onClick={handlePlayBot}
+              className="btn-primary w-full"
+            >
+              🎮 Start Game
             </button>
 
             <button

@@ -1,6 +1,6 @@
 // Bot-specific types
 
-import { PieceType, Cell, PlayerColor, GameState, Piece, Board } from '../types';
+import { PieceType, Cell, Board } from '../types';
 
 export interface Move {
   row: number;

@@ -21,6 +21,7 @@ function App() {
     createRoom,
     joinRoom,
     placePiece: onlinePlacePiece,
+    selectGraduation: onlineSelectGraduation,
     leaveRoom,
   } = useSocket();
 
@@ -32,6 +33,7 @@ function App() {
     botThinking,
     startBotGame,
     placePiece: botPlacePiece,
+    selectGraduation: botSelectGraduation,
     resetGame: resetBotGame,
     endBotGame,
   } = useBotGame();
@@ -72,6 +74,7 @@ function App() {
           playerColor={botPlayerColor}
           roomCode="vs Bot"
           onPlacePiece={botPlacePiece}
+          onSelectGraduation={botSelectGraduation}
           onLeave={handleLeaveBotGame}
           gameOver={botGameOver}
           opponentDisconnected={false}
@@ -103,6 +106,7 @@ function App() {
             playerColor={onlinePlayerColor}
             roomCode={roomInfo.roomCode}
             onPlacePiece={onlinePlacePiece}
+            onSelectGraduation={onlineSelectGraduation}
             onLeave={handleLeaveOnlineGame}
             gameOver={onlineGameOver}
             opponentDisconnected={opponentDisconnected}

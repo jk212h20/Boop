@@ -19,6 +19,7 @@ interface UseSocketReturn {
   createRoom: (playerName: string) => Promise<RoomInfo>;
   joinRoom: (roomCode: string, playerName: string) => Promise<RoomInfo>;
   placePiece: (row: number, col: number, pieceType: PieceType) => Promise<boolean>;
+  selectGraduation: (optionIndex: number) => Promise<boolean>;
   leaveRoom: () => void;
 }
 
@@ -183,6 +184,27 @@ export function useSocket(): UseSocketReturn {
     });
   }, []);
 
+  // Select graduation option (when multiple 3-in-a-row choices are available)
+  const selectGraduation = useCallback((optionIndex: number): Promise<boolean> => {
+    return new Promise((resolve, reject) => {
+      if (!socketRef.current) {
+        reject(new Error('Not connected'));
+        return;
+      }
+
+      socketRef.current.emit('select_graduation', { optionIndex }, (response: {
+        success: boolean;
+        error?: string;
+      }) => {
+        if (response.success) {
+          resolve(true);
+        } else {
+          reject(new Error(response.error || 'Failed to select graduation'));
+        }
+      });
+    });
+  }, []);
+
   // Leave the current room
   const leaveRoom = useCallback(() => {
     if (socketRef.current) {
@@ -208,6 +230,7 @@ export function useSocket(): UseSocketReturn {
     createRoom,
     joinRoom,
     placePiece,
+    selectGraduation,
     leaveRoom,
   };
 }

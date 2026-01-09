@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GameState, PlayerColor, PieceType, GameOverInfo } from '../types';
+import { GameState, PlayerColor, PieceType, GameOverInfo, Cell } from '../types';
 import { Board, PlayerPool } from './Board';
 
 interface GameProps {
@@ -8,6 +8,7 @@ interface GameProps {
   playerColor: PlayerColor;
   roomCode: string;
   onPlacePiece: (row: number, col: number, pieceType: PieceType) => Promise<boolean>;
+  onSelectGraduation?: (optionIndex: number) => Promise<boolean>;
   onLeave: () => void;
   gameOver: GameOverInfo | null;
   opponentDisconnected: boolean;
@@ -22,6 +23,7 @@ export function Game({
   playerColor, 
   roomCode, 
   onPlacePiece, 
+  onSelectGraduation,
   onLeave,
   gameOver,
   opponentDisconnected,
@@ -31,11 +33,17 @@ export function Game({
 }: GameProps) {
   const [selectedPieceType, setSelectedPieceType] = useState<PieceType>('kitten');
   const [error, setError] = useState<string | null>(null);
+  const [highlightedOption, setHighlightedOption] = useState<number | null>(null);
 
   const isMyTurn = gameState.currentTurn === playerColor;
   const myPlayer = gameState.players[playerColor];
   const opponentColor: PlayerColor = playerColor === 'orange' ? 'gray' : 'orange';
   const opponent = gameState.players[opponentColor];
+  
+  // Check if we're in graduation selection phase
+  const isSelectingGraduation = gameState.phase === 'selecting_graduation' && 
+    gameState.pendingGraduationPlayer === playerColor;
+  const graduationOptions = gameState.pendingGraduationOptions || [];
 
   // Auto-select available piece type
   useEffect(() => {
@@ -180,6 +188,27 @@ export function Game({
         </div>
       </div>
 
+      {/* Graduation Selection Modal */}
+      <AnimatePresence>
+        {isSelectingGraduation && graduationOptions.length > 1 && onSelectGraduation && (
+          <GraduationSelectionModal
+            options={graduationOptions}
+            board={gameState.board}
+            playerColor={playerColor}
+            highlightedOption={highlightedOption}
+            onHighlight={setHighlightedOption}
+            onSelect={async (index) => {
+              try {
+                await onSelectGraduation(index);
+                setHighlightedOption(null);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to select graduation');
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Game Over Modal */}
       <AnimatePresence>
         {gameOver && (
@@ -193,6 +222,93 @@ export function Game({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+interface GraduationSelectionModalProps {
+  options: Cell[][];
+  board: (import('../types').Piece | null)[][];
+  playerColor: PlayerColor;
+  highlightedOption: number | null;
+  onHighlight: (index: number | null) => void;
+  onSelect: (index: number) => void;
+}
+
+function GraduationSelectionModal({ 
+  options, 
+  board, 
+  playerColor,
+  highlightedOption, 
+  onHighlight, 
+  onSelect 
+}: GraduationSelectionModalProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+    >
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+        className="card max-w-lg w-full"
+      >
+        <h2 className="font-display text-2xl font-bold text-center mb-4 text-boop-orange-600">
+          🎓 Choose Which 3 to Graduate!
+        </h2>
+        
+        <p className="text-gray-600 text-center mb-4">
+          You have multiple 3-in-a-row options. Select which kittens to graduate into cats.
+        </p>
+
+        <div className="space-y-3">
+          {options.map((option, index) => (
+            <motion.button
+              key={index}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onMouseEnter={() => onHighlight(index)}
+              onMouseLeave={() => onHighlight(null)}
+              onClick={() => onSelect(index)}
+              className={`
+                w-full p-3 rounded-xl border-2 transition-all
+                ${highlightedOption === index 
+                  ? 'border-yellow-400 bg-yellow-50 shadow-lg' 
+                  : 'border-gray-200 bg-white hover:border-yellow-300 hover:bg-yellow-50/50'
+                }
+              `}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-gray-700">
+                  Option {index + 1}
+                </span>
+                <div className="flex gap-2">
+                  {option.map((cell, cellIndex) => {
+                    const piece = board[cell.row][cell.col];
+                    return (
+                      <div 
+                        key={cellIndex}
+                        className={`
+                          w-10 h-10 rounded-lg flex items-center justify-center text-xl
+                          ${playerColor === 'orange' ? 'bg-boop-orange-200' : 'bg-boop-gray-200'}
+                        `}
+                      >
+                        {piece?.type === 'kitten' ? '🐱' : '😼'}
+                      </div>
+                    );
+                  })}
+                </div>
+                <span className="text-sm text-gray-500">
+                  ({option.map(c => `${c.row+1},${c.col+1}`).join(' → ')})
+                </span>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

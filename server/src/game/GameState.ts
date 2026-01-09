@@ -6,6 +6,7 @@ import {
   PlayerState,
   GameState,
   MoveResult,
+  GraduationResult,
   Cell,
   DIRECTIONS,
   LINE_DIRECTIONS
@@ -19,11 +20,13 @@ export class BoopGame {
   private board: Board;
   private players: { orange: PlayerState | null; gray: PlayerState | null };
   private currentTurn: PlayerColor;
-  private phase: 'waiting' | 'playing' | 'finished';
+  private phase: 'waiting' | 'playing' | 'selecting_graduation' | 'finished';
   private winner: PlayerColor | null;
   private lastMove: Cell | null;
   private boopedPieces: { from: Cell; to: Cell | null }[];
   private graduatedPieces: Cell[];
+  private pendingGraduationOptions: Cell[][] | null;
+  private pendingGraduationPlayer: PlayerColor | null;
 
   constructor() {
     this.board = this.createEmptyBoard();
@@ -34,6 +37,8 @@ export class BoopGame {
     this.lastMove = null;
     this.boopedPieces = [];
     this.graduatedPieces = [];
+    this.pendingGraduationOptions = null;
+    this.pendingGraduationPlayer = null;
   }
 
   private createEmptyBoard(): Board {
@@ -149,6 +154,19 @@ export class BoopGame {
     // Check for graduation (3 in a row of current player's kittens)
     const graduationResult = this.checkAndExecuteGraduation(player.color);
 
+    // If we entered graduation selection phase, don't switch turns or check win yet
+    if (this.pendingGraduationOptions && this.pendingGraduationOptions.length > 1) {
+      return {
+        valid: true,
+        boopedPieces: [...this.boopedPieces],
+        graduatedPieces: [],
+        newCatsEarned: 0,
+        winner: null,
+        requiresGraduationChoice: true,
+        pendingGraduationOptions: this.pendingGraduationOptions
+      };
+    }
+
     // Check for win condition
     const winResult = this.checkWinCondition(player.color);
 
@@ -225,14 +243,15 @@ export class BoopGame {
   }
 
   // Check for and execute graduation (3 kittens in a row)
+  // Returns: number of cats earned (0 means either no graduation or pending choice)
   private checkAndExecuteGraduation(playerColor: PlayerColor): number {
     const player = this.players[playerColor];
     if (!player) return 0;
 
-    // Find all lines of 3+ for this player
-    const lines = this.findLinesOfThree(playerColor);
+    // Find all unique graduation options for this player
+    const options = this.findGraduationOptions(playerColor);
 
-    if (lines.length === 0) {
+    if (options.length === 0) {
       // Check if all 8 pieces are on board - can graduate one kitten
       const piecesOnBoard = this.countPiecesOnBoard(playerColor);
       if (piecesOnBoard >= 8 && player.kittensRetired + player.catsInPool < MAX_CATS) {
@@ -254,12 +273,77 @@ export class BoopGame {
       return 0;
     }
 
-    // Graduate the first line of 3 kittens found
-    // (In a real game, player would choose, but we auto-select)
-    const lineToGraduate = lines[0];
+    // If there's only one option, auto-select it
+    if (options.length === 1) {
+      return this.executeGraduationOption(options[0], playerColor);
+    }
+
+    // Multiple options - pause the game for player to choose
+    this.pendingGraduationOptions = options;
+    this.pendingGraduationPlayer = playerColor;
+    this.phase = 'selecting_graduation';
+    // Don't switch turns yet - keep it on the current player to select
+    return 0;
+  }
+
+  // Find all unique graduation options (3-in-a-row combinations)
+  private findGraduationOptions(playerColor: PlayerColor): Cell[][] {
+    const options: Cell[][] = [];
+    const seen = new Set<string>();
+
+    for (let row = 0; row < BOARD_SIZE; row++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        for (const [dRow, dCol] of LINE_DIRECTIONS) {
+          const line = this.getLineFromPosition(row, col, dRow, dCol, playerColor);
+          
+          if (line.length >= 3) {
+            // Check if any are kittens (need at least one kitten to graduate)
+            const hasKitten = line.some(cell => {
+              const piece = this.board[cell.row][cell.col];
+              return piece && piece.type === 'kitten';
+            });
+            
+            if (!hasKitten) continue;
+
+            // For lines of 4+, we need to offer multiple options
+            // e.g., line of 4 offers positions [0,1,2] and [1,2,3]
+            for (let i = 0; i <= line.length - 3; i++) {
+              const option = line.slice(i, i + 3);
+              // Check this specific option has a kitten
+              const optionHasKitten = option.some(cell => {
+                const piece = this.board[cell.row][cell.col];
+                return piece && piece.type === 'kitten';
+              });
+              
+              if (optionHasKitten) {
+                // Create a unique key for this option (sorted to ensure uniqueness)
+                const key = option
+                  .map(c => `${c.row},${c.col}`)
+                  .sort()
+                  .join('|');
+                
+                if (!seen.has(key)) {
+                  seen.add(key);
+                  options.push(option);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return options;
+  }
+
+  // Execute a specific graduation option
+  private executeGraduationOption(option: Cell[], playerColor: PlayerColor): number {
+    const player = this.players[playerColor];
+    if (!player) return 0;
+
     let catsEarned = 0;
 
-    for (const cell of lineToGraduate) {
+    for (const cell of option) {
       const piece = this.board[cell.row][cell.col];
       if (piece) {
         this.board[cell.row][cell.col] = null;
@@ -277,6 +361,57 @@ export class BoopGame {
     }
 
     return catsEarned;
+  }
+
+  // Player selects which graduation option to use
+  selectGraduation(socketId: string, optionIndex: number): GraduationResult {
+    const player = this.getPlayerBySocketId(socketId);
+    if (!player) {
+      return { valid: false, error: 'Player not found', graduatedPieces: [], newCatsEarned: 0, winner: null };
+    }
+
+    if (this.phase !== 'selecting_graduation') {
+      return { valid: false, error: 'Not in graduation selection phase', graduatedPieces: [], newCatsEarned: 0, winner: null };
+    }
+
+    if (player.color !== this.pendingGraduationPlayer) {
+      return { valid: false, error: 'Not your turn to select graduation', graduatedPieces: [], newCatsEarned: 0, winner: null };
+    }
+
+    if (!this.pendingGraduationOptions || optionIndex < 0 || optionIndex >= this.pendingGraduationOptions.length) {
+      return { valid: false, error: 'Invalid graduation option', graduatedPieces: [], newCatsEarned: 0, winner: null };
+    }
+
+    // Reset graduated pieces tracking
+    this.graduatedPieces = [];
+
+    // Execute the selected graduation
+    const option = this.pendingGraduationOptions[optionIndex];
+    const catsEarned = this.executeGraduationOption(option, player.color);
+
+    // Clear pending state
+    this.pendingGraduationOptions = null;
+    this.pendingGraduationPlayer = null;
+
+    // Check for win condition
+    const winResult = this.checkWinCondition(player.color);
+
+    if (winResult) {
+      this.phase = 'finished';
+      this.winner = player.color;
+    } else {
+      // Return to playing phase and switch turns
+      this.phase = 'playing';
+      this.currentTurn = this.currentTurn === 'orange' ? 'gray' : 'orange';
+    }
+
+    return {
+      valid: true,
+      graduatedPieces: [...this.graduatedPieces],
+      newCatsEarned: catsEarned,
+      winner: this.winner,
+      winCondition: winResult || undefined
+    };
   }
 
   // Find all lines of 3+ pieces for a player
@@ -414,7 +549,7 @@ export class BoopGame {
 
   // Get full game state (for sending to clients)
   getState(): GameState {
-    return {
+    const state: GameState = {
       board: this.board.map(row => row.map(cell => cell ? { ...cell } : null)),
       players: {
         orange: this.players.orange ? { ...this.players.orange } : null,
@@ -427,6 +562,18 @@ export class BoopGame {
       boopedPieces: [...this.boopedPieces],
       graduatedPieces: [...this.graduatedPieces]
     };
+
+    // Include pending graduation options if in selection phase
+    if (this.pendingGraduationOptions) {
+      state.pendingGraduationOptions = this.pendingGraduationOptions.map(option => 
+        option.map(cell => ({ ...cell }))
+      );
+    }
+    if (this.pendingGraduationPlayer) {
+      state.pendingGraduationPlayer = this.pendingGraduationPlayer;
+    }
+
+    return state;
   }
 
   // Check if game is ready to start

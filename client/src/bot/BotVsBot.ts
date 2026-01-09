@@ -1,9 +1,9 @@
 // Bot vs Bot Simulation
 // Run this to generate statistics about bot performance
 
-import { createInitialGameState, executeMove, cloneGameState } from './LocalGame';
+import { createInitialGameState, executeMove } from './LocalGame';
 import { createBot } from './BotAI';
-import { GameState, PlayerColor } from '../types';
+import { PlayerColor } from '../types';
 
 interface SimulationResult {
   winner: PlayerColor | 'draw';

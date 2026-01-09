@@ -1,7 +1,7 @@
 // React hook for managing local bot games
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { GameState, PlayerColor, PieceType, GameOverInfo } from '../types';
+import { GameState, PlayerColor, PieceType, GameOverInfo, Cell } from '../types';
 import { createInitialGameState, executeMove, cloneGameState } from '../bot/LocalGame';
 import { createBot, BotAI } from '../bot/BotAI';
 import { DEFAULT_BOT_CONFIG } from '../bot/types';
@@ -15,6 +15,7 @@ interface UseBotGameReturn {
   
   startBotGame: (playerName?: string) => void;
   placePiece: (row: number, col: number, pieceType: PieceType) => Promise<boolean>;
+  selectGraduation: (optionIndex: number) => Promise<boolean>;
   resetGame: () => void;
   endBotGame: () => void;
 }
@@ -29,7 +30,7 @@ export function useBotGame(): UseBotGameReturn {
   const botColor: PlayerColor = 'gray';
   
   const botRef = useRef<BotAI | null>(null);
-  const thinkingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const thinkingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -136,6 +137,69 @@ export function useBotGame(): UseBotGameReturn {
     return true;
   }, [gameState, playerColor, botColor, executeBotMove]);
 
+  // Select graduation option (when player needs to choose which 3 in a row to graduate)
+  const selectGraduation = useCallback(async (optionIndex: number): Promise<boolean> => {
+    if (!gameState) {
+      console.error('[BotGame] No game state');
+      return false;
+    }
+
+    if (gameState.phase !== 'selecting_graduation') {
+      console.error('[BotGame] Not in graduation selection phase');
+      return false;
+    }
+
+    if (gameState.pendingGraduationPlayer !== playerColor) {
+      console.error('[BotGame] Not player turn to select graduation');
+      return false;
+    }
+
+    const options = gameState.pendingGraduationOptions;
+    if (!options || optionIndex < 0 || optionIndex >= options.length) {
+      console.error('[BotGame] Invalid graduation option');
+      return false;
+    }
+
+    // Execute the selected graduation
+    const newState = cloneGameState(gameState);
+    const player = newState.players[playerColor];
+    if (!player) return false;
+
+    const option = options[optionIndex];
+    const graduatedPieces: Cell[] = [];
+
+    for (const cell of option) {
+      const piece = newState.board[cell.row][cell.col];
+      if (piece) {
+        newState.board[cell.row][cell.col] = null;
+        graduatedPieces.push(cell);
+
+        if (piece.type === 'kitten') {
+          player.kittensRetired++;
+          player.catsInPool++;
+        } else {
+          player.catsInPool++;
+        }
+      }
+    }
+
+    newState.graduatedPieces = graduatedPieces;
+    newState.pendingGraduationOptions = undefined;
+    newState.pendingGraduationPlayer = undefined;
+
+    // Check for win (3 cats in a row)
+    // For simplicity, just check if we need to return to playing
+    newState.phase = 'playing';
+    newState.currentTurn = botColor;
+
+    setGameState(newState);
+
+    // Trigger bot move
+    executeBotMove(newState);
+
+    return true;
+  }, [gameState, playerColor, botColor, executeBotMove]);
+
   // Reset game
   const resetGame = useCallback(() => {
     const playerName = gameState?.players.orange?.name || 'Player';
@@ -161,6 +225,7 @@ export function useBotGame(): UseBotGameReturn {
     botThinking,
     startBotGame,
     placePiece,
+    selectGraduation,
     resetGame,
     endBotGame,
   };

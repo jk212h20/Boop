@@ -89,6 +89,49 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager): void 
             lastMove: { row: data.row, col: data.col, pieceType: data.pieceType },
             boopedPieces: result.boopedPieces,
             graduatedPieces: result.graduatedPieces,
+            newCatsEarned: result.newCatsEarned,
+            requiresGraduationChoice: result.requiresGraduationChoice,
+            pendingGraduationOptions: result.pendingGraduationOptions
+          });
+
+          // Check for winner
+          if (result.winner) {
+            io.to(room.id).emit('game_over', {
+              winner: result.winner,
+              winCondition: result.winCondition,
+              gameState
+            });
+          }
+
+          callback({ success: true, requiresGraduationChoice: result.requiresGraduationChoice });
+        } else {
+          callback({ success: false, error: result.error });
+        }
+      } catch (error) {
+        console.error('Error placing piece:', error);
+        callback({ success: false, error: 'Failed to place piece' });
+      }
+    });
+
+    // Select graduation option (when player needs to choose which 3 in a row to graduate)
+    socket.on('select_graduation', (data: { optionIndex: number }, callback) => {
+      try {
+        const room = roomManager.getPlayerRoom(socket.id);
+        
+        if (!room) {
+          callback({ success: false, error: 'Not in a room' });
+          return;
+        }
+
+        const result = room.game.selectGraduation(socket.id, data.optionIndex);
+        
+        if (result.valid) {
+          const gameState = room.game.getState();
+          
+          // Broadcast the graduation result to all players
+          io.to(room.id).emit('game_update', {
+            gameState,
+            graduatedPieces: result.graduatedPieces,
             newCatsEarned: result.newCatsEarned
           });
 
@@ -106,8 +149,8 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager): void 
           callback({ success: false, error: result.error });
         }
       } catch (error) {
-        console.error('Error placing piece:', error);
-        callback({ success: false, error: 'Failed to place piece' });
+        console.error('Error selecting graduation:', error);
+        callback({ success: false, error: 'Failed to select graduation' });
       }
     });
 

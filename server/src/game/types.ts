@@ -37,17 +37,30 @@ export interface GameState {
     gray: PlayerState | null;
   };
   currentTurn: PlayerColor;
-  phase: 'waiting' | 'playing' | 'finished';
+  phase: 'waiting' | 'playing' | 'selecting_graduation' | 'finished';
   winner: PlayerColor | null;
   lastMove: Cell | null;
   boopedPieces: { from: Cell; to: Cell | null }[]; // null means booped off board
   graduatedPieces: Cell[];
+  pendingGraduationOptions?: Cell[][]; // Multiple 3-in-a-row options to choose from
+  pendingGraduationPlayer?: PlayerColor; // Which player needs to choose
 }
 
 export interface MoveResult {
   valid: boolean;
   error?: string;
   boopedPieces: { from: Cell; to: Cell | null }[];
+  graduatedPieces: Cell[];
+  newCatsEarned: number;
+  winner: PlayerColor | null;
+  winCondition?: 'three_cats_in_row' | 'all_eight_cats';
+  pendingGraduationOptions?: Cell[][]; // If player needs to choose which 3 to graduate
+  requiresGraduationChoice?: boolean;
+}
+
+export interface GraduationResult {
+  valid: boolean;
+  error?: string;
   graduatedPieces: Cell[];
   newCatsEarned: number;
   winner: PlayerColor | null;

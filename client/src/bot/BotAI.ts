@@ -2,14 +2,13 @@
 // Implements priority cascade + additive scoring for Tier 5
 
 import { GameState, PlayerColor, Board, Cell, PieceType } from '../types';
-import { Move, ScoredMove, BotConfig, DEFAULT_BOT_CONFIG, CENTER_POSITIONS, EDGE_POSITIONS } from './types';
+import { Move, ScoredMove, BotConfig, DEFAULT_BOT_CONFIG, CENTER_POSITIONS } from './types';
 import {
   getAllValidMoves,
   simulateMove,
   findLinesOfTwo,
   getOpponentColor,
   isValidPosition,
-  cloneGameState,
 } from './LocalGame';
 
 const BOARD_SIZE = 6;

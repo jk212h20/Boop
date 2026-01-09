@@ -300,20 +300,107 @@ export function countPiecesOnBoard(board: Board, playerColor: PlayerColor): { to
   return { total: kittens + cats, kittens, cats };
 }
 
+// Find all unique graduation options (3-in-a-row combinations)
+export function findGraduationOptions(board: Board, playerColor: PlayerColor): Cell[][] {
+  const options: Cell[][] = [];
+  const seen = new Set<string>();
+
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    for (let col = 0; col < BOARD_SIZE; col++) {
+      for (const [dRow, dCol] of LINE_DIRECTIONS) {
+        const line: Cell[] = [];
+        let r = row;
+        let c = col;
+
+        while (isValidPosition(r, c)) {
+          const piece = board[r][c];
+          if (piece && piece.color === playerColor) {
+            line.push({ row: r, col: c });
+            r += dRow;
+            c += dCol;
+          } else {
+            break;
+          }
+        }
+        
+        if (line.length >= 3) {
+          // Check if any are kittens
+          const hasKitten = line.some(cell => {
+            const piece = board[cell.row][cell.col];
+            return piece && piece.type === 'kitten';
+          });
+          
+          if (!hasKitten) continue;
+
+          // For lines of 4+, we need to offer multiple options
+          for (let i = 0; i <= line.length - 3; i++) {
+            const option = line.slice(i, i + 3);
+            const optionHasKitten = option.some(cell => {
+              const piece = board[cell.row][cell.col];
+              return piece && piece.type === 'kitten';
+            });
+            
+            if (optionHasKitten) {
+              const key = option
+                .map(c => `${c.row},${c.col}`)
+                .sort()
+                .join('|');
+              
+              if (!seen.has(key)) {
+                seen.add(key);
+                options.push(option);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return options;
+}
+
+// Execute a specific graduation option
+function executeGraduationOption(
+  board: Board,
+  option: Cell[],
+  player: PlayerState
+): { board: Board; graduatedPieces: Cell[]; catsEarned: number } {
+  const newBoard = cloneBoard(board);
+  const graduatedPieces: Cell[] = [];
+  let catsEarned = 0;
+
+  for (const cell of option) {
+    const piece = newBoard[cell.row][cell.col];
+    if (piece) {
+      newBoard[cell.row][cell.col] = null;
+      graduatedPieces.push(cell);
+
+      if (piece.type === 'kitten') {
+        player.kittensRetired++;
+        player.catsInPool++;
+        catsEarned++;
+      } else {
+        player.catsInPool++;
+      }
+    }
+  }
+
+  return { board: newBoard, graduatedPieces, catsEarned };
+}
+
 // Check and execute graduation
 function checkAndExecuteGraduation(
   board: Board,
   player: PlayerState,
   playerColor: PlayerColor
-): { board: Board; graduatedPieces: Cell[]; catsEarned: number } {
-  let newBoard = cloneBoard(board);
-  const graduatedPieces: Cell[] = [];
-  let catsEarned = 0;
+): { board: Board; graduatedPieces: Cell[]; catsEarned: number; pendingOptions?: Cell[][] } {
+  const newBoard = cloneBoard(board);
 
-  // Find lines of 3+ for this player
-  const lines = findLinesOfThree(newBoard, playerColor);
+  // Find all unique graduation options
+  const options = findGraduationOptions(newBoard, playerColor);
 
-  if (lines.length === 0) {
+  if (options.length === 0) {
     // Check if all 8 pieces are on board
     const piecesOnBoard = countPiecesOnBoard(newBoard, playerColor);
     if (piecesOnBoard.total >= 8 && player.kittensRetired + player.catsInPool < MAX_CATS) {
@@ -325,8 +412,7 @@ function checkAndExecuteGraduation(
             newBoard[row][col] = null;
             player.kittensRetired++;
             player.catsInPool++;
-            graduatedPieces.push({ row, col });
-            return { board: newBoard, graduatedPieces, catsEarned: 1 };
+            return { board: newBoard, graduatedPieces: [{ row, col }], catsEarned: 1 };
           }
         }
       }
@@ -334,27 +420,13 @@ function checkAndExecuteGraduation(
     return { board: newBoard, graduatedPieces: [], catsEarned: 0 };
   }
 
-  // Graduate the first line of 3 kittens found
-  const lineToGraduate = lines[0];
-
-  for (const cell of lineToGraduate) {
-    const piece = newBoard[cell.row][cell.col];
-    if (piece) {
-      newBoard[cell.row][cell.col] = null;
-      graduatedPieces.push(cell);
-
-      if (piece.type === 'kitten') {
-        player.kittensRetired++;
-        player.catsInPool++;
-        catsEarned++;
-      } else {
-        // Cat was part of the line, just returns to pool
-        player.catsInPool++;
-      }
-    }
+  // If only one option, auto-select it
+  if (options.length === 1) {
+    return executeGraduationOption(newBoard, options[0], player);
   }
 
-  return { board: newBoard, graduatedPieces, catsEarned };
+  // Multiple options - return them for player to choose
+  return { board: newBoard, graduatedPieces: [], catsEarned: 0, pendingOptions: options };
 }
 
 // Check win condition
@@ -499,32 +571,58 @@ export function executeMove(
     return { newState: state, valid: false, error: 'Game not in playing phase' };
   }
 
-  const simResult = simulateMove(state, row, col, pieceType, color);
-  
-  if (!simResult.valid) {
-    return { newState: state, valid: false, error: 'Invalid move' };
+  // Clone state and player
+  const newState = cloneGameState(state);
+  const player = newState.players[color]!;
+
+  // Validate position is empty
+  if (!isValidPosition(row, col) || newState.board[row][col] !== null) {
+    return { newState: state, valid: false, error: 'Invalid position' };
   }
 
-  // Create new state
-  const newState = cloneGameState(state);
-  newState.board = simResult.newBoard;
+  // Validate player has the piece type
+  if (pieceType === 'kitten' && player.kittensInPool <= 0) {
+    return { newState: state, valid: false, error: 'No kittens available' };
+  }
+  if (pieceType === 'cat' && player.catsInPool <= 0) {
+    return { newState: state, valid: false, error: 'No cats available' };
+  }
+
+  // Place the piece
+  const newPiece: Piece = { color, type: pieceType };
+  newState.board[row][col] = newPiece;
+
+  // Deduct from pool
+  if (pieceType === 'kitten') {
+    player.kittensInPool--;
+  } else {
+    player.catsInPool--;
+  }
+
   newState.lastMove = { row, col };
-  newState.boopedPieces = simResult.boopedPieces;
-  newState.graduatedPieces = simResult.graduatedPieces;
 
-  // Update player pools
-  const player = newState.players[color]!;
-  player.kittensInPool = simResult.newKittensInPool;
-  player.catsInPool = simResult.newCatsInPool;
+  // Execute booping
+  const boopResult = executeBoop(newState.board, row, col, newPiece, newState.players);
+  newState.board = boopResult.board;
+  newState.boopedPieces = boopResult.boopedPieces;
 
-  // Handle graduation
-  if (simResult.createsGraduation) {
-    // Already handled in simulation, just need to update retired count
-    player.kittensRetired = (state.players[color]?.kittensRetired || 0) + simResult.graduatedPieces.length;
+  // Check for graduation
+  const gradResult = checkAndExecuteGraduation(newState.board, player, color);
+  newState.board = gradResult.board;
+  newState.graduatedPieces = gradResult.graduatedPieces;
+
+  // If there are pending graduation options, enter selection phase
+  if (gradResult.pendingOptions && gradResult.pendingOptions.length > 1) {
+    newState.phase = 'selecting_graduation';
+    newState.pendingGraduationOptions = gradResult.pendingOptions;
+    newState.pendingGraduationPlayer = color;
+    // Don't switch turns yet
+    return { newState, valid: true };
   }
 
   // Check for win
-  if (simResult.wins) {
+  const winResult = checkWinCondition(newState.board, color);
+  if (winResult) {
     newState.phase = 'finished';
     newState.winner = color;
   } else {

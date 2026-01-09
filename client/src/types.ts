@@ -32,11 +32,13 @@ export interface GameState {
     gray: PlayerState | null;
   };
   currentTurn: PlayerColor;
-  phase: 'waiting' | 'playing' | 'finished';
+  phase: 'waiting' | 'playing' | 'selecting_graduation' | 'finished';
   winner: PlayerColor | null;
   lastMove: Cell | null;
   boopedPieces: { from: Cell; to: Cell | null }[];
   graduatedPieces: Cell[];
+  pendingGraduationOptions?: Cell[][]; // Multiple 3-in-a-row options to choose from
+  pendingGraduationPlayer?: PlayerColor; // Which player needs to choose
 }
 
 export interface RoomInfo {

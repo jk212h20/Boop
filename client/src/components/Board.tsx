@@ -151,7 +151,6 @@ export function Board({
   const DROP_DURATION = 0.4;
   const BOOP_DELAY = DROP_DURATION + 0.1; // Wait for drop to complete
   const BOOP_DURATION = 0.5;
-  const GRADUATION_DELAY = BOOP_DELAY + BOOP_DURATION + 0.1; // Wait for boops to complete
 
   // Drop animation for newly placed pieces (from above)
   const dropAnimation = {

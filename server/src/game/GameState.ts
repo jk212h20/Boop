@@ -23,7 +23,7 @@ export class BoopGame {
   private phase: 'waiting' | 'playing' | 'selecting_graduation' | 'finished';
   private winner: PlayerColor | null;
   private lastMove: Cell | null;
-  private boopedPieces: { from: Cell; to: Cell | null }[];
+  private boopedPieces: { from: Cell; to: Cell | null; piece: Piece }[];
   private graduatedPieces: Cell[];
   private pendingGraduationOptions: Cell[][] | null;
   private pendingGraduationPlayer: PlayerColor | null;
@@ -283,6 +283,9 @@ export class BoopGame {
         continue;
       }
 
+      // Capture piece data before modifying board
+      const boopedPieceData: Piece = { color: adjPiece.color, type: adjPiece.type };
+
       // Execute the boop
       this.board[adjRow][adjCol] = null;
 
@@ -291,7 +294,8 @@ export class BoopGame {
         this.board[destRow][destCol] = adjPiece;
         this.boopedPieces.push({
           from: { row: adjRow, col: adjCol },
-          to: { row: destRow, col: destCol }
+          to: { row: destRow, col: destCol },
+          piece: boopedPieceData
         });
       } else {
         // Pushed off the board - return to owner's pool
@@ -305,7 +309,8 @@ export class BoopGame {
         }
         this.boopedPieces.push({
           from: { row: adjRow, col: adjCol },
-          to: null
+          to: null,
+          piece: boopedPieceData
         });
       }
     }

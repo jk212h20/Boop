@@ -31,6 +31,13 @@ export interface PlayerState {
   playerToken?: string;   // Persistent token for reconnection
 }
 
+// A boop effect with embedded piece data
+export interface BoopEffect {
+  from: Cell;
+  to: Cell | null; // null means booped off board
+  piece: Piece;    // The piece that was booped
+}
+
 export interface GameState {
   board: Board;
   players: {
@@ -41,7 +48,7 @@ export interface GameState {
   phase: 'waiting' | 'playing' | 'selecting_graduation' | 'finished';
   winner: PlayerColor | null;
   lastMove: Cell | null;
-  boopedPieces: { from: Cell; to: Cell | null }[]; // null means booped off board
+  boopedPieces: BoopEffect[];
   graduatedPieces: Cell[];
   pendingGraduationOptions?: Cell[][]; // Multiple 3-in-a-row options to choose from
   pendingGraduationPlayer?: PlayerColor; // Which player needs to choose
@@ -50,7 +57,7 @@ export interface GameState {
 export interface MoveResult {
   valid: boolean;
   error?: string;
-  boopedPieces: { from: Cell; to: Cell | null }[];
+  boopedPieces: BoopEffect[];
   graduatedPieces: Cell[];
   newCatsEarned: number;
   winner: PlayerColor | null;

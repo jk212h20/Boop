@@ -209,7 +209,8 @@ export function Game({
       const newFallen: FallenPiece[] = [];
       
       for (const bp of booped) {
-        const piece = prevBoardRef.current[bp.from.row]?.[bp.from.col];
+        // Use embedded piece data if available (from server/bot), fallback to board lookup
+        const piece = bp.piece || prevBoardRef.current[bp.from.row]?.[bp.from.col];
         if (piece) {
           newGhosts.push({
             row: bp.from.row,

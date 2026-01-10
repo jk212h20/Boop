@@ -230,3 +230,85 @@ body {
     box-shadow: 0 0 20px rgba(251, 191, 36, 0.8), 0 0 30px rgba(251, 191, 36, 0.4);
   }
 }
+
+/* History slider styles */
+.history-slider {
+  @apply bg-white/70 backdrop-blur-sm rounded-xl p-3 shadow-lg;
+}
+
+.history-btn {
+  @apply w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center 
+         text-lg font-medium text-gray-600 transition-all duration-150
+         hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800
+         disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200;
+}
+
+.history-range {
+  @apply h-2 rounded-full appearance-none cursor-pointer;
+  background: linear-gradient(to right, #f97316 0%, #f97316 var(--progress, 0%), #e5e7eb var(--progress, 0%), #e5e7eb 100%);
+}
+
+.history-range::-webkit-slider-thumb {
+  @apply appearance-none w-5 h-5 rounded-full bg-boop-orange-500 cursor-pointer shadow-md 
+         border-2 border-white transition-transform;
+}
+
+.history-range::-webkit-slider-thumb:hover {
+  @apply scale-110;
+}
+
+.history-range::-moz-range-thumb {
+  @apply w-5 h-5 rounded-full bg-boop-orange-500 cursor-pointer shadow-md border-2 border-white;
+}
+
+/* Move list styles */
+.move-list {
+  @apply space-y-1;
+}
+
+.move-list-item {
+  @apply w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm rounded-lg 
+         transition-all duration-150 hover:bg-amber-100;
+}
+
+.move-list-item.active {
+  @apply bg-amber-200 font-medium;
+}
+
+.move-number {
+  @apply font-mono text-xs w-6;
+}
+
+.move-notation {
+  @apply flex-1;
+}
+
+/* Ghost piece styling for history view */
+.ghost-piece-indicator {
+  @apply absolute inset-0 border-2 border-dashed rounded-lg pointer-events-none;
+}
+
+.ghost-piece-indicator.orange {
+  @apply border-boop-orange-400 bg-boop-orange-100/30;
+}
+
+.ghost-piece-indicator.gray {
+  @apply border-boop-gray-400 bg-boop-gray-100/30;
+}
+
+/* Placed piece indicator */
+.placed-piece-indicator {
+  @apply absolute inset-0 rounded-lg pointer-events-none ring-4 ring-yellow-400 ring-offset-2;
+}
+
+/* Boop arrow indicator */
+.boop-arrow {
+  @apply absolute pointer-events-none text-2xl z-20;
+  animation: boop-fade 2s ease-out forwards;
+}
+
+@keyframes boop-fade {
+  0% { opacity: 1; transform: scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.8); }
+}

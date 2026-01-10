@@ -1,5 +1,9 @@
 // Bot AI Decision Engine
-// Implements priority cascade + minimax tree search for move selection
+// Implements priority cascade + minimax tree search with smart pruning optimizations
+// - Move ordering for better alpha-beta cutoffs
+// - Iterative deepening for optimal move ordering
+// - Transposition table for position caching
+// - Killer move heuristic for sibling position optimization
 
 import { GameState, PlayerColor, Board, Cell, PieceType } from '../types';
 import { Move, BotConfig, DEFAULT_BOT_CONFIG, CENTER_POSITIONS, CORNER_POSITIONS } from './types';
@@ -28,9 +32,30 @@ const INNER_RING_POSITIONS: Cell[] = [
   { row: 4, col: 1 }, { row: 4, col: 2 }, { row: 4, col: 3 }, { row: 4, col: 4 },
 ];
 
+// Transposition table entry types
+const TT_EXACT = 0;
+const TT_LOWER = 1; // Alpha cutoff (score >= beta)
+const TT_UPPER = 2; // Beta cutoff (score <= alpha)
+
+interface TTEntry {
+  hash: string;
+  depth: number;
+  score: number;
+  flag: number;
+  bestMove: Move | null;
+}
+
 export class BotAI {
   private config: BotConfig;
   private color: PlayerColor;
+  
+  // Smart pruning data structures
+  private transpositionTable: Map<string, TTEntry> = new Map();
+  private killerMoves: Map<number, Move[]> = new Map(); // depth -> [killer1, killer2]
+  private historyTable: Map<string, number> = new Map(); // move key -> score
+  private nodesSearched: number = 0;
+  private ttHits: number = 0;
+  private ttCutoffs: number = 0;
 
   constructor(color: PlayerColor, config: BotConfig = DEFAULT_BOT_CONFIG) {
     this.color = color;
@@ -44,6 +69,14 @@ export class BotAI {
     if (allMoves.length === 0) {
       return null;
     }
+
+    // Reset stats for this search
+    this.nodesSearched = 0;
+    this.ttHits = 0;
+    this.ttCutoffs = 0;
+    this.killerMoves.clear();
+    this.historyTable.clear();
+    // Keep transposition table between moves (but could clear if memory is an issue)
 
     // TIER 1: Find winning moves - just pick any, a win is a win
     const winningMoves = this.findWinningMoves(state, allMoves);
@@ -78,7 +111,7 @@ export class BotAI {
     return this.pickBestByTreeSearch(state, allMoves);
   }
 
-  // Pick the best move using minimax tree search
+  // Pick the best move using iterative deepening minimax tree search
   private pickBestByTreeSearch(state: GameState, moves: Move[]): Move {
     if (moves.length === 0) {
       throw new Error('No moves to evaluate');
@@ -88,53 +121,139 @@ export class BotAI {
       return moves[0];
     }
 
-    const depth = this.config.searchDepth;
-    const scoredMoves: { move: Move; score: number }[] = [];
+    const maxDepth = this.config.searchDepth;
+    let bestMove: Move = moves[0];
+    let bestScore = -Infinity;
+    
+    // Iterative deepening: search depth 1, then 2, then 3, etc.
+    // This improves move ordering for deeper searches
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      const startTime = Date.now();
+      const result = this.searchRoot(state, moves, depth);
+      const elapsed = Date.now() - startTime;
+      
+      bestMove = result.move;
+      bestScore = result.score;
+      
+      this.log(`[Bot] Depth ${depth}: Best=(${bestMove.row},${bestMove.col}) ${bestMove.pieceType} Score=${bestScore.toFixed(1)} Nodes=${this.nodesSearched} TT=${this.ttHits}/${this.ttCutoffs} Time=${elapsed}ms`);
+      
+      // If we found a winning move, no need to search deeper
+      if (bestScore >= 9000) {
+        break;
+      }
+    }
 
+    return bestMove;
+  }
+
+  // Search at root level with move ordering
+  private searchRoot(state: GameState, moves: Move[], depth: number): { move: Move; score: number } {
+    // Order moves for better pruning
+    const orderedMoves = this.orderMoves(state, moves, this.color, depth);
+    
+    let bestMove = orderedMoves[0];
+    let bestScore = -Infinity;
+    let alpha = -Infinity;
+    const beta = Infinity;
+
+    for (const move of orderedMoves) {
+      const sim = simulateMove(state, move.row, move.col, move.pieceType, this.color);
+      
+      if (!sim.valid) continue;
+
+      let score: number;
+      
+      if (sim.wins) {
+        score = 10000;
+      } else {
+        const resultingState = this.buildResultingState(state, sim, this.color);
+        const opponentColor = getOpponentColor(this.color);
+        score = -this.negamax(resultingState, depth - 1, opponentColor, -beta, -alpha);
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = move;
+      }
+      
+      alpha = Math.max(alpha, score);
+    }
+
+    return { move: bestMove, score: bestScore };
+  }
+
+  // Order moves for better alpha-beta pruning
+  // Good ordering is critical for pruning efficiency
+  private orderMoves(state: GameState, moves: Move[], player: PlayerColor, depth: number): Move[] {
+    const scored: { move: Move; priority: number }[] = [];
+    
+    // Get killer moves for this depth
+    const killers = this.killerMoves.get(depth) || [];
+    
     for (const move of moves) {
-      const score = this.evaluateMoveWithTree(state, move, depth);
-      scoredMoves.push({ move, score });
+      let priority = 0;
+      
+      // Check simulation result for tactical moves
+      const sim = simulateMove(state, move.row, move.col, move.pieceType, player);
+      
+      if (!sim.valid) {
+        priority = -10000;
+      } else if (sim.wins) {
+        // Winning moves first (highest priority)
+        priority = 100000;
+      } else if (sim.createsGraduation) {
+        // Graduation moves are very good
+        priority = 50000;
+      } else {
+        // Check if this is a killer move
+        const isKiller = killers.some(k => 
+          k.row === move.row && k.col === move.col && k.pieceType === move.pieceType
+        );
+        if (isKiller) {
+          priority = 40000;
+        }
+        
+        // History heuristic
+        const histKey = this.getMoveKey(move);
+        priority += this.historyTable.get(histKey) || 0;
+        
+        // Position-based heuristics
+        if (this.isCenterPosition(move.row, move.col)) {
+          priority += 150;
+        } else if (this.isInnerRingPosition(move.row, move.col)) {
+          priority += 80;
+        } else if (this.isCornerPosition(move.row, move.col)) {
+          priority -= 100;
+        } else if (this.isEdgePosition(move.row, move.col)) {
+          priority -= 50;
+        }
+        
+        // Cats are generally more valuable placements
+        if (move.pieceType === 'cat') {
+          priority += 50;
+        }
+        
+        // Bonus for booping opponent pieces off
+        const oppBooped = sim.boopedPieces.filter(bp => {
+          if (bp.to === null) {
+            const piece = state.board[bp.from.row][bp.from.col];
+            return piece && piece.color !== player;
+          }
+          return false;
+        }).length;
+        priority += oppBooped * 200;
+      }
+      
+      scored.push({ move, priority });
     }
-
-    // Sort by score descending
-    scoredMoves.sort((a, b) => b.score - a.score);
     
-    // Find all moves with the top score (for random tie-breaking)
-    const topScore = scoredMoves[0].score;
-    const topMoves = scoredMoves.filter(m => m.score === topScore);
+    // Sort by priority descending
+    scored.sort((a, b) => b.priority - a.priority);
     
-    // Pick randomly among top-scoring moves
-    const chosen = this.pickRandom(topMoves);
-    
-    this.log(`[Bot] Best move: (${chosen.move.row}, ${chosen.move.col}) ${chosen.move.pieceType} - Score: ${chosen.score.toFixed(1)} (${topMoves.length} tied)`);
-    return chosen.move;
+    return scored.map(s => s.move);
   }
 
-  // Evaluate a single move using minimax
-  private evaluateMoveWithTree(state: GameState, move: Move, depth: number): number {
-    // Apply the move
-    const sim = simulateMove(state, move.row, move.col, move.pieceType, this.color);
-    
-    if (!sim.valid) {
-      return -Infinity;
-    }
-
-    // If this move wins, return very high score
-    if (sim.wins) {
-      return 10000;
-    }
-
-    // Build the resulting state
-    const resultingState = this.buildResultingState(state, sim, this.color);
-    
-    // Run negamax from opponent's perspective
-    const opponentColor = getOpponentColor(this.color);
-    const score = -this.negamax(resultingState, depth - 1, opponentColor, -Infinity, Infinity);
-    
-    return score;
-  }
-
-  // Negamax with alpha-beta pruning
+  // Negamax with alpha-beta pruning, transposition table, and killer moves
   private negamax(
     state: GameState,
     depth: number,
@@ -142,10 +261,34 @@ export class BotAI {
     alpha: number,
     beta: number
   ): number {
+    this.nodesSearched++;
+    
+    // Check transposition table
+    const posHash = this.hashPosition(state, currentPlayer);
+    const ttEntry = this.transpositionTable.get(posHash);
+    
+    if (ttEntry && ttEntry.depth >= depth) {
+      this.ttHits++;
+      
+      if (ttEntry.flag === TT_EXACT) {
+        this.ttCutoffs++;
+        return ttEntry.score;
+      } else if (ttEntry.flag === TT_LOWER) {
+        alpha = Math.max(alpha, ttEntry.score);
+      } else if (ttEntry.flag === TT_UPPER) {
+        beta = Math.min(beta, ttEntry.score);
+      }
+      
+      if (alpha >= beta) {
+        this.ttCutoffs++;
+        return ttEntry.score;
+      }
+    }
+
     // Base case: depth 0 or game over
     if (depth <= 0 || state.phase === 'finished') {
-      // Evaluate from current player's perspective
-      return this.evaluateBoard(state, currentPlayer);
+      const score = this.evaluateBoard(state, currentPlayer);
+      return score;
     }
 
     const moves = getAllValidMoves(state, currentPlayer);
@@ -154,34 +297,116 @@ export class BotAI {
       return this.evaluateBoard(state, currentPlayer);
     }
 
-    let bestScore = -Infinity;
+    // Order moves for better pruning
+    const orderedMoves = this.orderMoves(state, moves, currentPlayer, depth);
 
-    for (const move of moves) {
+    let bestScore = -Infinity;
+    let bestMove: Move | null = null;
+    const originalAlpha = alpha;
+
+    for (const move of orderedMoves) {
       const sim = simulateMove(state, move.row, move.col, move.pieceType, currentPlayer);
       
       if (!sim.valid) continue;
 
+      let score: number;
+
       // Check for immediate win
       if (sim.wins) {
-        return 10000; // Winning is best
+        score = 10000;
+      } else {
+        const resultingState = this.buildResultingState(state, sim, currentPlayer);
+        const opponent = getOpponentColor(currentPlayer);
+        
+        // Recursively evaluate
+        score = -this.negamax(resultingState, depth - 1, opponent, -beta, -alpha);
       }
-
-      const resultingState = this.buildResultingState(state, sim, currentPlayer);
-      const opponent = getOpponentColor(currentPlayer);
       
-      // Recursively evaluate
-      const score = -this.negamax(resultingState, depth - 1, opponent, -beta, -alpha);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = move;
+      }
       
-      bestScore = Math.max(bestScore, score);
       alpha = Math.max(alpha, score);
       
       // Alpha-beta pruning
       if (alpha >= beta) {
+        // Store killer move (caused a cutoff)
+        this.storeKillerMove(move, depth);
+        // Update history table
+        this.updateHistory(move, depth);
         break;
       }
     }
 
+    // Store in transposition table
+    let flag = TT_EXACT;
+    if (bestScore <= originalAlpha) {
+      flag = TT_UPPER;
+    } else if (bestScore >= beta) {
+      flag = TT_LOWER;
+    }
+    
+    this.transpositionTable.set(posHash, {
+      hash: posHash,
+      depth,
+      score: bestScore,
+      flag,
+      bestMove,
+    });
+
     return bestScore;
+  }
+
+  // Store a killer move (move that caused a beta cutoff)
+  private storeKillerMove(move: Move, depth: number): void {
+    let killers = this.killerMoves.get(depth);
+    if (!killers) {
+      killers = [];
+      this.killerMoves.set(depth, killers);
+    }
+    
+    // Don't duplicate
+    const isDuplicate = killers.some(k => 
+      k.row === move.row && k.col === move.col && k.pieceType === move.pieceType
+    );
+    
+    if (!isDuplicate) {
+      // Keep only 2 killer moves per depth
+      killers.unshift(move);
+      if (killers.length > 2) {
+        killers.pop();
+      }
+    }
+  }
+
+  // Update history table (moves that cause cutoffs get higher scores)
+  private updateHistory(move: Move, depth: number): void {
+    const key = this.getMoveKey(move);
+    const current = this.historyTable.get(key) || 0;
+    // Bonus based on depth (deeper cutoffs are more valuable)
+    this.historyTable.set(key, current + depth * depth);
+  }
+
+  // Get a unique key for a move
+  private getMoveKey(move: Move): string {
+    return `${move.row},${move.col},${move.pieceType}`;
+  }
+
+  // Hash a position for transposition table
+  // Simple string-based hashing (could use Zobrist for more efficiency)
+  private hashPosition(state: GameState, currentPlayer: PlayerColor): string {
+    const boardStr = state.board.map(row => 
+      row.map(cell => {
+        if (!cell) return '.';
+        return cell.color[0] + cell.type[0]; // e.g., "ok" for orange kitten
+      }).join('')
+    ).join('|');
+    
+    const playerStr = currentPlayer;
+    const poolStr = `${state.players.orange?.kittensInPool || 0},${state.players.orange?.catsInPool || 0},${state.players.gray?.kittensInPool || 0},${state.players.gray?.catsInPool || 0}`;
+    
+    return `${boardStr}:${playerStr}:${poolStr}`;
   }
 
   // Static board evaluation function
@@ -228,18 +453,15 @@ export class BotAI {
     score -= oppKittenThreats * this.config.twoInRowKittens;
 
     // Cat advantage with diminishing returns
-    // First few cats are very valuable, additional cats less so
     const ourPlayer = state.players[forPlayer];
     const oppPlayer = state.players[opponent];
     
     if (ourPlayer && oppPlayer) {
-      // Count total cats (in pool + on board)
       const ourCatsOnBoard = this.countCatsOnBoard(state.board, forPlayer);
       const oppCatsOnBoard = this.countCatsOnBoard(state.board, opponent);
       const ourTotalCats = ourPlayer.catsInPool + ourCatsOnBoard;
       const oppTotalCats = oppPlayer.catsInPool + oppCatsOnBoard;
       
-      // Diminishing returns: 1st cat = 25pts, 2nd = 20pts, 3rd = 15pts, 4th+ = 8pts
       score += this.catValueWithDiminishing(ourTotalCats);
       score -= this.catValueWithDiminishing(oppTotalCats);
     }
@@ -456,18 +678,17 @@ export class BotAI {
   }
 
   // Calculate cat value with diminishing returns
-  // 1st cat = 25pts, 2nd = 20pts, 3rd = 15pts, 4th+ = 8pts each
   private catValueWithDiminishing(catCount: number): number {
     if (catCount <= 0) return 0;
     
     let value = 0;
-    const catValues = [25, 20, 15]; // First 3 cats have high value
+    const catValues = [25, 20, 15];
     
     for (let i = 0; i < catCount; i++) {
       if (i < catValues.length) {
         value += catValues[i];
       } else {
-        value += 8; // 4th cat onwards
+        value += 8;
       }
     }
     
@@ -494,6 +715,23 @@ export class BotAI {
   // Update config
   setConfig(newConfig: Partial<BotConfig>): void {
     this.config = { ...this.config, ...newConfig };
+  }
+
+  // Clear transposition table (useful between games)
+  clearCache(): void {
+    this.transpositionTable.clear();
+    this.killerMoves.clear();
+    this.historyTable.clear();
+  }
+
+  // Get search statistics (for debugging)
+  getStats(): { nodes: number; ttHits: number; ttCutoffs: number; ttSize: number } {
+    return {
+      nodes: this.nodesSearched,
+      ttHits: this.ttHits,
+      ttCutoffs: this.ttCutoffs,
+      ttSize: this.transpositionTable.size,
+    };
   }
 }
 

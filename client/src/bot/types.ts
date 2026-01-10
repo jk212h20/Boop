@@ -1,6 +1,6 @@
 // Bot-specific types
 
-import { PieceType, Cell, Board } from '../types';
+import { PieceType, Cell, Board, BoopEffect } from '../types';
 
 export interface Move {
   row: number;
@@ -16,7 +16,7 @@ export interface ScoredMove extends Move {
 export interface SimulationResult {
   valid: boolean;
   newBoard: Board;
-  boopedPieces: { from: Cell; to: Cell | null }[];
+  boopedPieces: BoopEffect[];
   graduatedPieces: Cell[];
   wins: boolean;
   winCondition?: 'three_cats_in_row' | 'all_eight_cats';

@@ -26,6 +26,19 @@ export interface PlayerState {
   playerToken?: string;
 }
 
+// A boop with embedded piece data (self-contained, no lookups needed)
+export interface BoopEffect {
+  from: Cell;
+  to: Cell | null; // null = piece was booped off the board
+  piece: Piece;    // The actual piece that was booped (color + type)
+}
+
+// A graduation event
+export interface GraduationEffect {
+  cells: Cell[];      // The 3 cells that formed the line
+  player: PlayerColor;
+}
+
 export interface GameState {
   board: Board;
   players: {
@@ -36,10 +49,41 @@ export interface GameState {
   phase: 'waiting' | 'playing' | 'selecting_graduation' | 'finished';
   winner: PlayerColor | null;
   lastMove: Cell | null;
-  boopedPieces: { from: Cell; to: Cell | null }[];
+  boopedPieces: BoopEffect[];  // Now includes piece data
   graduatedPieces: Cell[];
   pendingGraduationOptions?: Cell[][]; // Multiple 3-in-a-row options to choose from
   pendingGraduationPlayer?: PlayerColor; // Which player needs to choose
+}
+
+// Complete record of a single move for history navigation
+export interface MoveRecord {
+  moveNumber: number;
+  player: PlayerColor;
+  
+  // What was placed
+  placement: {
+    row: number;
+    col: number;
+    pieceType: PieceType;
+  };
+  
+  // Effects of the move
+  boops: BoopEffect[];
+  graduations: GraduationEffect[];
+  
+  // Board snapshots for instant navigation
+  boardBefore: Board;
+  boardAfter: Board;
+  
+  // Player state snapshots
+  playersBefore: {
+    orange: { kittensInPool: number; catsInPool: number };
+    gray: { kittensInPool: number; catsInPool: number };
+  };
+  playersAfter: {
+    orange: { kittensInPool: number; catsInPool: number };
+    gray: { kittensInPool: number; catsInPool: number };
+  };
 }
 
 export interface RoomInfo {

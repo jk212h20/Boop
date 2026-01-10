@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece } from '../types';
+import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece, BoopEffect } from '../types';
 import { Board, PlayerPool } from './Board';
 import { useSound } from '../hooks/useSound';
+import { useGameHistory } from '../hooks/useGameHistory';
+import { HistorySlider } from './HistorySlider';
 
 // Ghost piece data to show where pieces were before being booped
 interface GhostPiece {
@@ -55,6 +57,9 @@ export function Game({
   
   // Sound system
   const { playSound } = useSound();
+  
+  // Game history for reviewing past moves
+  const gameHistory = useGameHistory(gameState.board);
 
   const isMyTurn = gameState.currentTurn === playerColor;
   const myPlayer = gameState.players[playerColor];
@@ -65,6 +70,46 @@ export function Game({
   const isSelectingGraduation = gameState.phase === 'selecting_graduation' && 
     gameState.pendingGraduationPlayer === playerColor;
   const graduationOptions = gameState.pendingGraduationOptions || [];
+
+  // Record moves to history when game state changes
+  useEffect(() => {
+    if (gameState.lastMove) {
+      const lastPlayer: PlayerColor = gameState.currentTurn === 'orange' ? 'gray' : 'orange';
+      const boopEffects: BoopEffect[] = (gameState.boopedPieces || []).map(bp => ({
+        from: bp.from,
+        to: bp.to,
+        piece: bp.piece || prevBoardRef.current[bp.from.row]?.[bp.from.col] || { color: lastPlayer, type: 'kitten' as PieceType }
+      }));
+      
+      // Get piece type from the placed piece on the board
+      const placedPiece = gameState.board[gameState.lastMove.row][gameState.lastMove.col];
+      const pieceType: PieceType = placedPiece?.type || 'kitten';
+      
+      const orangePlayer = gameState.players.orange;
+      const grayPlayer = gameState.players.gray;
+      
+      gameHistory.recordMove(
+        prevBoardRef.current,
+        gameState.board,
+        lastPlayer,
+        { 
+          row: gameState.lastMove.row, 
+          col: gameState.lastMove.col, 
+          pieceType
+        },
+        boopEffects,
+        gameState.graduatedPieces || [],
+        { 
+          orange: { kittensInPool: 0, catsInPool: 0 }, 
+          gray: { kittensInPool: 0, catsInPool: 0 } 
+        },
+        { 
+          orange: { kittensInPool: orangePlayer?.kittensInPool ?? 0, catsInPool: orangePlayer?.catsInPool ?? 0 }, 
+          gray: { kittensInPool: grayPlayer?.kittensInPool ?? 0, catsInPool: grayPlayer?.catsInPool ?? 0 }
+        }
+      );
+    }
+  }, [gameState.lastMove]);
 
   // Handle game state updates - trigger animations and sounds
   useEffect(() => {
@@ -128,9 +173,11 @@ export function Game({
     if (gameOver) {
       const isWinner = gameOver.winner === playerColor;
       // Delay to let the final move animate
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         playSound(isWinner ? 'win' : 'lose');
       }, 500);
+      
+      return () => clearTimeout(timer);
     }
   }, [gameOver, playerColor, playSound]);
 
@@ -272,7 +319,9 @@ export function Game({
 
         {/* Instructions */}
         <div className="mt-4 text-center text-sm text-gray-600">
-          {isMyTurn ? (
+          {gameHistory.isViewingHistory ? (
+            <p className="text-blue-600">📜 Viewing move history - click "Return to game" to continue playing</p>
+          ) : isMyTurn ? (
             <p>
               Select a piece from your pool, then click an empty cell to place it.
               <br />
@@ -289,6 +338,18 @@ export function Game({
             <p>Waiting for opponent's move...</p>
           )}
         </div>
+
+        {/* History Slider */}
+        <HistorySlider
+          history={gameHistory.history}
+          currentMoveIndex={gameHistory.currentMoveIndex}
+          onGoToMove={gameHistory.goToMove}
+          onGoToStart={gameHistory.goToStart}
+          onGoToEnd={gameHistory.goToEnd}
+          onGoBack={gameHistory.goBack}
+          onGoForward={gameHistory.goForward}
+          isViewingHistory={gameHistory.isViewingHistory}
+        />
       </div>
 
       {/* Graduation Selection Modal */}

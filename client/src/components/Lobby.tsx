@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WaitingPlayer, PlayerColor } from '../types';
 
-// Bot difficulty options
+// Bot difficulty options (with smart pruning - much faster at higher depths!)
 export const BOT_DIFFICULTIES = [
-  { id: 'easy', name: 'Easy', description: 'Depth 1 - Quick but weak', depth: 1 },
-  { id: 'normal', name: 'Normal', description: 'Depth 2 - Default', depth: 2 },
-  { id: 'hard', name: 'Hard', description: 'Depth 3 - Strong (~1s/move)', depth: 3 },
-  { id: 'expert', name: 'Expert', description: 'Depth 4 - Very slow but strongest', depth: 4 },
+  { id: 'easy', name: 'Easy', description: 'Depth 1 - Instant, beginner friendly', depth: 1 },
+  { id: 'normal', name: 'Normal', description: 'Depth 2 - Fast & balanced', depth: 2 },
+  { id: 'hard', name: 'Hard', description: 'Depth 3 - Strong (~0.5s/move)', depth: 3 },
+  { id: 'expert', name: 'Expert', description: 'Depth 4 - Very strong (~2s/move)', depth: 4 },
+  { id: 'master', name: 'Master', description: 'Depth 5 - Elite (~5-10s/move)', depth: 5 },
+  { id: 'grandmaster', name: 'Grandmaster', description: 'Depth 6 - Maximum (~15-30s/move)', depth: 6 },
 ] as const;
 
 export type BotDifficulty = typeof BOT_DIFFICULTIES[number]['id'];
@@ -359,9 +361,9 @@ export function Lobby({
                   </option>
                 ))}
               </select>
-              {botDifficulty === 'expert' && (
+              {(botDifficulty === 'expert' || botDifficulty === 'master' || botDifficulty === 'grandmaster') && (
                 <p className="text-amber-600 text-xs mt-1">
-                  ⚠️ Expert mode may take 30+ seconds per move
+                  ⚠️ {botDifficulty === 'grandmaster' ? 'Grandmaster' : botDifficulty === 'master' ? 'Master' : 'Expert'} mode may take {botDifficulty === 'grandmaster' ? '15-30' : botDifficulty === 'master' ? '5-10' : 'a few'} seconds per move
                 </p>
               )}
             </div>
@@ -442,12 +444,27 @@ interface WaitingRoomProps {
 
 export function WaitingRoom({ roomCode, playerName, onLeave }: WaitingRoomProps) {
   const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const copyCode = async () => {
+    // Clear any existing timeout
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+
     try {
       await navigator.clipboard.writeText(roomCode);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
@@ -457,7 +474,7 @@ export function WaitingRoom({ roomCode, playerName, onLeave }: WaitingRoomProps)
       document.execCommand('copy');
       document.body.removeChild(textArea);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     }
   };
 

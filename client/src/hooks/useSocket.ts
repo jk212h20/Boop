@@ -270,6 +270,11 @@ export function useSocket(): UseSocketReturn {
     });
 
     return () => {
+      // Clean up heartbeat interval on unmount
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
       socket.disconnect();
     };
   }, []);

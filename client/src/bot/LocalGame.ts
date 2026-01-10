@@ -1,7 +1,7 @@
 // Local Game Simulator for Bot AI
 // This is a client-side port of the server's GameState logic for move simulation
 
-import { Board, Piece, PlayerColor, PieceType, PlayerState, GameState, Cell } from '../types';
+import { Board, Piece, PlayerColor, PieceType, PlayerState, GameState, Cell, BoopEffect } from '../types';
 import { Move, SimulationResult } from './types';
 
 const BOARD_SIZE = 6;
@@ -134,9 +134,9 @@ function executeBoop(
   placedCol: number,
   placedPiece: Piece,
   players: { orange: PlayerState | null; gray: PlayerState | null }
-): { board: Board; boopedPieces: { from: Cell; to: Cell | null }[] } {
+): { board: Board; boopedPieces: BoopEffect[] } {
   const newBoard = cloneBoard(board);
-  const boopedPieces: { from: Cell; to: Cell | null }[] = [];
+  const boopedPieces: BoopEffect[] = [];
   const placedType = placedPiece.type;
 
   for (const [dRow, dCol] of DIRECTIONS) {
@@ -160,6 +160,9 @@ function executeBoop(
       continue;
     }
 
+    // Capture piece data before modifying board
+    const boopedPieceData: Piece = { color: adjPiece.color, type: adjPiece.type };
+
     // Execute the boop
     newBoard[adjRow][adjCol] = null;
 
@@ -168,7 +171,8 @@ function executeBoop(
       newBoard[destRow][destCol] = adjPiece;
       boopedPieces.push({
         from: { row: adjRow, col: adjCol },
-        to: { row: destRow, col: destCol }
+        to: { row: destRow, col: destCol },
+        piece: boopedPieceData
       });
     } else {
       // Pushed off the board - return to owner's pool
@@ -182,7 +186,8 @@ function executeBoop(
       }
       boopedPieces.push({
         from: { row: adjRow, col: adjCol },
-        to: null
+        to: null,
+        piece: boopedPieceData
       });
     }
   }

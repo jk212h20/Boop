@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { RoomManager } from '../rooms/RoomManager';
 import { LobbyManager } from '../lobby/LobbyManager';
-import { PieceType } from '../game/types';
+import { PieceType, PlayerColor } from '../game/types';
 
 export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyManager: LobbyManager): void {
   // Helper to broadcast lobby updates to all players in the lobby
@@ -17,10 +17,10 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
     console.log(`Client connected: ${socket.id}`);
 
     // Create a new game room
-    socket.on('create_room', (data: { playerName: string }, callback) => {
+    socket.on('create_room', (data: { playerName: string; playerToken?: string }, callback) => {
       try {
         const room = roomManager.createRoom();
-        const result = roomManager.joinRoom(room.id, socket.id, data.playerName);
+        const result = roomManager.joinRoom(room.id, socket.id, data.playerName, data.playerToken);
         
         if (result.success) {
           socket.join(room.id);
@@ -41,7 +41,7 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
     });
 
     // Join an existing room
-    socket.on('join_room', (data: { roomCode: string; playerName: string }, callback) => {
+    socket.on('join_room', (data: { roomCode: string; playerName: string; playerToken?: string }, callback) => {
       try {
         const room = roomManager.findRoomByCode(data.roomCode);
         
@@ -50,7 +50,7 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
           return;
         }
 
-        const result = roomManager.joinRoom(room.id, socket.id, data.playerName);
+        const result = roomManager.joinRoom(room.id, socket.id, data.playerName, data.playerToken);
         
         if (result.success) {
           socket.join(room.id);
@@ -75,6 +75,41 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
       } catch (error) {
         console.error('Error joining room:', error);
         callback({ success: false, error: 'Failed to join room' });
+      }
+    });
+
+    // Rejoin a room after disconnect (using player token)
+    socket.on('rejoin_room', (data: { roomCode: string; playerToken: string }, callback) => {
+      try {
+        const result = roomManager.rejoinRoom(data.roomCode, socket.id, data.playerToken);
+        
+        if (result.success && result.roomId) {
+          const room = roomManager.findRoomById(result.roomId);
+          if (room) {
+            socket.join(result.roomId);
+            
+            // Notify the other player that opponent reconnected
+            socket.to(result.roomId).emit('player_reconnected', {
+              playerColor: result.color,
+              gameState: room.game.getState()
+            });
+
+            callback({
+              success: true,
+              roomCode: room.code,
+              roomId: room.id,
+              playerColor: result.color,
+              gameState: room.game.getState()
+            });
+          } else {
+            callback({ success: false, error: 'Room not found after rejoin' });
+          }
+        } else {
+          callback({ success: false, error: result.error || 'Failed to rejoin' });
+        }
+      } catch (error) {
+        console.error('Error rejoining room:', error);
+        callback({ success: false, error: 'Failed to rejoin room' });
       }
     });
 
@@ -332,13 +367,14 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
         broadcastLobbyUpdate();
       }
       
-      // Remove from room if present
-      const result = roomManager.leaveRoom(socket.id);
+      // Soft disconnect from room (keeps slot reserved for rejoin)
+      const result = roomManager.softDisconnect(socket.id);
       
       if (result) {
-        // Notify remaining player
+        // Notify remaining player - they can wait for reconnection
         socket.to(result.roomId).emit('player_disconnected', {
-          playerColor: result.color
+          playerColor: result.color,
+          canRejoin: !!result.playerToken // Let client know opponent might reconnect
         });
       }
     });

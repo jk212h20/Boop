@@ -80,6 +80,11 @@ setInterval(() => {
   roomManager.cleanupEmptyRooms(30);
 }, 5 * 60 * 1000);
 
+// Cleanup expired disconnected player sessions every minute
+setInterval(() => {
+  roomManager.cleanupDisconnectedPlayers();
+}, 60 * 1000);
+
 // Start server
 const PORT = process.env.PORT || 3001;
 

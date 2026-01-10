@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WaitingPlayer } from '../types';
+import { WaitingPlayer, PlayerColor } from '../types';
 
 // Bot difficulty options
 export const BOT_DIFFICULTIES = [
@@ -19,10 +19,23 @@ interface LobbyProps {
   onJoinLobby: (playerName: string) => Promise<void>;
   connecting: boolean;
   error: string | null;
+  savedPlayerName?: string | null;
+  activeGame?: { roomCode: string; playerColor: PlayerColor } | null;
+  onRejoinGame?: (roomCode: string) => Promise<void>;
 }
 
-export function Lobby({ onCreateGame, onJoinGame, onPlayBot, onJoinLobby, connecting, error }: LobbyProps) {
-  const [playerName, setPlayerName] = useState('');
+export function Lobby({ 
+  onCreateGame, 
+  onJoinGame, 
+  onPlayBot, 
+  onJoinLobby, 
+  connecting, 
+  error,
+  savedPlayerName,
+  activeGame,
+  onRejoinGame,
+}: LobbyProps) {
+  const [playerName, setPlayerName] = useState(savedPlayerName || '');
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'bot' | 'quickmatch'>('menu');
   const [loading, setLoading] = useState(false);
@@ -140,6 +153,43 @@ export function Lobby({ onCreateGame, onJoinGame, onPlayBot, onJoinLobby, connec
             animate={{ opacity: 1 }}
             className="space-y-4"
           >
+            {/* Rejoin banner if there's an active game */}
+            {activeGame && onRejoinGame && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 mb-2"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl">🔄</span>
+                  <div>
+                    <p className="font-bold text-blue-800">Game in progress!</p>
+                    <p className="text-sm text-blue-600">
+                      Room: <span className="font-mono">{activeGame.roomCode}</span> • 
+                      Playing as <span className="capitalize">{activeGame.playerColor}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setLoading(true);
+                    onRejoinGame(activeGame.roomCode).finally(() => setLoading(false));
+                  }}
+                  disabled={loading}
+                  className="btn-primary w-full bg-blue-500 hover:bg-blue-600"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="spinner w-5 h-5"></div>
+                      Rejoining...
+                    </span>
+                  ) : (
+                    '🔙 Rejoin Game'
+                  )}
+                </button>
+              </motion.div>
+            )}
+
             <button
               onClick={() => setMode('create')}
               className="btn-primary w-full text-xl"

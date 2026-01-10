@@ -20,6 +20,7 @@ interface GameProps {
   onLeave: () => void;
   gameOver: GameOverInfo | null;
   opponentDisconnected: boolean;
+  opponentMayReconnect?: boolean;
   // Bot game specific props
   isBotGame?: boolean;
   botThinking?: boolean;
@@ -35,6 +36,7 @@ export function Game({
   onLeave,
   gameOver,
   opponentDisconnected,
+  opponentMayReconnect = false,
   isBotGame = false,
   botThinking = false,
   onRematch,
@@ -201,9 +203,20 @@ export function Game({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded-xl mb-4 text-center"
+              className={`px-4 py-2 rounded-xl mb-4 text-center ${
+                opponentMayReconnect 
+                  ? 'bg-blue-100 border border-blue-300 text-blue-800'
+                  : 'bg-yellow-100 border border-yellow-300 text-yellow-800'
+              }`}
             >
-              ⚠️ Your opponent has disconnected
+              {opponentMayReconnect ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                  <span>Opponent disconnected - waiting for them to reconnect...</span>
+                </div>
+              ) : (
+                <span>⚠️ Your opponent has left the game</span>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

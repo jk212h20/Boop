@@ -45,38 +45,50 @@ export class BoopGame {
     return Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
   }
 
-  // Add a player to the game
-  addPlayer(socketId: string, name: string): PlayerColor | null {
-    if (!this.players.orange) {
+  // Add a player to the game (with optional token for rejoin support)
+  addPlayer(socketId: string, name: string, playerToken?: string): PlayerColor | null {
+    // Check if either slot is available (disconnected player slot can be taken)
+    const orangeAvailable = !this.players.orange || !this.players.orange.connected;
+    const grayAvailable = !this.players.gray || !this.players.gray.connected;
+
+    if (!this.players.orange || (!this.players.orange.connected && orangeAvailable)) {
       this.players.orange = {
         color: 'orange',
-        kittensInPool: STARTING_KITTENS,
-        catsInPool: 0,
-        kittensRetired: 0,
+        kittensInPool: this.players.orange?.kittensInPool ?? STARTING_KITTENS,
+        catsInPool: this.players.orange?.catsInPool ?? 0,
+        kittensRetired: this.players.orange?.kittensRetired ?? 0,
         socketId,
         name,
-        connected: true
+        connected: true,
+        playerToken
       };
+      // If gray is already connected, start the game
+      if (this.players.gray?.connected) {
+        this.phase = 'playing';
+      }
       return 'orange';
-    } else if (!this.players.gray) {
+    } else if (!this.players.gray || (!this.players.gray.connected && grayAvailable)) {
       this.players.gray = {
         color: 'gray',
-        kittensInPool: STARTING_KITTENS,
-        catsInPool: 0,
-        kittensRetired: 0,
+        kittensInPool: this.players.gray?.kittensInPool ?? STARTING_KITTENS,
+        catsInPool: this.players.gray?.catsInPool ?? 0,
+        kittensRetired: this.players.gray?.kittensRetired ?? 0,
         socketId,
         name,
-        connected: true
+        connected: true,
+        playerToken
       };
-      // Both players joined, start the game
-      this.phase = 'playing';
+      // Both players joined and connected, start the game
+      if (this.players.orange?.connected) {
+        this.phase = 'playing';
+      }
       return 'gray';
     }
-    return null; // Game is full
+    return null; // Game is full with both connected
   }
 
-  // Remove a player from the game
-  removePlayer(socketId: string): PlayerColor | null {
+  // Disconnect a player (soft - keeps slot reserved for rejoin)
+  disconnectPlayer(socketId: string): PlayerColor | null {
     if (this.players.orange?.socketId === socketId) {
       this.players.orange.connected = false;
       return 'orange';
@@ -85,6 +97,63 @@ export class BoopGame {
       return 'gray';
     }
     return null;
+  }
+
+  // Remove a player from the game (hard - clears their slot)
+  removePlayer(socketId: string): PlayerColor | null {
+    if (this.players.orange?.socketId === socketId) {
+      const color = 'orange';
+      this.players.orange = null;
+      return color;
+    } else if (this.players.gray?.socketId === socketId) {
+      const color = 'gray';
+      this.players.gray = null;
+      return color;
+    }
+    return null;
+  }
+
+  // Rejoin a player by token to a specific color slot
+  rejoinPlayer(socketId: string, playerToken: string, color: 'orange' | 'gray'): boolean {
+    const player = this.players[color];
+    if (!player) return false;
+    
+    // Verify token matches or slot is reserved for this token
+    if (player.playerToken !== playerToken) return false;
+    
+    player.socketId = socketId;
+    player.connected = true;
+    
+    // Resume game if both players connected
+    if (this.players.orange?.connected && this.players.gray?.connected) {
+      if (this.phase === 'waiting') {
+        this.phase = 'playing';
+      }
+    }
+    
+    return true;
+  }
+
+  // Get player color by token
+  getPlayerColorByToken(playerToken: string): PlayerColor | null {
+    if (this.players.orange?.playerToken === playerToken) return 'orange';
+    if (this.players.gray?.playerToken === playerToken) return 'gray';
+    return null;
+  }
+
+  // Update player socket ID (for reconnection)
+  updatePlayerSocket(playerToken: string, newSocketId: string): boolean {
+    if (this.players.orange?.playerToken === playerToken) {
+      this.players.orange.socketId = newSocketId;
+      this.players.orange.connected = true;
+      return true;
+    }
+    if (this.players.gray?.playerToken === playerToken) {
+      this.players.gray.socketId = newSocketId;
+      this.players.gray.connected = true;
+      return true;
+    }
+    return false;
   }
 
   // Check if a position is within the board

@@ -28,6 +28,7 @@ export interface PlayerState {
   socketId: string;
   name: string;
   connected: boolean;
+  playerToken?: string;   // Persistent token for reconnection
 }
 
 export interface GameState {

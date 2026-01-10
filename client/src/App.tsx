@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { useBotGame } from './hooks/useBotGame';
-import { Lobby, WaitingRoom, QuickMatchLobby } from './components/Lobby';
+import { Lobby, WaitingRoom, QuickMatchLobby, BotDifficulty, BOT_DIFFICULTIES } from './components/Lobby';
 import { Game } from './components/Game';
 import { GameMode } from './types';
 
@@ -54,9 +54,11 @@ function App() {
     await joinRoom(code, name);
   }, [joinRoom]);
 
-  const handlePlayBot = useCallback((name: string) => {
+  const handlePlayBot = useCallback((name: string, difficulty: BotDifficulty) => {
+    const diffConfig = BOT_DIFFICULTIES.find(d => d.id === difficulty);
+    const searchDepth = diffConfig?.depth ?? 2;
     setGameMode('bot');
-    startBotGame(name);
+    startBotGame(name, { searchDepth });
   }, [startBotGame]);
 
   const handleLeaveOnlineGame = useCallback(() => {

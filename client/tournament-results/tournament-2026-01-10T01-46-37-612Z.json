@@ -1,0 +1,605 @@
+{
+  "date": "2026-01-10T01:46:37.608Z",
+  "gamesPerMatch": 10,
+  "variants": [
+    {
+      "name": "Baseline",
+      "config": {},
+      "description": "Default parameters"
+    },
+    {
+      "name": "CenterLover",
+      "config": {
+        "pieceInCenter": 25,
+        "pieceInInnerRing": 12
+      },
+      "description": "High center control priority"
+    },
+    {
+      "name": "EdgeHater",
+      "config": {
+        "pieceOnEdge": -12,
+        "pieceInCorner": -20
+      },
+      "description": "Strong avoidance of edges"
+    },
+    {
+      "name": "ThreatFocused",
+      "config": {
+        "twoInRowCats": 50,
+        "twoInRowKittens": 20
+      },
+      "description": "Prioritize creating threats"
+    },
+    {
+      "name": "Aggressive",
+      "config": {
+        "oppPieceBoopedOff": 40
+      },
+      "description": "High value on booping opponents"
+    },
+    {
+      "name": "CatValuer",
+      "config": {
+        "catMultiplier": 2
+      },
+      "description": "Cats worth 2x kittens"
+    },
+    {
+      "name": "Balanced+",
+      "config": {
+        "pieceInCenter": 18,
+        "twoInRowCats": 35,
+        "oppPieceBoopedOff": 30
+      },
+      "description": "Slightly boosted all-around"
+    },
+    {
+      "name": "Defensive",
+      "config": {
+        "pieceOnEdge": -10,
+        "pieceInCorner": -18,
+        "twoInRowCats": 25
+      },
+      "description": "Avoid edges, moderate threats"
+    },
+    {
+      "name": "DeepThinker",
+      "config": {
+        "searchDepth": 3
+      },
+      "description": "Search depth 3 (slower but smarter)"
+    },
+    {
+      "name": "QuickThinker",
+      "config": {
+        "searchDepth": 1
+      },
+      "description": "Search depth 1 (faster but weaker)"
+    }
+  ],
+  "matches": [
+    {
+      "configA": "Baseline",
+      "configB": "CenterLover",
+      "winsA": 5,
+      "winsB": 0,
+      "draws": 5,
+      "totalGames": 10,
+      "avgMoves": 115
+    },
+    {
+      "configA": "Baseline",
+      "configB": "EdgeHater",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 27
+    },
+    {
+      "configA": "Baseline",
+      "configB": "ThreatFocused",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 25
+    },
+    {
+      "configA": "Baseline",
+      "configB": "Aggressive",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 30
+    },
+    {
+      "configA": "Baseline",
+      "configB": "CatValuer",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 42
+    },
+    {
+      "configA": "Baseline",
+      "configB": "Balanced+",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 30
+    },
+    {
+      "configA": "Baseline",
+      "configB": "Defensive",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 41
+    },
+    {
+      "configA": "Baseline",
+      "configB": "DeepThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 21
+    },
+    {
+      "configA": "Baseline",
+      "configB": "QuickThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 42
+    },
+    {
+      "configA": "CenterLover",
+      "configB": "EdgeHater",
+      "winsA": 5,
+      "winsB": 0,
+      "draws": 5,
+      "totalGames": 10,
+      "avgMoves": 27
+    },
+    {
+      "configA": "CenterLover",
+      "configB": "ThreatFocused",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 25
+    },
+    {
+      "configA": "CenterLover",
+      "configB": "Aggressive",
+      "winsA": 0,
+      "winsB": 5,
+      "draws": 5,
+      "totalGames": 10,
+      "avgMoves": 115
+    },
+    {
+      "configA": "CenterLover",
+      "configB": "CatValuer",
+      "winsA": 0,
+      "winsB": 5,
+      "draws": 5,
+      "totalGames": 10,
+      "avgMoves": 33.5
+    },
+    {
+      "configA": "CenterLover",
+      "configB": "Balanced+",
+      "winsA": 0,
+      "winsB": 5,
+      "draws": 5,
+      "totalGames": 10,
+      "avgMoves": 115
+    },
+    {
+      "configA": "CenterLover",
+      "configB": "Defensive",
+      "winsA": 5,
+      "winsB": 0,
+      "draws": 5,
+      "totalGames": 10,
+      "avgMoves": 32
+    },
+    {
+      "configA": "CenterLover",
+      "configB": "DeepThinker",
+      "winsA": 0,
+      "winsB": 10,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 24.5
+    },
+    {
+      "configA": "CenterLover",
+      "configB": "QuickThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 43
+    },
+    {
+      "configA": "EdgeHater",
+      "configB": "ThreatFocused",
+      "winsA": 0,
+      "winsB": 10,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 31.5
+    },
+    {
+      "configA": "EdgeHater",
+      "configB": "Aggressive",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 27
+    },
+    {
+      "configA": "EdgeHater",
+      "configB": "CatValuer",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 41
+    },
+    {
+      "configA": "EdgeHater",
+      "configB": "Balanced+",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 27
+    },
+    {
+      "configA": "EdgeHater",
+      "configB": "Defensive",
+      "winsA": 10,
+      "winsB": 0,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 32.5
+    },
+    {
+      "configA": "EdgeHater",
+      "configB": "DeepThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 36
+    },
+    {
+      "configA": "EdgeHater",
+      "configB": "QuickThinker",
+      "winsA": 0,
+      "winsB": 10,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 41.5
+    },
+    {
+      "configA": "ThreatFocused",
+      "configB": "Aggressive",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 25
+    },
+    {
+      "configA": "ThreatFocused",
+      "configB": "CatValuer",
+      "winsA": 0,
+      "winsB": 10,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 25.5
+    },
+    {
+      "configA": "ThreatFocused",
+      "configB": "Balanced+",
+      "winsA": 0,
+      "winsB": 10,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 26.5
+    },
+    {
+      "configA": "ThreatFocused",
+      "configB": "Defensive",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 32
+    },
+    {
+      "configA": "ThreatFocused",
+      "configB": "DeepThinker",
+      "winsA": 10,
+      "winsB": 0,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 36.5
+    },
+    {
+      "configA": "ThreatFocused",
+      "configB": "QuickThinker",
+      "winsA": 10,
+      "winsB": 0,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 33.5
+    },
+    {
+      "configA": "Aggressive",
+      "configB": "CatValuer",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 42
+    },
+    {
+      "configA": "Aggressive",
+      "configB": "Balanced+",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 30
+    },
+    {
+      "configA": "Aggressive",
+      "configB": "Defensive",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 41
+    },
+    {
+      "configA": "Aggressive",
+      "configB": "DeepThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 21
+    },
+    {
+      "configA": "Aggressive",
+      "configB": "QuickThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 42
+    },
+    {
+      "configA": "CatValuer",
+      "configB": "Balanced+",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 42
+    },
+    {
+      "configA": "CatValuer",
+      "configB": "Defensive",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 41
+    },
+    {
+      "configA": "CatValuer",
+      "configB": "DeepThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 21
+    },
+    {
+      "configA": "CatValuer",
+      "configB": "QuickThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 43
+    },
+    {
+      "configA": "Balanced+",
+      "configB": "Defensive",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 41
+    },
+    {
+      "configA": "Balanced+",
+      "configB": "DeepThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 21
+    },
+    {
+      "configA": "Balanced+",
+      "configB": "QuickThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 42
+    },
+    {
+      "configA": "Defensive",
+      "configB": "DeepThinker",
+      "winsA": 0,
+      "winsB": 10,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 22.5
+    },
+    {
+      "configA": "Defensive",
+      "configB": "QuickThinker",
+      "winsA": 5,
+      "winsB": 5,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 35
+    },
+    {
+      "configA": "DeepThinker",
+      "configB": "QuickThinker",
+      "winsA": 10,
+      "winsB": 0,
+      "draws": 0,
+      "totalGames": 10,
+      "avgMoves": 39.5
+    }
+  ],
+  "leaderboard": [
+    {
+      "rank": 1,
+      "name": "DeepThinker",
+      "wins": 55,
+      "losses": 35,
+      "draws": 0,
+      "winRate": 61.1,
+      "config": {
+        "searchDepth": 3
+      }
+    },
+    {
+      "rank": 2,
+      "name": "ThreatFocused",
+      "wins": 50,
+      "losses": 40,
+      "draws": 0,
+      "winRate": 55.6,
+      "config": {
+        "twoInRowCats": 50,
+        "twoInRowKittens": 20
+      }
+    },
+    {
+      "rank": 3,
+      "name": "CatValuer",
+      "wins": 50,
+      "losses": 35,
+      "draws": 5,
+      "winRate": 55.6,
+      "config": {
+        "catMultiplier": 2
+      }
+    },
+    {
+      "rank": 4,
+      "name": "Balanced+",
+      "wins": 50,
+      "losses": 35,
+      "draws": 5,
+      "winRate": 55.6,
+      "config": {
+        "pieceInCenter": 18,
+        "twoInRowCats": 35,
+        "oppPieceBoopedOff": 30
+      }
+    },
+    {
+      "rank": 5,
+      "name": "Baseline",
+      "wins": 45,
+      "losses": 40,
+      "draws": 5,
+      "winRate": 50,
+      "config": {}
+    },
+    {
+      "rank": 6,
+      "name": "Aggressive",
+      "wins": 45,
+      "losses": 40,
+      "draws": 5,
+      "winRate": 50,
+      "config": {
+        "oppPieceBoopedOff": 40
+      }
+    },
+    {
+      "rank": 7,
+      "name": "QuickThinker",
+      "wins": 40,
+      "losses": 50,
+      "draws": 0,
+      "winRate": 44.4,
+      "config": {
+        "searchDepth": 1
+      }
+    },
+    {
+      "rank": 8,
+      "name": "EdgeHater",
+      "wins": 35,
+      "losses": 50,
+      "draws": 5,
+      "winRate": 38.9,
+      "config": {
+        "pieceOnEdge": -12,
+        "pieceInCorner": -20
+      }
+    },
+    {
+      "rank": 9,
+      "name": "Defensive",
+      "wins": 30,
+      "losses": 55,
+      "draws": 5,
+      "winRate": 33.3,
+      "config": {
+        "pieceOnEdge": -10,
+        "pieceInCorner": -18,
+        "twoInRowCats": 25
+      }
+    },
+    {
+      "rank": 10,
+      "name": "CenterLover",
+      "wins": 20,
+      "losses": 40,
+      "draws": 30,
+      "winRate": 22.2,
+      "config": {
+        "pieceInCenter": 25,
+        "pieceInInnerRing": 12
+      }
+    }
+  ]
+}

@@ -2,10 +2,20 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WaitingPlayer } from '../types';
 
+// Bot difficulty options
+export const BOT_DIFFICULTIES = [
+  { id: 'easy', name: 'Easy', description: 'Depth 1 - Quick but weak', depth: 1 },
+  { id: 'normal', name: 'Normal', description: 'Depth 2 - Default', depth: 2 },
+  { id: 'hard', name: 'Hard', description: 'Depth 3 - Strong (~1s/move)', depth: 3 },
+  { id: 'expert', name: 'Expert', description: 'Depth 4 - Very slow but strongest', depth: 4 },
+] as const;
+
+export type BotDifficulty = typeof BOT_DIFFICULTIES[number]['id'];
+
 interface LobbyProps {
   onCreateGame: (playerName: string) => Promise<void>;
   onJoinGame: (roomCode: string, playerName: string) => Promise<void>;
-  onPlayBot: (playerName: string) => void;
+  onPlayBot: (playerName: string, difficulty: BotDifficulty) => void;
   onJoinLobby: (playerName: string) => Promise<void>;
   connecting: boolean;
   error: string | null;
@@ -17,6 +27,7 @@ export function Lobby({ onCreateGame, onJoinGame, onPlayBot, onJoinLobby, connec
   const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'bot' | 'quickmatch'>('menu');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
 
   const handleCreate = async () => {
     if (!playerName.trim()) {
@@ -60,7 +71,7 @@ export function Lobby({ onCreateGame, onJoinGame, onPlayBot, onJoinLobby, connec
       return;
     }
     setLocalError(null);
-    onPlayBot(playerName.trim());
+    onPlayBot(playerName.trim(), botDifficulty);
   };
 
   const handleQuickMatch = async () => {
@@ -283,6 +294,26 @@ export function Lobby({ onCreateGame, onJoinGame, onPlayBot, onJoinLobby, connec
                 className="input"
                 maxLength={20}
               />
+            </div>
+
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">Bot Difficulty</label>
+              <select
+                value={botDifficulty}
+                onChange={(e) => setBotDifficulty(e.target.value as BotDifficulty)}
+                className="input w-full"
+              >
+                {BOT_DIFFICULTIES.map((diff) => (
+                  <option key={diff.id} value={diff.id}>
+                    {diff.name} - {diff.description}
+                  </option>
+                ))}
+              </select>
+              {botDifficulty === 'expert' && (
+                <p className="text-amber-600 text-xs mt-1">
+                  ⚠️ Expert mode may take 30+ seconds per move
+                </p>
+              )}
             </div>
 
             <button

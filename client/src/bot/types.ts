@@ -33,28 +33,46 @@ export interface ThreatAnalysis {
 }
 
 export interface BotConfig {
-  // Tier 5 scoring weights
-  twoInRowCats: number;
-  twoInRowKittens: number;
-  knocksOpponentOff: number;
-  knocksOpponentToEdge: number;
-  centerControl: number;
-  edgePosition: number;
-  createsTwoWayThreat: number;
+  // Tree search settings
+  searchDepth: number;            // How many moves to look ahead (2-3 recommended)
   
-  // Timing
+  // Static board evaluation weights (for tree search)
+  pieceInCenter: number;          // Bonus for pieces in center 4 squares
+  pieceInInnerRing: number;       // Bonus for pieces in inner ring (not center, not edge)
+  pieceOnEdge: number;            // Penalty for pieces on edge
+  pieceInCorner: number;          // Extra penalty for corner pieces
+  catMultiplier: number;          // Cats worth this much more than kittens
+  ownPieceBoopedOff: number;      // Penalty when our piece gets booped off
+  oppPieceBoopedOff: number;      // Bonus when opponent piece gets booped off
+  
+  // Threat evaluation
+  twoInRowCats: number;           // Bonus for 2 cats in a row (one away from win)
+  twoInRowKittens: number;        // Bonus for 2 kittens in a row
+  
+  // Timing & Output
   thinkingDelayMs: number;
+  silent: boolean;                // Suppress console output (for tournaments)
 }
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
+  // Tree search - depth 2 = look at our move + opponent response
+  searchDepth: 2,
+  
+  // Position values (per piece)
+  pieceInCenter: 15,
+  pieceInInnerRing: 8,
+  pieceOnEdge: -5,
+  pieceInCorner: -12,
+  catMultiplier: 1.5,
+  ownPieceBoopedOff: -20,
+  oppPieceBoopedOff: 25,
+  
+  // Threat values
   twoInRowCats: 30,
-  twoInRowKittens: 15,
-  knocksOpponentOff: 25,
-  knocksOpponentToEdge: 10,
-  centerControl: 10,
-  edgePosition: -5,
-  createsTwoWayThreat: 20,
+  twoInRowKittens: 12,
+  
   thinkingDelayMs: 800,
+  silent: false,
 };
 
 // Board positions categorized

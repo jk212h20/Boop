@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { GameState, PlayerColor, PieceType, GameOverInfo, Cell } from '../types';
 import { createInitialGameState, executeMove, cloneGameState } from '../bot/LocalGame';
 import { createBot, BotAI } from '../bot/BotAI';
-import { DEFAULT_BOT_CONFIG } from '../bot/types';
+import { DEFAULT_BOT_CONFIG, BotConfig } from '../bot/types';
 
 interface UseBotGameReturn {
   gameState: GameState | null;
@@ -13,7 +13,7 @@ interface UseBotGameReturn {
   gameOver: GameOverInfo | null;
   botThinking: boolean;
   
-  startBotGame: (playerName?: string) => void;
+  startBotGame: (playerName?: string, botConfig?: Partial<BotConfig>) => void;
   placePiece: (row: number, col: number, pieceType: PieceType) => Promise<boolean>;
   selectGraduation: (optionIndex: number) => Promise<boolean>;
   resetGame: () => void;
@@ -80,17 +80,23 @@ export function useBotGame(): UseBotGameReturn {
     }, DEFAULT_BOT_CONFIG.thinkingDelayMs);
   }, [botColor]);
 
+  // Store config for reset
+  const botConfigRef = useRef<Partial<BotConfig>>({});
+
   // Start a new bot game
-  const startBotGame = useCallback((playerName: string = 'Player') => {
+  const startBotGame = useCallback((playerName: string = 'Player', botConfig: Partial<BotConfig> = {}) => {
     const newState = createInitialGameState(playerName, '🤖 Bot');
     setGameState(newState);
     setGameOver(null);
     setBotThinking(false);
     
-    // Create bot instance
-    botRef.current = createBot(botColor);
+    // Store config for reset
+    botConfigRef.current = botConfig;
     
-    console.log('[BotGame] Started new game');
+    // Create bot instance with config
+    botRef.current = createBot(botColor, botConfig);
+    
+    console.log('[BotGame] Started new game with config:', botConfig);
   }, [botColor]);
 
   // Place a piece (human player move)
@@ -200,10 +206,10 @@ export function useBotGame(): UseBotGameReturn {
     return true;
   }, [gameState, playerColor, botColor, executeBotMove]);
 
-  // Reset game
+  // Reset game (preserves difficulty settings)
   const resetGame = useCallback(() => {
     const playerName = gameState?.players.orange?.name || 'Player';
-    startBotGame(playerName);
+    startBotGame(playerName, botConfigRef.current);
   }, [gameState, startBotGame]);
 
   // End bot game (return to lobby)

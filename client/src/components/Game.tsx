@@ -59,6 +59,7 @@ export function Game({
   const [animatingGraduations, setAnimatingGraduations] = useState<Cell[]>([]);
   const [ghostPieces, setGhostPieces] = useState<GhostPiece[]>([]);
   const [fallenPieces, setFallenPieces] = useState<FallenPiece[]>([]);
+  const [animationKey, setAnimationKey] = useState(0);
   
   // Track previous board state to get piece data for ghosts
   const prevBoardRef = useRef(gameState.board);
@@ -112,20 +113,40 @@ export function Game({
     return null;
   }, [gameHistory.isViewingHistory, gameHistory.viewingMove]);
 
-  // Get fallen pieces to display in history view
-  const historyFallenPieces = useMemo((): FallenPiece[] => {
+  // Animation data for history view - show boops and fallen pieces with animations
+  const historyAnimationData = useMemo(() => {
     if (gameHistory.isViewingHistory && gameHistory.viewingMove) {
+      const boops = gameHistory.viewingMove.boops;
       const fallen: FallenPiece[] = [];
-      for (const boop of gameHistory.viewingMove.boops) {
+      const ghosts: GhostPiece[] = [];
+      
+      for (const boop of boops) {
+        // Create ghost at original position
+        ghosts.push({
+          row: boop.from.row,
+          col: boop.from.col,
+          piece: boop.piece
+        });
+        
+        // Calculate fallen position for pieces booped off
         if (boop.to === null) {
           const fp = calculateFallenPosition(boop.from, boop.piece);
           if (fp) fallen.push(fp);
         }
       }
-      return fallen;
+      
+      return { boops, fallen, ghosts };
     }
-    return fallenPieces;
-  }, [gameHistory.isViewingHistory, gameHistory.viewingMove, fallenPieces]);
+    return { boops: animatingBoops, fallen: fallenPieces, ghosts: ghostPieces };
+  }, [gameHistory.isViewingHistory, gameHistory.viewingMove, animatingBoops, fallenPieces, ghostPieces]);
+
+  // Trigger animation when history move changes
+  useEffect(() => {
+    if (gameHistory.isViewingHistory) {
+      // Increment animation key to trigger new animations instantly (abort any current)
+      setAnimationKey(prev => prev + 1);
+    }
+  }, [gameHistory.currentMoveIndex, gameHistory.isViewingHistory]);
 
   // Record moves to history when game state changes
   useEffect(() => {
@@ -170,10 +191,16 @@ export function Game({
     }
   }, [gameState.lastMove]);
 
-  // Handle game state updates - trigger animations and sounds
+  // Handle game state updates - trigger animations and sounds (live game only)
   useEffect(() => {
+    // Don't animate during history viewing - that's handled separately
+    if (gameHistory.isViewingHistory) return;
+    
     const booped = gameState.boopedPieces || [];
     const graduated = gameState.graduatedPieces || [];
+    
+    // Increment animation key for new animations
+    setAnimationKey(prev => prev + 1);
     
     // Only animate if there are new boops or graduations
     if (booped.length > 0 || graduated.length > 0) {
@@ -210,12 +237,10 @@ export function Game({
       }
       
       if (booped.length > 0) {
-        // Slight delay for boop sound after place sound
         setTimeout(() => playSound('boop'), 100);
       }
       
       if (graduated.length > 0) {
-        // Delay graduation sound to sync with animation
         setTimeout(() => playSound('graduate'), 300);
       }
       
@@ -228,7 +253,7 @@ export function Game({
       
       return () => clearTimeout(timer);
     } else if (gameState.lastMove) {
-      // Just a placement with no boops - still play place sound and clear ghosts
+      // Just a placement with no boops
       playSound('place');
       setGhostPieces([]);
       setFallenPieces([]);
@@ -236,13 +261,12 @@ export function Game({
     
     // Update previous board reference
     prevBoardRef.current = gameState.board;
-  }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, playSound]);
+  }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, playSound, gameHistory.isViewingHistory]);
 
   // Handle game over sound
   useEffect(() => {
     if (gameOver) {
       const isWinner = gameOver.winner === playerColor;
-      // Delay to let the final move animate
       const timer = setTimeout(() => {
         playSound(isWinner ? 'win' : 'lose');
       }, 500);
@@ -370,12 +394,13 @@ export function Game({
               isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
               lastMove={gameHistory.isViewingHistory ? null : gameState.lastMove}
               selectedPieceType={isMyTurn && !gameHistory.isViewingHistory ? selectedPieceType : null}
-              boopedPieces={gameHistory.isViewingHistory ? [] : animatingBoops}
+              boopedPieces={historyAnimationData.boops}
               graduatedPieces={gameHistory.isViewingHistory ? [] : animatingGraduations}
-              ghostPieces={gameHistory.isViewingHistory ? [] : ghostPieces}
+              ghostPieces={historyAnimationData.ghosts}
               highlightedCell={historyHighlightedCell}
               isViewingHistory={gameHistory.isViewingHistory}
-              fallenPieces={historyFallenPieces}
+              fallenPieces={historyAnimationData.fallen}
+              animationKey={animationKey}
             />
           </div>
 

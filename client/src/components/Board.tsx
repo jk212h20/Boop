@@ -28,18 +28,13 @@ interface BoardProps {
   highlightedCell?: Cell | null;  // For highlighting placed piece in history view
   isViewingHistory?: boolean;  // When true, clicking returns to current game
   fallenPieces?: FallenPiece[];  // Pieces that fell off this turn
+  animationKey?: number;  // Changes when animation should restart
 }
 
 // Calculate where a piece would land in the gutter based on boop direction
 export function calculateFallenPosition(from: Cell, piece: PieceData): FallenPiece | null {
-  // Determine direction from where the piece was
-  // The piece was booped from some adjacent cell, so it continues in that direction
-  // We'll calculate based on board edge proximity
-  
   const { row, col } = from;
   
-  // Determine which edge is closest in the direction of movement
-  // Since we don't have the exact direction, we'll place based on proximity to edge
   let gutterRow = row;
   let gutterCol = col;
   
@@ -49,8 +44,6 @@ export function calculateFallenPosition(from: Cell, piece: PieceData): FallenPie
   else if (col === 0) gutterCol = -1;
   else if (col === 5) gutterCol = 6;
   else {
-    // For pieces not on edge (shouldn't happen in normal booping)
-    // Default to the direction based on position
     const distToTop = row;
     const distToBottom = 5 - row;
     const distToLeft = col;
@@ -78,10 +71,11 @@ export function Board({
   ghostPieces = [],
   highlightedCell = null,
   isViewingHistory = false,
-  fallenPieces = []
+  fallenPieces = [],
+  animationKey = 0
 }: BoardProps) {
   const BOARD_SIZE = 6;
-  const CELL_SIZE = 64; // Size in pixels for animation calculations
+  const CELL_SIZE = 64;
 
   // Check if a piece at this position was just booped (moved from somewhere)
   const getBoopAnimation = (row: number, col: number): { fromRow: number; fromCol: number } | null => {
@@ -114,7 +108,7 @@ export function Board({
     return fallen?.piece || null;
   };
 
-  // Handle cell click - if viewing history, this prop will auto-return to current
+  // Handle cell click
   const handleCellClick = (row: number, col: number) => {
     onCellClick(row, col);
   };
@@ -134,25 +128,61 @@ export function Board({
           ${isCorner ? '' : 'gutter-cell'}
         `}
       >
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {fallenPiece && (
             <motion.div
-              initial={{ scale: 0.5, opacity: 0, rotate: -45 }}
-              animate={{ scale: 0.7, opacity: 0.5, rotate: 0 }}
+              key={`fallen-${gutterRow}-${gutterCol}-${animationKey}`}
+              initial={{ scale: 1, opacity: 1, y: -20 }}
+              animate={{ scale: 0.6, opacity: 0.5, y: 0 }}
               exit={{ scale: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
               className="fallen-piece"
             >
               <Piece 
                 piece={fallenPiece} 
                 size="sm"
-                isGhost={true}
+                isGhost={false}
               />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
     );
+  };
+
+  // Drop animation for newly placed pieces (from above)
+  const dropAnimation = {
+    initial: { y: -80, scale: 0.5, opacity: 0 },
+    animate: { y: 0, scale: 1, opacity: 1 },
+    transition: { 
+      duration: 0.5,
+      ease: [0.34, 1.56, 0.64, 1], // Custom bounce ease
+      y: { duration: 0.5 },
+      scale: { duration: 0.3 },
+      opacity: { duration: 0.2 }
+    }
+  };
+
+  // Hop animation for booped pieces (parabolic arc)
+  const getHopAnimation = (fromRow: number, fromCol: number, toRow: number, toCol: number) => {
+    const deltaX = (fromCol - toCol) * CELL_SIZE;
+    const deltaY = (fromRow - toRow) * CELL_SIZE;
+    
+    return {
+      initial: { x: deltaX, y: deltaY, scale: 1 },
+      animate: { x: 0, y: 0, scale: 1 },
+      transition: {
+        duration: 0.5,
+        ease: "easeOut",
+        x: { duration: 0.5, ease: "easeInOut" },
+        y: { 
+          duration: 0.5,
+          // Custom keyframes for hop effect
+          times: [0, 0.4, 1],
+          ease: "easeInOut"
+        }
+      }
+    };
   };
 
   return (
@@ -183,6 +213,9 @@ export function Board({
                   const graduating = isGraduating(row, col);
                   const ghostPiece = getGhost(row, col);
                   const highlighted = isHighlighted(row, col);
+                  
+                  // Determine if this is a new placement (drop animation)
+                  const isNewPlacement = highlighted || (isLastMove && !boopAnim && !isViewingHistory);
 
                   return (
                     <motion.div
@@ -206,52 +239,63 @@ export function Board({
                     >
                       {/* Ghost piece (where a piece was before booping) */}
                       {ghostPiece && !piece && (
-                        <div className="absolute inset-0 flex items-center justify-center ghost-piece">
+                        <motion.div 
+                          key={`ghost-${row}-${col}-${animationKey}`}
+                          initial={{ opacity: 0.6 }}
+                          animate={{ opacity: 0.3 }}
+                          transition={{ duration: 0.3 }}
+                          className="absolute inset-0 flex items-center justify-center ghost-piece"
+                        >
                           <Piece 
                             piece={ghostPiece} 
                             size="lg"
                             isGhost={true}
                           />
-                        </div>
+                        </motion.div>
                       )}
 
                       {/* Actual piece */}
                       <AnimatePresence mode="wait">
                         {piece && (
                           <motion.div
-                            key={`piece-${row}-${col}-${piece.color}-${piece.type}`}
-                            initial={
-                              boopAnim 
-                                ? { 
-                                    x: (boopAnim.fromCol - col) * CELL_SIZE,
-                                    y: (boopAnim.fromRow - row) * CELL_SIZE,
-                                    scale: 1
-                                  }
-                                : isLastMove && !isViewingHistory
-                                ? { scale: 0, opacity: 0 }
-                                : false
-                            }
-                            animate={{ 
-                              x: 0, 
-                              y: 0, 
-                              scale: graduating ? [1, 1.2, 1] : 1,
-                              opacity: 1
-                            }}
+                            key={`piece-${row}-${col}-${piece.color}-${piece.type}-${animationKey}`}
+                            {...(boopAnim 
+                              ? getHopAnimation(boopAnim.fromRow, boopAnim.fromCol, row, col)
+                              : isNewPlacement
+                                ? dropAnimation
+                                : { initial: false, animate: { opacity: 1 } }
+                            )}
+                            style={boopAnim ? {
+                              // Add vertical hop offset during horizontal movement
+                            } : undefined}
                             exit={{ scale: 0, opacity: 0 }}
-                            transition={{ 
-                              type: 'spring', 
-                              stiffness: 300, 
-                              damping: 25,
-                              scale: graduating ? { duration: 0.5, times: [0, 0.5, 1] } : undefined
-                            }}
                             className={`relative ${graduating ? 'graduating-piece' : ''}`}
                           >
-                            <Piece 
-                              piece={piece} 
-                              size="lg"
-                              isNew={isLastMove && !boopAnim && !isViewingHistory}
-                              isGraduating={graduating}
-                            />
+                            {/* Hop arc effect - extra vertical motion */}
+                            {boopAnim && (
+                              <motion.div
+                                initial={{ y: 0 }}
+                                animate={{ y: [0, -25, 0] }}
+                                transition={{ duration: 0.5, times: [0, 0.4, 1], ease: "easeInOut" }}
+                              >
+                                <Piece 
+                                  piece={piece} 
+                                  size="lg"
+                                  isNew={false}
+                                  isGraduating={graduating}
+                                />
+                              </motion.div>
+                            )}
+                            
+                            {/* Non-booped pieces (dropped or static) */}
+                            {!boopAnim && (
+                              <Piece 
+                                piece={piece} 
+                                size="lg"
+                                isNew={isNewPlacement}
+                                isGraduating={graduating}
+                              />
+                            )}
                             
                             {/* Graduation sparkles */}
                             {graduating && (

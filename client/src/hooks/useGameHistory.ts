@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { GameState, MoveRecord, Board, PlayerColor, PieceType, BoopEffect, GraduationEffect, Cell } from '../types';
+import { MoveRecord, Board, PlayerColor, PieceType, BoopEffect, Cell } from '../types';
 import { cloneBoard } from '../bot/LocalGame';
 
 interface UseGameHistoryReturn {

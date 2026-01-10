@@ -312,3 +312,33 @@ body {
   70% { opacity: 1; }
   100% { opacity: 0; transform: scale(0.8); }
 }
+
+/* Gutter cells (where pieces can fall off) */
+.gutter-cell {
+  @apply relative;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(120, 53, 15, 0.1) 4px,
+    rgba(120, 53, 15, 0.1) 8px
+  );
+}
+
+/* Fallen piece styling */
+.fallen-piece {
+  @apply relative;
+  filter: grayscale(30%) brightness(0.8);
+}
+
+.fallen-piece::after {
+  content: '×';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: rgba(239, 68, 68, 0.7);
+  text-shadow: 0 0 2px white;
+}

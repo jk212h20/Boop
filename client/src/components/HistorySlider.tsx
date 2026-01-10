@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MoveRecord, PlayerColor } from '../types';
+import { MoveRecord } from '../types';
 import { formatMove } from '../hooks/useGameHistory';
 
 interface HistorySliderProps {

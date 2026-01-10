@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece, BoopEffect } from '../types';
-import { Board, PlayerPool } from './Board';
+import { Board, PlayerPool, calculateFallenPosition } from './Board';
 import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
@@ -10,6 +10,13 @@ import { HistorySlider } from './HistorySlider';
 interface GhostPiece {
   row: number;
   col: number;
+  piece: Piece;
+}
+
+// Fallen piece with calculated position in gutter
+interface FallenPiece {
+  gutterRow: number;
+  gutterCol: number;
   piece: Piece;
 }
 
@@ -48,12 +55,19 @@ export function Game({
   const [highlightedOption, setHighlightedOption] = useState<number | null>(null);
   
   // Animation state - tracks the current move's effects for animation
-  const [animatingBoops, setAnimatingBoops] = useState<{ from: Cell; to: Cell | null }[]>([]);
+  const [animatingBoops, setAnimatingBoops] = useState<BoopEffect[]>([]);
   const [animatingGraduations, setAnimatingGraduations] = useState<Cell[]>([]);
   const [ghostPieces, setGhostPieces] = useState<GhostPiece[]>([]);
+  const [fallenPieces, setFallenPieces] = useState<FallenPiece[]>([]);
   
   // Track previous board state to get piece data for ghosts
   const prevBoardRef = useRef(gameState.board);
+  
+  // Track previous player states for history recording
+  const prevPlayersRef = useRef({
+    orange: { kittensInPool: gameState.players.orange?.kittensInPool ?? 8, catsInPool: gameState.players.orange?.catsInPool ?? 0 },
+    gray: { kittensInPool: gameState.players.gray?.kittensInPool ?? 8, catsInPool: gameState.players.gray?.catsInPool ?? 0 }
+  });
   
   // Sound system
   const { playSound } = useSound();
@@ -70,6 +84,48 @@ export function Game({
   const isSelectingGraduation = gameState.phase === 'selecting_graduation' && 
     gameState.pendingGraduationPlayer === playerColor;
   const graduationOptions = gameState.pendingGraduationOptions || [];
+
+  // Determine what to display based on history viewing
+  const displayBoard = gameHistory.isViewingHistory 
+    ? gameHistory.viewingBoard 
+    : gameState.board;
+  
+  // Get historical player pools if viewing history
+  const displayPools = useMemo(() => {
+    if (gameHistory.isViewingHistory && gameHistory.viewingMove) {
+      return gameHistory.viewingMove.playersAfter;
+    }
+    return {
+      orange: { kittensInPool: gameState.players.orange?.kittensInPool ?? 0, catsInPool: gameState.players.orange?.catsInPool ?? 0 },
+      gray: { kittensInPool: gameState.players.gray?.kittensInPool ?? 0, catsInPool: gameState.players.gray?.catsInPool ?? 0 }
+    };
+  }, [gameHistory.isViewingHistory, gameHistory.viewingMove, gameState.players]);
+
+  // Get highlighted cell (the placed piece) when viewing history
+  const historyHighlightedCell = useMemo(() => {
+    if (gameHistory.isViewingHistory && gameHistory.viewingMove) {
+      return {
+        row: gameHistory.viewingMove.placement.row,
+        col: gameHistory.viewingMove.placement.col
+      };
+    }
+    return null;
+  }, [gameHistory.isViewingHistory, gameHistory.viewingMove]);
+
+  // Get fallen pieces to display in history view
+  const historyFallenPieces = useMemo((): FallenPiece[] => {
+    if (gameHistory.isViewingHistory && gameHistory.viewingMove) {
+      const fallen: FallenPiece[] = [];
+      for (const boop of gameHistory.viewingMove.boops) {
+        if (boop.to === null) {
+          const fp = calculateFallenPosition(boop.from, boop.piece);
+          if (fp) fallen.push(fp);
+        }
+      }
+      return fallen;
+    }
+    return fallenPieces;
+  }, [gameHistory.isViewingHistory, gameHistory.viewingMove, fallenPieces]);
 
   // Record moves to history when game state changes
   useEffect(() => {
@@ -99,15 +155,18 @@ export function Game({
         },
         boopEffects,
         gameState.graduatedPieces || [],
-        { 
-          orange: { kittensInPool: 0, catsInPool: 0 }, 
-          gray: { kittensInPool: 0, catsInPool: 0 } 
-        },
+        prevPlayersRef.current,
         { 
           orange: { kittensInPool: orangePlayer?.kittensInPool ?? 0, catsInPool: orangePlayer?.catsInPool ?? 0 }, 
           gray: { kittensInPool: grayPlayer?.kittensInPool ?? 0, catsInPool: grayPlayer?.catsInPool ?? 0 }
         }
       );
+      
+      // Update previous players ref
+      prevPlayersRef.current = {
+        orange: { kittensInPool: orangePlayer?.kittensInPool ?? 0, catsInPool: orangePlayer?.catsInPool ?? 0 },
+        gray: { kittensInPool: grayPlayer?.kittensInPool ?? 0, catsInPool: grayPlayer?.catsInPool ?? 0 }
+      };
     }
   }, [gameState.lastMove]);
 
@@ -120,6 +179,8 @@ export function Game({
     if (booped.length > 0 || graduated.length > 0) {
       // Create ghost pieces from the previous board state
       const newGhosts: GhostPiece[] = [];
+      const newFallen: FallenPiece[] = [];
+      
       for (const bp of booped) {
         const piece = prevBoardRef.current[bp.from.row]?.[bp.from.col];
         if (piece) {
@@ -128,6 +189,12 @@ export function Game({
             col: bp.from.col,
             piece: { ...piece }
           });
+          
+          // Calculate fallen position for pieces booped off
+          if (bp.to === null) {
+            const fp = calculateFallenPosition(bp.from, piece);
+            if (fp) newFallen.push(fp);
+          }
         }
       }
       
@@ -135,6 +202,7 @@ export function Game({
       setAnimatingBoops(booped);
       setAnimatingGraduations(graduated);
       setGhostPieces(newGhosts);
+      setFallenPieces(newFallen);
       
       // Play sounds
       if (gameState.lastMove) {
@@ -151,10 +219,11 @@ export function Game({
         setTimeout(() => playSound('graduate'), 300);
       }
       
-      // Clear animation state after animations complete (keep ghosts)
+      // Clear animation state after animations complete
       const timer = setTimeout(() => {
         setAnimatingBoops([]);
         setAnimatingGraduations([]);
+        setFallenPieces([]);
       }, 800);
       
       return () => clearTimeout(timer);
@@ -162,6 +231,7 @@ export function Game({
       // Just a placement with no boops - still play place sound and clear ghosts
       playSound('place');
       setGhostPieces([]);
+      setFallenPieces([]);
     }
     
     // Update previous board reference
@@ -193,6 +263,12 @@ export function Game({
   }, [myPlayer, selectedPieceType]);
 
   const handleCellClick = async (row: number, col: number) => {
+    // If viewing history, return to current game
+    if (gameHistory.isViewingHistory) {
+      gameHistory.goToEnd();
+      return;
+    }
+    
     if (!isMyTurn) return;
     
     setError(null);
@@ -275,9 +351,9 @@ export function Game({
             <div className="w-full lg:w-48">
               <PlayerPool
                 color={opponentColor}
-                kittensInPool={opponent.kittensInPool}
-                catsInPool={opponent.catsInPool}
-                isMyTurn={!isMyTurn}
+                kittensInPool={displayPools[opponentColor].kittensInPool}
+                catsInPool={displayPools[opponentColor].catsInPool}
+                isMyTurn={!isMyTurn && !gameHistory.isViewingHistory}
                 selectedPieceType={null}
                 onSelectPiece={() => {}}
                 playerName={opponent.name}
@@ -289,14 +365,17 @@ export function Game({
           {/* Board */}
           <div className="flex-shrink-0">
             <Board
-              board={gameState.board}
+              board={displayBoard}
               onCellClick={handleCellClick}
-              isMyTurn={isMyTurn}
-              lastMove={gameState.lastMove}
-              selectedPieceType={isMyTurn ? selectedPieceType : null}
-              boopedPieces={animatingBoops}
-              graduatedPieces={animatingGraduations}
-              ghostPieces={ghostPieces}
+              isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
+              lastMove={gameHistory.isViewingHistory ? null : gameState.lastMove}
+              selectedPieceType={isMyTurn && !gameHistory.isViewingHistory ? selectedPieceType : null}
+              boopedPieces={gameHistory.isViewingHistory ? [] : animatingBoops}
+              graduatedPieces={gameHistory.isViewingHistory ? [] : animatingGraduations}
+              ghostPieces={gameHistory.isViewingHistory ? [] : ghostPieces}
+              highlightedCell={historyHighlightedCell}
+              isViewingHistory={gameHistory.isViewingHistory}
+              fallenPieces={historyFallenPieces}
             />
           </div>
 
@@ -305,10 +384,10 @@ export function Game({
             <div className="w-full lg:w-48">
               <PlayerPool
                 color={playerColor}
-                kittensInPool={myPlayer.kittensInPool}
-                catsInPool={myPlayer.catsInPool}
-                isMyTurn={isMyTurn}
-                selectedPieceType={isMyTurn ? selectedPieceType : null}
+                kittensInPool={displayPools[playerColor].kittensInPool}
+                catsInPool={displayPools[playerColor].catsInPool}
+                isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
+                selectedPieceType={isMyTurn && !gameHistory.isViewingHistory ? selectedPieceType : null}
                 onSelectPiece={handleSelectPiece}
                 playerName={myPlayer.name}
                 isCurrentPlayer={true}
@@ -320,7 +399,7 @@ export function Game({
         {/* Instructions */}
         <div className="mt-4 text-center text-sm text-gray-600">
           {gameHistory.isViewingHistory ? (
-            <p className="text-blue-600">📜 Viewing move history - click "Return to game" to continue playing</p>
+            <p className="text-blue-600">📜 Viewing move history - click board or "Return to game" to continue playing</p>
           ) : isMyTurn ? (
             <p>
               Select a piece from your pool, then click an empty cell to place it.

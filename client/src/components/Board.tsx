@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Board as BoardType, PlayerColor, PieceType, Cell, Piece as PieceData, BoopEffect } from '../types';
 import { Piece } from './Piece';
 
@@ -113,7 +113,7 @@ export function Board({
     onCellClick(row, col);
   };
 
-  // Render a gutter cell (outside the playable area)
+  // Render a gutter cell (outside the playable area) - same size as board cells
   const renderGutterCell = (gutterRow: number, gutterCol: number) => {
     const fallenPiece = getFallenPiece(gutterRow, gutterCol);
     const isCorner = (gutterRow < 0 || gutterRow >= BOARD_SIZE) && 
@@ -123,64 +123,51 @@ export function Board({
       <div
         key={`gutter-${gutterRow}-${gutterCol}`}
         className={`
-          w-10 h-10 sm:w-12 sm:h-12
+          w-14 h-14 sm:w-16 sm:h-16
           flex items-center justify-center
           ${isCorner ? '' : 'gutter-cell'}
         `}
       >
-        <AnimatePresence mode="wait">
-          {fallenPiece && (
-            <motion.div
-              key={`fallen-${gutterRow}-${gutterCol}-${animationKey}`}
-              initial={{ scale: 1, opacity: 1, y: -20 }}
-              animate={{ scale: 0.6, opacity: 0.5, y: 0 }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className="fallen-piece"
-            >
-              <Piece 
-                piece={fallenPiece} 
-                size="sm"
-                isGhost={false}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {fallenPiece && (
+          <motion.div
+            key={`fallen-${gutterRow}-${gutterCol}`}
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 0.7 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="fallen-piece"
+          >
+            <Piece 
+              piece={fallenPiece} 
+              size="lg"
+              isGhost={false}
+            />
+          </motion.div>
+        )}
       </div>
     );
   };
 
   // Drop animation for newly placed pieces (from above)
   const dropAnimation = {
-    initial: { y: -80, scale: 0.5, opacity: 0 },
-    animate: { y: 0, scale: 1, opacity: 1 },
+    initial: { y: -60, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
     transition: { 
-      duration: 0.5,
+      duration: 0.4,
       ease: [0.34, 1.56, 0.64, 1], // Custom bounce ease
-      y: { duration: 0.5 },
-      scale: { duration: 0.3 },
-      opacity: { duration: 0.2 }
     }
   };
 
-  // Hop animation for booped pieces (parabolic arc)
+  // Hop animation for booped pieces
   const getHopAnimation = (fromRow: number, fromCol: number, toRow: number, toCol: number) => {
     const deltaX = (fromCol - toCol) * CELL_SIZE;
     const deltaY = (fromRow - toRow) * CELL_SIZE;
     
     return {
-      initial: { x: deltaX, y: deltaY, scale: 1 },
-      animate: { x: 0, y: 0, scale: 1 },
+      initial: { x: deltaX, y: deltaY },
+      animate: { x: 0, y: 0 },
       transition: {
         duration: 0.5,
-        ease: "easeOut",
-        x: { duration: 0.5, ease: "easeInOut" },
-        y: { 
-          duration: 0.5,
-          // Custom keyframes for hop effect
-          times: [0, 0.4, 1],
-          ease: "easeInOut"
-        }
+        ease: "easeOut"
       }
     };
   };
@@ -188,7 +175,7 @@ export function Board({
   return (
     <div className="relative">
       {/* Bed frame with extended gutter */}
-      <div className="bg-amber-800 rounded-2xl p-3 shadow-2xl">
+      <div className="bg-amber-800 rounded-2xl p-2 shadow-2xl">
         {/* Outer container with subtle gutter indication */}
         <div className="bg-amber-900/30 rounded-xl p-1">
           {/* 8x8 grid: gutter + 6x6 board + gutter */}
@@ -216,10 +203,16 @@ export function Board({
                   
                   // Determine if this is a new placement (drop animation)
                   const isNewPlacement = highlighted || (isLastMove && !boopAnim && !isViewingHistory);
+                  
+                  // Only animated pieces get the animationKey in their key
+                  const shouldAnimate = boopAnim || isNewPlacement;
+                  const pieceKey = shouldAnimate 
+                    ? `piece-${row}-${col}-${animationKey}` 
+                    : `piece-${row}-${col}-${piece?.color}-${piece?.type}`;
 
                   return (
                     <motion.div
-                      key={`${row}-${col}`}
+                      key={`cell-${row}-${col}`}
                       whileHover={canPlace ? { scale: 1.05 } : undefined}
                       whileTap={canPlace ? { scale: 0.95 } : undefined}
                       onClick={() => handleCellClick(row, col)}
@@ -239,76 +232,61 @@ export function Board({
                     >
                       {/* Ghost piece (where a piece was before booping) */}
                       {ghostPiece && !piece && (
-                        <motion.div 
-                          key={`ghost-${row}-${col}-${animationKey}`}
-                          initial={{ opacity: 0.6 }}
-                          animate={{ opacity: 0.3 }}
-                          transition={{ duration: 0.3 }}
-                          className="absolute inset-0 flex items-center justify-center ghost-piece"
-                        >
+                        <div className="absolute inset-0 flex items-center justify-center ghost-piece opacity-30">
                           <Piece 
                             piece={ghostPiece} 
                             size="lg"
                             isGhost={true}
                           />
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Actual piece */}
-                      <AnimatePresence mode="wait">
-                        {piece && (
-                          <motion.div
-                            key={`piece-${row}-${col}-${piece.color}-${piece.type}-${animationKey}`}
-                            {...(boopAnim 
-                              ? getHopAnimation(boopAnim.fromRow, boopAnim.fromCol, row, col)
-                              : isNewPlacement
-                                ? dropAnimation
-                                : { initial: false, animate: { opacity: 1 } }
-                            )}
-                            style={boopAnim ? {
-                              // Add vertical hop offset during horizontal movement
-                            } : undefined}
-                            exit={{ scale: 0, opacity: 0 }}
-                            className={`relative ${graduating ? 'graduating-piece' : ''}`}
-                          >
-                            {/* Hop arc effect - extra vertical motion */}
-                            {boopAnim && (
-                              <motion.div
-                                initial={{ y: 0 }}
-                                animate={{ y: [0, -25, 0] }}
-                                transition={{ duration: 0.5, times: [0, 0.4, 1], ease: "easeInOut" }}
-                              >
-                                <Piece 
-                                  piece={piece} 
-                                  size="lg"
-                                  isNew={false}
-                                  isGraduating={graduating}
-                                />
-                              </motion.div>
-                            )}
-                            
-                            {/* Non-booped pieces (dropped or static) */}
-                            {!boopAnim && (
+                      {piece && (
+                        <motion.div
+                          key={pieceKey}
+                          {...(boopAnim 
+                            ? getHopAnimation(boopAnim.fromRow, boopAnim.fromCol, row, col)
+                            : isNewPlacement
+                              ? dropAnimation
+                              : { initial: false }
+                          )}
+                          className={`relative ${graduating ? 'graduating-piece' : ''}`}
+                        >
+                          {/* Hop arc effect - extra vertical bounce for booped pieces */}
+                          {boopAnim ? (
+                            <motion.div
+                              initial={{ y: 0 }}
+                              animate={{ y: [0, -20, 0] }}
+                              transition={{ duration: 0.5, times: [0, 0.4, 1], ease: "easeInOut" }}
+                            >
                               <Piece 
                                 piece={piece} 
                                 size="lg"
-                                isNew={isNewPlacement}
+                                isNew={false}
                                 isGraduating={graduating}
                               />
-                            )}
-                            
-                            {/* Graduation sparkles */}
-                            {graduating && (
-                              <div className="graduation-sparkles">
-                                <span className="sparkle sparkle-1">✨</span>
-                                <span className="sparkle sparkle-2">⭐</span>
-                                <span className="sparkle sparkle-3">✨</span>
-                                <span className="sparkle sparkle-4">⭐</span>
-                              </div>
-                            )}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                            </motion.div>
+                          ) : (
+                            <Piece 
+                              piece={piece} 
+                              size="lg"
+                              isNew={isNewPlacement}
+                              isGraduating={graduating}
+                            />
+                          )}
+                          
+                          {/* Graduation sparkles */}
+                          {graduating && (
+                            <div className="graduation-sparkles">
+                              <span className="sparkle sparkle-1">✨</span>
+                              <span className="sparkle sparkle-2">⭐</span>
+                              <span className="sparkle sparkle-3">✨</span>
+                              <span className="sparkle sparkle-4">⭐</span>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
                     </motion.div>
                   );
                 })}

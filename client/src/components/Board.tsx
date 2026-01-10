@@ -147,30 +147,41 @@ export function Board({
     );
   };
 
+  // Animation timing constants
+  const DROP_DURATION = 0.4;
+  const BOOP_DELAY = DROP_DURATION + 0.1; // Wait for drop to complete
+  const BOOP_DURATION = 0.5;
+  const GRADUATION_DELAY = BOOP_DELAY + BOOP_DURATION + 0.1; // Wait for boops to complete
+
   // Drop animation for newly placed pieces (from above)
   const dropAnimation = {
     initial: { y: -60, opacity: 0 },
     animate: { y: 0, opacity: 1 },
     transition: { 
-      duration: 0.4,
+      duration: DROP_DURATION,
       ease: [0.34, 1.56, 0.64, 1], // Custom bounce ease
     }
   };
 
-  // Hop animation for booped pieces
-  const getHopAnimation = (fromRow: number, fromCol: number, toRow: number, toCol: number) => {
+  // Hop animation for booped pieces - delayed until after drop completes
+  const getHopAnimation = (fromRow: number, fromCol: number, toRow: number, toCol: number, hasNewPlacement: boolean) => {
     const deltaX = (fromCol - toCol) * CELL_SIZE;
     const deltaY = (fromRow - toRow) * CELL_SIZE;
+    const delay = hasNewPlacement ? BOOP_DELAY : 0;
     
     return {
-      initial: { x: deltaX, y: deltaY },
-      animate: { x: 0, y: 0 },
+      initial: { x: deltaX, y: deltaY, opacity: 0.7 },
+      animate: { x: 0, y: 0, opacity: 1 },
       transition: {
-        duration: 0.5,
+        duration: BOOP_DURATION,
+        delay: delay,
         ease: "easeOut"
       }
     };
   };
+
+  // Check if there's a new placement in this render
+  const hasNewPlacement = lastMove && !isViewingHistory;
 
   return (
     <div className="relative">
@@ -246,7 +257,7 @@ export function Board({
                         <motion.div
                           key={pieceKey}
                           {...(boopAnim 
-                            ? getHopAnimation(boopAnim.fromRow, boopAnim.fromCol, row, col)
+                            ? getHopAnimation(boopAnim.fromRow, boopAnim.fromCol, row, col, !!hasNewPlacement)
                             : isNewPlacement
                               ? dropAnimation
                               : { initial: false }
@@ -258,7 +269,12 @@ export function Board({
                             <motion.div
                               initial={{ y: 0 }}
                               animate={{ y: [0, -20, 0] }}
-                              transition={{ duration: 0.5, times: [0, 0.4, 1], ease: "easeInOut" }}
+                              transition={{ 
+                                duration: BOOP_DURATION, 
+                                times: [0, 0.4, 1], 
+                                ease: "easeInOut",
+                                delay: hasNewPlacement ? BOOP_DELAY : 0
+                              }}
                             >
                               <Piece 
                                 piece={piece} 

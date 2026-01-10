@@ -1,0 +1,24 @@
+# Project-Specific Rules for BoopClaude
+
+## Deployment Testing - Visual Change Indicator
+
+When pushing an update to the repository and we are testing the website, **randomly change the background color** so the user can visually confirm when changes are live.
+
+### Implementation:
+- Before committing/pushing changes during active website testing, modify a visible CSS property (e.g., background color) to a random value
+- This provides immediate visual feedback that the deployment has gone through
+- Common locations to modify:
+  - `client/src/index.css` - main body/app background
+  - `client/src/App.tsx` - inline styles or Tailwind classes
+- Use subtle but noticeable color variations (e.g., slight tint changes, pastel colors)
+
+### Example random colors to cycle through:
+- `#fef3c7` (warm cream)
+- `#e0f2fe` (light blue)
+- `#fce7f3` (light pink)
+- `#ecfccb` (light lime)
+- `#f3e8ff` (light purple)
+- `#ccfbf1` (light teal)
+
+### When to revert:
+- Once testing is complete and the deployment is verified, revert the background color to the original design value before final commit

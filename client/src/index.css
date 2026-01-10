@@ -5,7 +5,7 @@
 /* Custom styles */
 body {
   min-height: 100vh;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%);
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #7dd3fc 100%); /* Light blue - testing deployment */
 }
 
 /* Quilted pattern for the game board */
@@ -113,33 +113,39 @@ body {
   pointer-events: none;
 }
 
-/* Graduation glow effect */
+/* Graduation glow effect - enhanced with transform */
 .graduating-glow {
-  animation: graduation-glow 0.6s ease-in-out;
+  animation: graduation-glow 0.8s ease-in-out;
 }
 
 @keyframes graduation-glow {
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+    transform: scale(1);
   }
-  50% {
+  30% {
+    box-shadow: 0 0 30px 12px rgba(251, 191, 36, 1), 0 0 60px 24px rgba(251, 191, 36, 0.6);
+    transform: scale(1.15);
+  }
+  60% {
     box-shadow: 0 0 20px 8px rgba(251, 191, 36, 0.8), 0 0 40px 16px rgba(251, 191, 36, 0.4);
+    transform: scale(1.1);
   }
 }
 
 /* Graduation sparkles container */
 .graduation-sparkles {
   position: absolute;
-  inset: -20px;
+  inset: -30px;
   pointer-events: none;
   overflow: visible;
 }
 
-/* Individual sparkles */
+/* Individual sparkles - larger and more visible */
 .sparkle {
   position: absolute;
-  font-size: 16px;
-  animation-duration: 0.8s;
+  font-size: 20px;
+  animation-duration: 1s;
   animation-timing-function: ease-out;
   animation-fill-mode: forwards;
   opacity: 0;
@@ -155,21 +161,21 @@ body {
   top: 50%;
   right: 0;
   animation-name: sparkle-right;
-  animation-delay: 0.1s;
+  animation-delay: 0.15s;
 }
 
 .sparkle-3 {
   bottom: 0;
   left: 50%;
   animation-name: sparkle-down;
-  animation-delay: 0.2s;
+  animation-delay: 0.3s;
 }
 
 .sparkle-4 {
   top: 50%;
   left: 0;
   animation-name: sparkle-left;
-  animation-delay: 0.15s;
+  animation-delay: 0.2s;
 }
 
 @keyframes sparkle-up {
@@ -179,7 +185,7 @@ body {
   }
   100% {
     opacity: 0;
-    transform: translateY(-25px) scale(1.2);
+    transform: translateY(-35px) scale(1.4);
   }
 }
 
@@ -190,7 +196,7 @@ body {
   }
   100% {
     opacity: 0;
-    transform: translateX(25px) scale(1.2);
+    transform: translateX(35px) scale(1.4);
   }
 }
 
@@ -201,7 +207,7 @@ body {
   }
   100% {
     opacity: 0;
-    transform: translateY(25px) scale(1.2);
+    transform: translateY(35px) scale(1.4);
   }
 }
 
@@ -212,13 +218,37 @@ body {
   }
   100% {
     opacity: 0;
-    transform: translateX(-25px) scale(1.2);
+    transform: translateX(-35px) scale(1.4);
   }
 }
 
-/* Graduating piece pulse */
+/* Graduating piece - pulse and grow animation */
 .graduating-piece {
   z-index: 10;
+  animation: graduating-transform 0.8s ease-in-out;
+}
+
+@keyframes graduating-transform {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    transform: scale(1.2);
+    filter: brightness(1.3);
+  }
+  50% {
+    transform: scale(1.15) rotate(5deg);
+    filter: brightness(1.5);
+  }
+  75% {
+    transform: scale(1.1) rotate(-3deg);
+    filter: brightness(1.3);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    filter: brightness(1);
+  }
 }
 
 /* Pulsing glow for turn indicator */

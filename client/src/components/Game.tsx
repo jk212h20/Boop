@@ -191,6 +191,12 @@ export function Game({
     }
   }, [gameState.lastMove]);
 
+  // Animation timing constants (must match Board.tsx)
+  const DROP_DURATION = 400; // ms
+  const BOOP_DELAY = DROP_DURATION + 100; // ms, wait for drop to complete
+  const BOOP_DURATION = 500; // ms
+  const GRADUATION_DELAY = BOOP_DELAY + BOOP_DURATION + 100; // ms, wait for boops to complete
+
   // Handle game state updates - trigger animations and sounds (live game only)
   useEffect(() => {
     // Don't animate during history viewing - that's handled separately
@@ -226,31 +232,43 @@ export function Game({
         }
       }
       
-      // Set animation state
+      // Set animation state - boops and ghosts immediately, but graduations delayed
       setAnimatingBoops(booped);
-      setAnimatingGraduations(graduated);
       setGhostPieces(newGhosts);
-      setFallenPieces(newFallen);
       
-      // Play sounds
+      // Delay fallen pieces until after boops complete
+      if (newFallen.length > 0) {
+        setTimeout(() => setFallenPieces(newFallen), BOOP_DELAY);
+      }
+      
+      // Delay graduation animation until after boops complete
+      if (graduated.length > 0) {
+        setTimeout(() => setAnimatingGraduations(graduated), GRADUATION_DELAY);
+      }
+      
+      // Play sounds with proper timing
       if (gameState.lastMove) {
         playSound('place');
       }
       
       if (booped.length > 0) {
-        setTimeout(() => playSound('boop'), 100);
+        setTimeout(() => playSound('boop'), BOOP_DELAY);
       }
       
       if (graduated.length > 0) {
-        setTimeout(() => playSound('graduate'), 300);
+        setTimeout(() => playSound('graduate'), GRADUATION_DELAY);
       }
       
-      // Clear animation state after animations complete
+      // Clear animation state after all animations complete
+      const totalAnimationTime = graduated.length > 0 
+        ? GRADUATION_DELAY + 800 // Extra time for graduation animation
+        : BOOP_DELAY + BOOP_DURATION + 200;
+        
       const timer = setTimeout(() => {
         setAnimatingBoops([]);
         setAnimatingGraduations([]);
         setFallenPieces([]);
-      }, 800);
+      }, totalAnimationTime);
       
       return () => clearTimeout(timer);
     } else if (gameState.lastMove) {

@@ -15,7 +15,7 @@ interface PieceProps {
 export function Piece({ 
   piece, 
   size = 'md', 
-  isNew = false, 
+  isNew: _isNew = false, // eslint-disable-line @typescript-eslint/no-unused-vars
   isGhost = false,
   isGraduating = false,
   onClick, 

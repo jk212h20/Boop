@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece, BoopEffect } from '../types';
-import { Board, PlayerPool, calculateFallenPosition, GraduatingPiece } from './Board';
+import { Board, PlayerPool, calculateFallenPosition, GraduatingPiece, FallenPiece } from './Board';
 import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
@@ -10,13 +10,6 @@ import { HistorySlider } from './HistorySlider';
 interface GhostPiece {
   row: number;
   col: number;
-  piece: Piece;
-}
-
-// Fallen piece with calculated position in gutter
-interface FallenPiece {
-  gutterRow: number;
-  gutterCol: number;
   piece: Piece;
 }
 

@@ -17,7 +17,9 @@ export interface GraduatingPiece {
 }
 
 // Fallen piece with calculated position in gutter
-interface FallenPiece {
+export interface FallenPiece {
+  fromRow: number;    // Original board position row
+  fromCol: number;    // Original board position col
   gutterRow: number;  // -1 for top, 6 for bottom (in board coords)
   gutterCol: number;  // -1 for left, 6 for right (in board coords)
   piece: PieceData;
@@ -50,6 +52,8 @@ export function calculateFallenPosition(from: Cell, piece: PieceData, pushedFrom
     const dirCol = col - pushedFrom.col;
     
     return { 
+      fromRow: row,
+      fromCol: col,
       gutterRow: row + dirRow, 
       gutterCol: col + dirCol, 
       piece 
@@ -66,7 +70,7 @@ export function calculateFallenPosition(from: Cell, piece: PieceData, pushedFrom
   if (col === 0) gutterCol = -1;
   else if (col === 5) gutterCol = 6;
   
-  return { gutterRow, gutterCol, piece };
+  return { fromRow: row, fromCol: col, gutterRow, gutterCol, piece };
 }
 
 export function Board({ 
@@ -85,6 +89,14 @@ export function Board({
 }: BoardProps) {
   const BOARD_SIZE = 6;
   const CELL_SIZE = 64;
+  
+  // Animation timing constants
+  const DROP_DURATION = 0.4;
+  const BOOP_DELAY = DROP_DURATION + 0.1; // Wait for drop to complete
+  const BOOP_DURATION = 0.5;
+
+  // Check if there's a new placement in this render
+  const hasNewPlacement = lastMove && !isViewingHistory;
 
   // Check if a piece at this position was just booped (moved from somewhere)
   const getBoopAnimation = (row: number, col: number): { fromRow: number; fromCol: number } | null => {
@@ -111,10 +123,9 @@ export function Board({
     return highlightedCell?.row === row && highlightedCell?.col === col;
   };
 
-  // Get fallen piece for a gutter position
-  const getFallenPiece = (gutterRow: number, gutterCol: number): PieceData | null => {
-    const fallen = fallenPieces.find(fp => fp.gutterRow === gutterRow && fp.gutterCol === gutterCol);
-    return fallen?.piece || null;
+  // Get fallen piece data for a gutter position
+  const getFallenPieceData = (gutterRow: number, gutterCol: number): FallenPiece | null => {
+    return fallenPieces.find(fp => fp.gutterRow === gutterRow && fp.gutterCol === gutterCol) || null;
   };
 
   // Handle cell click
@@ -124,9 +135,33 @@ export function Board({
 
   // Render a gutter cell (outside the playable area) - same size as board cells
   const renderGutterCell = (gutterRow: number, gutterCol: number) => {
-    const fallenPiece = getFallenPiece(gutterRow, gutterCol);
+    const fallenData = getFallenPieceData(gutterRow, gutterCol);
     const isCorner = (gutterRow < 0 || gutterRow >= BOARD_SIZE) && 
                      (gutterCol < 0 || gutterCol >= BOARD_SIZE);
+    
+    // Calculate the animation offset from board position to gutter position
+    // The piece should animate FROM the board TO the gutter
+    const getGutterAnimation = () => {
+      if (!fallenData) return null;
+      
+      // Calculate delta: how far the board position is from the gutter position
+      // Gutter grid index: top gutter is row index 0 in the 8x8 grid (but gutterRow -1)
+      // Board row 0 is at grid index 1, etc.
+      // For the animation, we just need to calculate the pixel offset
+      const deltaX = (fallenData.fromCol - gutterCol) * CELL_SIZE;
+      const deltaY = (fallenData.fromRow - gutterRow) * CELL_SIZE;
+      const delay = hasNewPlacement ? BOOP_DELAY : 0;
+      
+      return {
+        initial: { x: deltaX, y: deltaY, opacity: 1 },
+        animate: { x: 0, y: 0, opacity: 0.7 },
+        transition: {
+          duration: BOOP_DURATION,
+          delay: delay,
+          ease: "easeOut"
+        }
+      };
+    };
     
     return (
       <div
@@ -137,29 +172,35 @@ export function Board({
           ${isCorner ? '' : 'gutter-cell'}
         `}
       >
-        {fallenPiece && (
+        {fallenData && (
           <motion.div
-            key={`fallen-${gutterRow}-${gutterCol}`}
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 0.7 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fallen-piece"
+            key={`fallen-${gutterRow}-${gutterCol}-${animationKey}`}
+            {...getGutterAnimation()}
+            className="fallen-piece z-20"
+            style={{ zIndex: 20 }}
           >
-            <Piece 
-              piece={fallenPiece} 
-              size="lg"
-              isGhost={false}
-            />
+            {/* Add hop arc effect like regular booped pieces */}
+            <motion.div
+              initial={{ y: 0 }}
+              animate={{ y: [0, -20, 0] }}
+              transition={{ 
+                duration: BOOP_DURATION, 
+                times: [0, 0.4, 1], 
+                ease: "easeInOut",
+                delay: hasNewPlacement ? BOOP_DELAY : 0
+              }}
+            >
+              <Piece 
+                piece={fallenData.piece} 
+                size="lg"
+                isGhost={false}
+              />
+            </motion.div>
           </motion.div>
         )}
       </div>
     );
   };
-
-  // Animation timing constants
-  const DROP_DURATION = 0.4;
-  const BOOP_DELAY = DROP_DURATION + 0.1; // Wait for drop to complete
-  const BOOP_DURATION = 0.5;
 
   // Drop animation for newly placed pieces (from above)
   const dropAnimation = {
@@ -172,10 +213,10 @@ export function Board({
   };
 
   // Hop animation for booped pieces - delayed until after drop completes
-  const getHopAnimation = (fromRow: number, fromCol: number, toRow: number, toCol: number, hasNewPlacement: boolean) => {
+  const getHopAnimation = (fromRow: number, fromCol: number, toRow: number, toCol: number, hasNewPlacementArg: boolean) => {
     const deltaX = (fromCol - toCol) * CELL_SIZE;
     const deltaY = (fromRow - toRow) * CELL_SIZE;
-    const delay = hasNewPlacement ? BOOP_DELAY : 0;
+    const delay = hasNewPlacementArg ? BOOP_DELAY : 0;
     
     return {
       initial: { x: deltaX, y: deltaY, opacity: 0.7 },
@@ -187,9 +228,6 @@ export function Board({
       }
     };
   };
-
-  // Check if there's a new placement in this render
-  const hasNewPlacement = lastMove && !isViewingHistory;
 
   return (
     <div className="relative">

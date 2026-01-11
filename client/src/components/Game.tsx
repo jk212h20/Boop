@@ -117,6 +117,7 @@ export function Game({
   const historyAnimationData = useMemo(() => {
     if (gameHistory.isViewingHistory && gameHistory.viewingMove) {
       const boops = gameHistory.viewingMove.boops;
+      const placement = gameHistory.viewingMove.placement;
       const fallen: FallenPiece[] = [];
       const ghosts: GhostPiece[] = [];
       
@@ -129,8 +130,9 @@ export function Game({
         });
         
         // Calculate fallen position for pieces booped off
+        // Use the placement position as the push source for correct direction
         if (boop.to === null) {
-          const fp = calculateFallenPosition(boop.from, boop.piece);
+          const fp = calculateFallenPosition(boop.from, boop.piece, { row: placement.row, col: placement.col });
           if (fp) fallen.push(fp);
         }
       }
@@ -225,8 +227,9 @@ export function Game({
           });
           
           // Calculate fallen position for pieces booped off
+          // Use lastMove as the pusher position to get correct direction
           if (bp.to === null) {
-            const fp = calculateFallenPosition(bp.from, piece);
+            const fp = calculateFallenPosition(bp.from, piece, gameState.lastMove || undefined);
             if (fp) newFallen.push(fp);
           }
         }
@@ -243,10 +246,13 @@ export function Game({
       
       // Delay graduation animation until after boops complete - include piece data from prev board
       if (graduated.length > 0) {
+        // The player who just moved is the one whose pieces graduated (currentTurn has already switched)
+        const graduatingPlayer: PlayerColor = gameState.currentTurn === 'orange' ? 'gray' : 'orange';
         const graduatingWithPieces: GraduatingPiece[] = graduated.map(cell => ({
           row: cell.row,
           col: cell.col,
-          piece: prevBoardRef.current[cell.row]?.[cell.col] || { color: 'orange' as PlayerColor, type: 'kitten' as PieceType }
+          // Try to get from prev board, fallback to correct player's kitten
+          piece: prevBoardRef.current[cell.row]?.[cell.col] || { color: graduatingPlayer, type: 'kitten' as PieceType }
         }));
         setTimeout(() => setAnimatingGraduations(graduatingWithPieces), GRADUATION_DELAY);
       }

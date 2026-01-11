@@ -39,18 +39,42 @@ interface BoardProps {
 }
 
 // Calculate where a piece would land in the gutter based on boop direction
-export function calculateFallenPosition(from: Cell, piece: PieceData): FallenPiece | null {
+// If pushedFrom is provided, use the actual boop direction
+export function calculateFallenPosition(from: Cell, piece: PieceData, pushedFrom?: Cell): FallenPiece | null {
   const { row, col } = from;
   
+  // If we know where the push came from, calculate the actual direction
+  if (pushedFrom) {
+    const dirRow = row - pushedFrom.row; // Direction piece was moving
+    const dirCol = col - pushedFrom.col;
+    
+    // Calculate gutter position by continuing in that direction
+    let gutterRow = row;
+    let gutterCol = col;
+    
+    if (dirRow !== 0) {
+      gutterRow = dirRow > 0 ? 6 : -1; // Pushed down -> row 6, pushed up -> row -1
+    }
+    if (dirCol !== 0) {
+      gutterCol = dirCol > 0 ? 6 : -1; // Pushed right -> col 6, pushed left -> col -1
+    }
+    
+    return { gutterRow, gutterCol, piece };
+  }
+  
+  // Fallback: guess based on position (for cases where we don't have direction)
   let gutterRow = row;
   let gutterCol = col;
   
-  // Check which edge the piece was closest to
+  // Check which edge the piece was on
   if (row === 0) gutterRow = -1;
   else if (row === 5) gutterRow = 6;
-  else if (col === 0) gutterCol = -1;
+  
+  if (col === 0) gutterCol = -1;
   else if (col === 5) gutterCol = 6;
-  else {
+  
+  // If not on edge, shouldn't happen for fallen pieces, but handle anyway
+  if (gutterRow === row && gutterCol === col) {
     const distToTop = row;
     const distToBottom = 5 - row;
     const distToLeft = col;

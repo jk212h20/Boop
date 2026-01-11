@@ -56,12 +56,6 @@ export function Piece({
 
   return (
     <motion.div
-      initial={isNew ? { scale: 0, opacity: 0 } : false}
-      animate={{ 
-        scale: 1, 
-        opacity: 1,
-      }}
-      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
       whileHover={!disabled ? { scale: 1.1 } : undefined}
       whileTap={!disabled ? { scale: 0.95 } : undefined}
       onClick={disabled ? undefined : onClick}

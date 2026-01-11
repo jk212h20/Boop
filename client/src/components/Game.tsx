@@ -387,6 +387,66 @@ export function Game({
           )}
         </AnimatePresence>
 
+        {/* Turn indicator - above board */}
+        {!gameHistory.isViewingHistory && !gameOver && (
+          <div className="text-center mb-3">
+            {!isMyTurn && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="inline-flex items-center gap-2 bg-gray-100 border border-gray-300 px-4 py-2 rounded-full shadow"
+              >
+                {botThinking ? (
+                  <>
+                    <div className="spinner w-4 h-4"></div>
+                    <span className="text-gray-700 font-medium">🤖 Bot is thinking...</span>
+                  </>
+                ) : (
+                  <span className="text-gray-600 font-medium">Opponent's turn...</span>
+                )}
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        {/* Game Over Banner - inline above board */}
+        <AnimatePresence>
+          {gameOver && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`mb-4 p-4 rounded-xl shadow-lg text-center ${
+                gameOver.winner === playerColor 
+                  ? 'bg-gradient-to-r from-yellow-100 to-orange-100 border-2 border-yellow-400' 
+                  : 'bg-gradient-to-r from-gray-100 to-slate-100 border-2 border-gray-400'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <span className="text-3xl">{gameOver.winner === playerColor ? '🎉' : '😿'}</span>
+                <h2 className={`font-display text-2xl font-bold ${
+                  gameOver.winner === playerColor ? 'text-boop-orange-600' : 'text-boop-gray-600'
+                }`}>
+                  {gameOver.winner === playerColor ? 'You Win!' : 'You Lose!'}
+                </h2>
+                <span className="text-3xl">{gameOver.winner === playerColor ? '🎉' : '😿'}</span>
+              </div>
+              <p className="text-gray-600 mb-3">
+                {gameOver.winCondition === 'three_cats_in_row' ? '3 Cats in a Row!' : 'All 8 Cats on the Board!'}
+              </p>
+              <div className="flex gap-2 justify-center">
+                {isBotGame && onRematch && (
+                  <button onClick={onRematch} className="btn-primary text-sm px-4 py-2">
+                    🔄 Rematch
+                  </button>
+                )}
+                <button onClick={onLeave} className={`${isBotGame ? 'btn-secondary' : 'btn-primary'} text-sm px-4 py-2`}>
+                  {isBotGame ? '← Back to Menu' : 'Play Again'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Game layout */}
         <div className="flex flex-col lg:flex-row gap-4 items-center lg:items-start justify-center">
           {/* Opponent's pool (top/left) */}
@@ -495,19 +555,6 @@ export function Game({
           />
         )}
       </AnimatePresence>
-
-      {/* Game Over Modal */}
-      <AnimatePresence>
-        {gameOver && (
-          <GameOverModal 
-            gameOver={gameOver} 
-            playerColor={playerColor} 
-            onLeave={onLeave}
-            isBotGame={isBotGame}
-            onRematch={onRematch}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -593,81 +640,6 @@ function GraduationSelectionModal({
               </div>
             </motion.button>
           ))}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-interface GameOverModalProps {
-  gameOver: GameOverInfo;
-  playerColor: PlayerColor;
-  onLeave: () => void;
-  isBotGame?: boolean;
-  onRematch?: () => void;
-}
-
-function GameOverModal({ gameOver, playerColor, onLeave, isBotGame = false, onRematch }: GameOverModalProps) {
-  const isWinner = gameOver.winner === playerColor;
-  
-  const winMessage = gameOver.winCondition === 'three_cats_in_row' 
-    ? '3 Cats in a Row!'
-    : 'All 8 Cats on the Board!';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-    >
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.8, opacity: 0 }}
-        className="card max-w-md w-full text-center"
-      >
-        <motion.div
-          animate={isWinner ? { rotate: [0, -10, 10, -10, 10, 0] } : undefined}
-          transition={{ duration: 0.5 }}
-        >
-          <span className="text-6xl block mb-4">
-            {isWinner ? '🎉' : '😿'}
-          </span>
-        </motion.div>
-
-        <h2 className={`font-display text-3xl font-bold mb-2 ${
-          isWinner ? 'text-boop-orange-600' : 'text-boop-gray-600'
-        }`}>
-          {isWinner ? 'You Win!' : 'You Lose!'}
-        </h2>
-
-        <p className="text-gray-600 mb-4">
-          {isWinner ? 'Congratulations! ' : 'Better luck next time! '}
-          {winMessage}
-        </p>
-
-        <div className={`inline-block px-4 py-2 rounded-full text-white font-bold mb-6 ${
-          gameOver.winner === 'orange' ? 'bg-boop-orange-500' : 'bg-boop-gray-500'
-        }`}>
-          {gameOver.winner === 'orange' ? '🧡 Orange' : '🩶 Gray'} Wins!
-        </div>
-
-        <div className="space-y-2">
-          {isBotGame && onRematch && (
-            <button
-              onClick={onRematch}
-              className="btn-primary w-full"
-            >
-              🔄 Rematch
-            </button>
-          )}
-          <button
-            onClick={onLeave}
-            className={isBotGame ? "btn-secondary w-full" : "btn-primary w-full"}
-          >
-            {isBotGame ? '← Back to Menu' : 'Play Again'}
-          </button>
         </div>
       </motion.div>
     </motion.div>

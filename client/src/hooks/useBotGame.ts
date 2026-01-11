@@ -6,6 +6,9 @@ import { createInitialGameState, executeMove, cloneGameState } from '../bot/Loca
 import { createBot, BotAI } from '../bot/BotAI';
 import { DEFAULT_BOT_CONFIG, BotConfig } from '../bot/types';
 
+// Animation timing - must match Board.tsx and Game.tsx
+const ANIMATION_COMPLETE_DELAY = 1200; // ms - wait for all animations to finish before bot moves
+
 interface UseBotGameReturn {
   gameState: GameState | null;
   playerColor: PlayerColor;
@@ -135,9 +138,12 @@ export function useBotGame(): UseBotGameReturn {
       return true;
     }
 
-    // Trigger bot move if it's bot's turn
+    // Trigger bot move if it's bot's turn - wait for animations to complete first
     if (result.newState.currentTurn === botColor) {
-      executeBotMove(result.newState);
+      // Delay bot move to allow animations to finish
+      setTimeout(() => {
+        executeBotMove(result.newState);
+      }, ANIMATION_COMPLETE_DELAY);
     }
 
     return true;

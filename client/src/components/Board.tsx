@@ -261,7 +261,8 @@ export function Board({
                               ? dropAnimation
                               : { initial: false }
                           )}
-                          className={`relative ${graduating ? 'graduating-piece' : ''}`}
+                          className={`relative ${graduating ? 'graduating-piece' : ''} ${boopAnim || isNewPlacement ? 'z-20' : ''}`}
+                          style={{ zIndex: boopAnim || isNewPlacement ? 20 : 1 }}
                         >
                           {/* Hop arc effect - extra vertical bounce for booped pieces */}
                           {boopAnim ? (
@@ -318,15 +319,6 @@ export function Board({
           </div>
         </div>
       </div>
-
-      {/* Turn indicator overlay - only when not viewing history */}
-      {!isMyTurn && !isViewingHistory && (
-        <div className="absolute inset-0 bg-black/10 rounded-2xl flex items-center justify-center pointer-events-none">
-          <div className="bg-white/90 px-4 py-2 rounded-full shadow-lg">
-            <span className="text-gray-600 font-medium">Opponent's turn...</span>
-          </div>
-        </div>
-      )}
 
       {/* History viewing indicator */}
       {isViewingHistory && (

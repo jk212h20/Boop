@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece, BoopEffect } from '../types';
-import { Board, PlayerPool, calculateFallenPosition } from './Board';
+import { Board, PlayerPool, calculateFallenPosition, GraduatingPiece } from './Board';
 import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
@@ -56,7 +56,7 @@ export function Game({
   
   // Animation state - tracks the current move's effects for animation
   const [animatingBoops, setAnimatingBoops] = useState<BoopEffect[]>([]);
-  const [animatingGraduations, setAnimatingGraduations] = useState<Cell[]>([]);
+  const [animatingGraduations, setAnimatingGraduations] = useState<GraduatingPiece[]>([]);
   const [ghostPieces, setGhostPieces] = useState<GhostPiece[]>([]);
   const [fallenPieces, setFallenPieces] = useState<FallenPiece[]>([]);
   const [animationKey, setAnimationKey] = useState(0);
@@ -241,9 +241,14 @@ export function Game({
         setTimeout(() => setFallenPieces(newFallen), BOOP_DELAY);
       }
       
-      // Delay graduation animation until after boops complete
+      // Delay graduation animation until after boops complete - include piece data from prev board
       if (graduated.length > 0) {
-        setTimeout(() => setAnimatingGraduations(graduated), GRADUATION_DELAY);
+        const graduatingWithPieces: GraduatingPiece[] = graduated.map(cell => ({
+          row: cell.row,
+          col: cell.col,
+          piece: prevBoardRef.current[cell.row]?.[cell.col] || { color: 'orange' as PlayerColor, type: 'kitten' as PieceType }
+        }));
+        setTimeout(() => setAnimatingGraduations(graduatingWithPieces), GRADUATION_DELAY);
       }
       
       // Play sounds with proper timing
@@ -474,7 +479,7 @@ export function Game({
               lastMove={gameHistory.isViewingHistory ? null : gameState.lastMove}
               selectedPieceType={isMyTurn && !gameHistory.isViewingHistory ? selectedPieceType : null}
               boopedPieces={historyAnimationData.boops}
-              graduatedPieces={gameHistory.isViewingHistory ? [] : animatingGraduations}
+              graduatingPieces={gameHistory.isViewingHistory ? [] : animatingGraduations}
               ghostPieces={historyAnimationData.ghosts}
               highlightedCell={historyHighlightedCell}
               isViewingHistory={gameHistory.isViewingHistory}

@@ -9,6 +9,13 @@ interface GhostPiece {
   piece: PieceData;
 }
 
+// Graduating piece with full data (needed because pieces are removed from board before animation)
+export interface GraduatingPiece {
+  row: number;
+  col: number;
+  piece: PieceData;
+}
+
 // Fallen piece with calculated position in gutter
 interface FallenPiece {
   gutterRow: number;  // -1 for top, 6 for bottom (in board coords)
@@ -23,7 +30,7 @@ interface BoardProps {
   lastMove: Cell | null;
   selectedPieceType: PieceType | null;
   boopedPieces?: BoopEffect[];
-  graduatedPieces?: Cell[];
+  graduatingPieces?: GraduatingPiece[];  // Changed: now includes piece data
   ghostPieces?: GhostPiece[];
   highlightedCell?: Cell | null;  // For highlighting placed piece in history view
   isViewingHistory?: boolean;  // When true, clicking returns to current game
@@ -67,7 +74,7 @@ export function Board({
   lastMove, 
   selectedPieceType,
   boopedPieces = [],
-  graduatedPieces = [],
+  graduatingPieces = [],
   ghostPieces = [],
   highlightedCell = null,
   isViewingHistory = false,
@@ -86,9 +93,9 @@ export function Board({
     return null;
   };
 
-  // Check if a piece at this position is graduating
-  const isGraduating = (row: number, col: number): boolean => {
-    return graduatedPieces.some(gp => gp.row === row && gp.col === col);
+  // Check if a piece at this position is graduating (returns the piece data if found)
+  const getGraduatingPiece = (row: number, col: number): GraduatingPiece | undefined => {
+    return graduatingPieces.find(gp => gp.row === row && gp.col === col);
   };
 
   // Check if there's a ghost at this position
@@ -207,7 +214,8 @@ export function Board({
                   const isLastMove = lastMove?.row === row && lastMove?.col === col;
                   const canPlace = !piece && isMyTurn && selectedPieceType && !isViewingHistory;
                   const boopAnim = getBoopAnimation(row, col);
-                  const graduating = isGraduating(row, col);
+                  const graduatingPiece = getGraduatingPiece(row, col);
+                  const isGraduating = !!graduatingPiece;
                   const ghostPiece = getGhost(row, col);
                   const highlighted = isHighlighted(row, col);
                   
@@ -261,7 +269,7 @@ export function Board({
                               ? dropAnimation
                               : { initial: false }
                           )}
-                          className={`relative ${graduating ? 'graduating-piece' : ''} ${boopAnim || isNewPlacement ? 'z-20' : ''}`}
+                          className={`relative ${isGraduating ? 'graduating-piece' : ''} ${boopAnim || isNewPlacement ? 'z-20' : ''}`}
                           style={{ zIndex: boopAnim || isNewPlacement ? 20 : 1 }}
                         >
                           {/* Hop arc effect - extra vertical bounce for booped pieces */}
@@ -280,7 +288,7 @@ export function Board({
                                 piece={piece} 
                                 size="lg"
                                 isNew={false}
-                                isGraduating={graduating}
+                                isGraduating={isGraduating}
                               />
                             </motion.div>
                           ) : (
@@ -288,12 +296,12 @@ export function Board({
                               piece={piece} 
                               size="lg"
                               isNew={isNewPlacement}
-                              isGraduating={graduating}
+                              isGraduating={isGraduating}
                             />
                           )}
                           
                           {/* Graduation sparkles */}
-                          {graduating && (
+                          {isGraduating && (
                             <div className="graduation-sparkles">
                               <span className="sparkle sparkle-1">✨</span>
                               <span className="sparkle sparkle-2">⭐</span>
@@ -301,6 +309,30 @@ export function Board({
                               <span className="sparkle sparkle-4">⭐</span>
                             </div>
                           )}
+                        </motion.div>
+                      )}
+
+                      {/* Graduating piece phantom - shows when piece is already removed from board */}
+                      {!piece && graduatingPiece && (
+                        <motion.div
+                          key={`graduating-${row}-${col}-${animationKey}`}
+                          initial={{ scale: 1, opacity: 1 }}
+                          animate={{ scale: 0, opacity: 0, y: -50 }}
+                          transition={{ duration: 0.6, ease: "easeIn" }}
+                          className="relative graduating-piece z-30"
+                          style={{ zIndex: 30 }}
+                        >
+                          <Piece 
+                            piece={graduatingPiece.piece} 
+                            size="lg"
+                            isGraduating={true}
+                          />
+                          <div className="graduation-sparkles">
+                            <span className="sparkle sparkle-1">✨</span>
+                            <span className="sparkle sparkle-2">⭐</span>
+                            <span className="sparkle sparkle-3">✨</span>
+                            <span className="sparkle sparkle-4">⭐</span>
+                          </div>
                         </motion.div>
                       )}
                     </motion.div>

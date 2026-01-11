@@ -5,7 +5,7 @@
 /* Custom styles */
 body {
   min-height: 100vh;
-  background: linear-gradient(135deg, #ecfccb 0%, #d9f99d 50%, #bef264 100%); /* Light lime - testing deployment */
+  background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 50%, #d8b4fe 100%); /* Light purple - testing deployment */
 }
 
 /* Quilted pattern for the game board */

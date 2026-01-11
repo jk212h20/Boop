@@ -43,35 +43,23 @@ interface BoardProps {
 export function calculateFallenPosition(from: Cell, piece: PieceData, pushedFrom?: Cell): FallenPiece | null {
   const { row, col } = from;
   
-  // Start with the piece's original position - the gutter position preserves
-  // the coordinate along the edge the piece didn't cross
-  let gutterRow = row;
-  let gutterCol = col;
-  
-  // If we know where the push came from, calculate the actual direction
+  // If we know where the push came from, calculate where the piece would land
+  // It's simply: current position + direction (where it would go if board extended)
   if (pushedFrom) {
-    const dirRow = row - pushedFrom.row; // Direction piece was moving
+    const dirRow = row - pushedFrom.row;
     const dirCol = col - pushedFrom.col;
     
-    // Only adjust the row if piece is at a vertical edge AND being pushed off that edge
-    if (row === 0 && dirRow < 0) {
-      gutterRow = -1; // Pushed off top
-    } else if (row === 5 && dirRow > 0) {
-      gutterRow = 6; // Pushed off bottom
-    }
-    
-    // Only adjust the col if piece is at a horizontal edge AND being pushed off that edge
-    if (col === 0 && dirCol < 0) {
-      gutterCol = -1; // Pushed off left
-    } else if (col === 5 && dirCol > 0) {
-      gutterCol = 6; // Pushed off right
-    }
-    
-    return { gutterRow, gutterCol, piece };
+    return { 
+      gutterRow: row + dirRow, 
+      gutterCol: col + dirCol, 
+      piece 
+    };
   }
   
   // Fallback: guess based on position (for cases where we don't have direction)
-  // Check which edge the piece was on and put it just outside that edge
+  let gutterRow = row;
+  let gutterCol = col;
+  
   if (row === 0) gutterRow = -1;
   else if (row === 5) gutterRow = 6;
   

@@ -392,13 +392,14 @@ export function Game({
           )}
         </AnimatePresence>
 
-        {/* Turn indicator - above board */}
+        {/* Turn indicator - above board (fixed height container to prevent board jumping) */}
         {!gameHistory.isViewingHistory && !gameOver && (
-          <div className="text-center mb-3">
-            {!isMyTurn && (
+          <div className="text-center mb-3 h-10 flex items-center justify-center">
+            {!isMyTurn ? (
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 className="inline-flex items-center gap-2 bg-gray-100 border border-gray-300 px-4 py-2 rounded-full shadow"
               >
                 {botThinking ? (
@@ -410,6 +411,8 @@ export function Game({
                   <span className="text-gray-600 font-medium">Opponent's turn...</span>
                 )}
               </motion.div>
+            ) : (
+              <span className="text-boop-orange-600 font-medium">Your turn!</span>
             )}
           </div>
         )}

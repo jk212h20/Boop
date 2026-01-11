@@ -213,29 +213,28 @@ export function Game({
         // Use embedded piece data if available (from server/bot), fallback to board lookup
         const piece = bp.piece || prevBoardRef.current[bp.from.row]?.[bp.from.col];
         if (piece) {
-          newGhosts.push({
-            row: bp.from.row,
-            col: bp.from.col,
-            piece: { ...piece }
-          });
-          
           // Calculate fallen position for pieces booped off
           // Use lastMove as the pusher position to get correct direction
           if (bp.to === null) {
+            // Piece fell off - add to fallen, don't show ghost (the fallen piece animates)
             const fp = calculateFallenPosition(bp.from, piece, gameState.lastMove || undefined);
             if (fp) newFallen.push(fp);
+          } else {
+            // Piece moved to new board position - show ghost at original position
+            newGhosts.push({
+              row: bp.from.row,
+              col: bp.from.col,
+              piece: { ...piece }
+            });
           }
         }
       }
       
-      // Set animation state - boops and ghosts immediately, but graduations delayed
+      // Set animation state - boops, ghosts, and fallen pieces immediately
+      // (Board.tsx animation handles the delay timing)
       setAnimatingBoops(booped);
       setGhostPieces(newGhosts);
-      
-      // Delay fallen pieces until after boops complete
-      if (newFallen.length > 0) {
-        setTimeout(() => setFallenPieces(newFallen), BOOP_DELAY);
-      }
+      setFallenPieces(newFallen);
       
       // Delay graduation animation until after boops complete - include piece data from prev board
       if (graduated.length > 0) {

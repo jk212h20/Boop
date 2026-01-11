@@ -43,50 +43,40 @@ interface BoardProps {
 export function calculateFallenPosition(from: Cell, piece: PieceData, pushedFrom?: Cell): FallenPiece | null {
   const { row, col } = from;
   
+  // Start with the piece's original position - the gutter position preserves
+  // the coordinate along the edge the piece didn't cross
+  let gutterRow = row;
+  let gutterCol = col;
+  
   // If we know where the push came from, calculate the actual direction
   if (pushedFrom) {
     const dirRow = row - pushedFrom.row; // Direction piece was moving
     const dirCol = col - pushedFrom.col;
     
-    // Calculate gutter position by continuing in that direction
-    let gutterRow = row;
-    let gutterCol = col;
-    
-    if (dirRow !== 0) {
-      gutterRow = dirRow > 0 ? 6 : -1; // Pushed down -> row 6, pushed up -> row -1
+    // Only adjust the row if piece is at a vertical edge AND being pushed off that edge
+    if (row === 0 && dirRow < 0) {
+      gutterRow = -1; // Pushed off top
+    } else if (row === 5 && dirRow > 0) {
+      gutterRow = 6; // Pushed off bottom
     }
-    if (dirCol !== 0) {
-      gutterCol = dirCol > 0 ? 6 : -1; // Pushed right -> col 6, pushed left -> col -1
+    
+    // Only adjust the col if piece is at a horizontal edge AND being pushed off that edge
+    if (col === 0 && dirCol < 0) {
+      gutterCol = -1; // Pushed off left
+    } else if (col === 5 && dirCol > 0) {
+      gutterCol = 6; // Pushed off right
     }
     
     return { gutterRow, gutterCol, piece };
   }
   
   // Fallback: guess based on position (for cases where we don't have direction)
-  let gutterRow = row;
-  let gutterCol = col;
-  
-  // Check which edge the piece was on
+  // Check which edge the piece was on and put it just outside that edge
   if (row === 0) gutterRow = -1;
   else if (row === 5) gutterRow = 6;
   
   if (col === 0) gutterCol = -1;
   else if (col === 5) gutterCol = 6;
-  
-  // If not on edge, shouldn't happen for fallen pieces, but handle anyway
-  if (gutterRow === row && gutterCol === col) {
-    const distToTop = row;
-    const distToBottom = 5 - row;
-    const distToLeft = col;
-    const distToRight = 5 - col;
-    
-    const minDist = Math.min(distToTop, distToBottom, distToLeft, distToRight);
-    
-    if (minDist === distToTop) gutterRow = -1;
-    else if (minDist === distToBottom) gutterRow = 6;
-    else if (minDist === distToLeft) gutterCol = -1;
-    else gutterCol = 6;
-  }
   
   return { gutterRow, gutterCol, piece };
 }

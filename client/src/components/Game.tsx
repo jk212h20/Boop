@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece, BoopEffect } from '../types';
 import { Board, PlayerPool, calculateFallenPosition, GraduatingPiece, FallenPiece } from './Board';
+import { Piece as PieceView } from './Piece';
 import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
@@ -57,6 +58,20 @@ export function Game({
   const [graduationPhase, setGraduationPhase] = useState<
     'visible' | 'highlighting' | 'removing' | null
   >(null);
+  // Pieces that are in-flight to the player's pool (graduation payoff).
+  // Populated when the graduation animation transitions into its 'removing'
+  // phase; each entry carries the source cell's screen rect and the pool's
+  // screen rect so we can animate between them.
+  const [flyingPieces, setFlyingPieces] = useState<
+    {
+      key: string;
+      piece: Piece;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+    }[]
+  >([]);
   const [ghostPieces, setGhostPieces] = useState<GhostPiece[]>([]);
   const [fallenPieces, setFallenPieces] = useState<FallenPiece[]>([]);
   const [animationKey, setAnimationKey] = useState(0);
@@ -308,6 +323,39 @@ export function Game({
 
         timers.push(setTimeout(() => {
           setGraduationPhase('removing');
+
+          // Spawn the fly-to-pool pieces. Read the on-screen rects for
+          // each graduating cell and for the graduating-player's cat
+          // pool, compute centre-to-centre vectors, and hand the list
+          // to <AnimatePresence> below. The in-cell piece is already
+          // fading out via the 'removing' animation, so the flying
+          // piece is what the user visually follows to the pool.
+          const poolEl = document.querySelector<HTMLElement>(
+            `[data-pool-target="${graduatingPlayer}-cat"]`
+          );
+          if (poolEl) {
+            const poolRect = poolEl.getBoundingClientRect();
+            const toX = poolRect.left + poolRect.width / 2;
+            const toY = poolRect.top + poolRect.height / 2;
+            const flyers = graduatingWithPieces
+              .map(gp => {
+                const cellEl = document.querySelector<HTMLElement>(
+                  `[data-cell="${gp.row}-${gp.col}"]`
+                );
+                if (!cellEl) return null;
+                const r = cellEl.getBoundingClientRect();
+                return {
+                  key: `flyer-${gp.row}-${gp.col}-${animationKey}`,
+                  piece: gp.piece,
+                  fromX: r.left + r.width / 2,
+                  fromY: r.top + r.height / 2,
+                  toX,
+                  toY,
+                };
+              })
+              .filter((x): x is NonNullable<typeof x> => x !== null);
+            setFlyingPieces(flyers);
+          }
         }, GRADUATION_DELAY + GRADUATION_HIGHLIGHT_DURATION));
       }
       
@@ -330,6 +378,7 @@ export function Game({
         setAnimatingBoops([]);
         setAnimatingGraduations([]);
         setGraduationPhase(null);
+        setFlyingPieces([]);
         setFallenPieces([]);
       }, totalAnimationTime));
       
@@ -392,6 +441,44 @@ export function Game({
 
   return (
     <div className="min-h-screen py-4 px-2">
+      {/* Flying graduation pieces overlay.
+          Rendered as fixed-position elements on top of everything so the
+          animation from board cell -> pool isn't clipped by container
+          overflow or ancestor transforms. Each piece arcs slightly
+          upward mid-flight via a keyframe y-offset, decays to 0.5 scale
+          (to fit the pool slot), and fades out on arrival. */}
+      <AnimatePresence>
+        {flyingPieces.map(fp => {
+          // Subtract an approximate piece half-size (32px for lg ≈ 64px)
+          // so the motion.x/y values land the element's top-left such that
+          // the piece centre hits (toX, toY). Avoids combining `x`/`y`
+          // with a CSS translate(-50%,-50%) which can fight each other.
+          const HALF = 32;
+          return (
+            <motion.div
+              key={fp.key}
+              initial={{ x: fp.fromX - HALF, y: fp.fromY - HALF, scale: 1, opacity: 1 }}
+              animate={{
+                x: [fp.fromX - HALF, (fp.fromX + fp.toX) / 2 - HALF, fp.toX - HALF],
+                y: [fp.fromY - HALF, Math.min(fp.fromY, fp.toY) - 80 - HALF, fp.toY - HALF],
+                scale: [1, 0.8, 0.5],
+                opacity: [1, 1, 0],
+              }}
+              transition={{ duration: 0.7, ease: 'easeInOut', times: [0, 0.5, 1] }}
+              style={{
+                position: 'fixed',
+                left: 0,
+                top: 0,
+                pointerEvents: 'none',
+                zIndex: 1000,
+              }}
+            >
+              <PieceView piece={fp.piece} size="lg" />
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">

@@ -292,6 +292,11 @@ export function Board({
                   return (
                     <motion.div
                       key={`cell-${row}-${col}`}
+                      // data-cell enables external features (like the
+                      // fly-to-pool graduation animation in Game.tsx) to
+                      // locate this cell's on-screen rect at runtime via
+                      // document.querySelector without threading refs.
+                      data-cell={`${row}-${col}`}
                       whileHover={canPlace ? { scale: 1.05 } : undefined}
                       whileTap={canPlace ? { scale: 0.95 } : undefined}
                       onClick={() => handleCellClick(row, col)}
@@ -344,17 +349,24 @@ export function Board({
                           key={pieceKey}
                           {...(boopAnim 
                             ? getHopAnimation(boopAnim.fromRow, boopAnim.fromCol, row, col, !!hasNewPlacement)
-                            : isNewPlacement
-                              ? dropAnimation
-                              : isGraduating && graduationPhase === 'removing'
-                                ? {
-                                    // Graduation-exit: piece scales away and fades
-                                    // upward. This replaces the identity/drop
-                                    // transitions so the exit animation wins.
-                                    initial: false,
-                                    animate: { scale: 0, opacity: 0, y: -50 },
-                                    transition: { duration: 0.6, ease: 'easeIn' },
-                                  }
+                            // Graduation-exit MUST check before isNewPlacement.
+                            // If the just-placed piece is part of the graduating
+                            // line (it is, whenever a placement completes the
+                            // 3-in-a-row) and we checked isNewPlacement first,
+                            // the piece would keep running its drop animation
+                            // during the removal phase and vanish out-of-sync
+                            // with its two siblings when animatingGraduations
+                            // clears. By branching on the 'removing' phase
+                            // first, all three graduating pieces run the same
+                            // exit transition in lockstep.
+                            : isGraduating && graduationPhase === 'removing'
+                              ? {
+                                  initial: false,
+                                  animate: { scale: 0, opacity: 0, y: -50 },
+                                  transition: { duration: 0.6, ease: 'easeIn' },
+                                }
+                              : isNewPlacement
+                                ? dropAnimation
                                 : { initial: false }
                           )}
                           className={`relative ${
@@ -500,6 +512,12 @@ export function PlayerPool({
 
         <div className="flex flex-col items-center">
           <motion.button
+            // data-pool-target: marks this element as the fly-to destination
+            // for graduating pieces (kittens promote into cats, cats return
+            // to pool as cats — both end up here). Query it by
+            // `[data-pool-target="<color>-cat"]` from Game.tsx at animation
+            // start to get its bounding rect.
+            data-pool-target={`${color}-cat`}
             whileHover={isCurrentPlayer && isMyTurn && catsInPool > 0 ? { scale: 1.1 } : undefined}
             whileTap={isCurrentPlayer && isMyTurn && catsInPool > 0 ? { scale: 0.95 } : undefined}
             onClick={() => isCurrentPlayer && isMyTurn && catsInPool > 0 && onSelectPiece('cat')}

@@ -2,8 +2,31 @@ import { Server, Socket } from 'socket.io';
 import { RoomManager } from '../rooms/RoomManager';
 import { LobbyManager } from '../lobby/LobbyManager';
 import { PieceType, PlayerColor } from '../game/types';
+import { getAzClient } from '../bots/azClient';
+import { azSocketId, pumpAzMoves } from '../bots/azGameRunner';
 
 export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyManager: LobbyManager): void {
+  // If this room has an AZ bot player and it's the AZ's turn, drive the
+  // AZ via the MLFactory service. Fire-and-forget; errors are surfaced
+  // as `az_error` socket events inside the pump.
+  const maybePumpAz = (io: Server, room: import('../rooms/RoomManager').Room) => {
+    const azClient = getAzClient();
+    if (!azClient) return;
+    const state = room.game.getState();
+    if (state.phase === 'finished') return;
+
+    // Determine if either slot is held by the AZ for this room.
+    const expectedAzId = azSocketId(room.id);
+    const orangeIsAz = state.players.orange?.socketId === expectedAzId;
+    const grayIsAz = state.players.gray?.socketId === expectedAzId;
+    if (!orangeIsAz && !grayIsAz) return;
+    const azColor: PlayerColor = orangeIsAz ? 'orange' : 'gray';
+
+    pumpAzMoves(io, room, azClient, azColor).catch((err) => {
+      console.error(`[az] pump crashed in room ${room.code}: ${err?.message ?? err}`);
+    });
+  };
+
   // Helper to broadcast lobby updates to all players in the lobby
   const broadcastLobbyUpdate = () => {
     // Send personalized list to each player in lobby (excluding themselves)
@@ -37,6 +60,79 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
       } catch (error) {
         console.error('Error creating room:', error);
         callback({ success: false, error: 'Failed to create room' });
+      }
+    });
+
+    // Create a game where the opponent is the AZ bot (MLFactory service).
+    // The human joins as one colour; a synthetic "az-bot:<roomId>" player
+    // fills the other slot. After the human's first move, the AZ pump
+    // drives the bot. If the human chose to go second (humanColor='gray'),
+    // we pump the AZ immediately to play the opening move.
+    socket.on('create_az_game', (
+      data: {
+        playerName: string;
+        playerToken?: string;
+        humanColor?: PlayerColor; // defaults to orange
+      },
+      callback
+    ) => {
+      try {
+        const azClient = getAzClient();
+        if (!azClient) {
+          callback({ success: false, error: 'AZ service not configured (AZ_SERVICE_URL unset)' });
+          return;
+        }
+
+        const humanColor: PlayerColor = data.humanColor === 'gray' ? 'gray' : 'orange';
+        const azColor: PlayerColor = humanColor === 'orange' ? 'gray' : 'orange';
+
+        const room = roomManager.createRoom();
+
+        // Add the human first or second depending on their chosen colour.
+        // BoopGame.addPlayer assigns to whichever slot is open, in order.
+        // To force colour assignment, we add the AZ first when human
+        // wants gray, and the human first when they want orange.
+        let first: { socketId: string; name: string; token?: string };
+        let second: { socketId: string; name: string; token?: string };
+        if (humanColor === 'orange') {
+          first = { socketId: socket.id, name: data.playerName, token: data.playerToken };
+          second = { socketId: azSocketId(room.id), name: '🤖 AlphaZero' };
+        } else {
+          first = { socketId: azSocketId(room.id), name: '🤖 AlphaZero' };
+          second = { socketId: socket.id, name: data.playerName, token: data.playerToken };
+        }
+
+        const firstResult = roomManager.joinRoom(room.id, first.socketId, first.name, first.token);
+        if (!firstResult.success) {
+          callback({ success: false, error: firstResult.error ?? 'Failed to seat first player' });
+          return;
+        }
+        const secondResult = roomManager.joinRoom(room.id, second.socketId, second.name, second.token);
+        if (!secondResult.success) {
+          callback({ success: false, error: secondResult.error ?? 'Failed to seat second player' });
+          return;
+        }
+
+        socket.join(room.id);
+
+        callback({
+          success: true,
+          roomCode: room.code,
+          roomId: room.id,
+          playerColor: humanColor,
+          azColor,
+          gameState: room.game.getState(),
+        });
+
+        // If the AZ is on move first (human chose gray), pump it.
+        if (azColor === 'orange') {
+          pumpAzMoves(io, room, azClient, azColor).catch((err) => {
+            console.error(`[az] initial pump crashed: ${err?.message ?? err}`);
+          });
+        }
+      } catch (error) {
+        console.error('Error creating AZ game:', error);
+        callback({ success: false, error: 'Failed to create AZ game' });
       }
     });
 
@@ -149,6 +245,11 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
           }
 
           callback({ success: true, requiresGraduationChoice: result.requiresGraduationChoice });
+
+          // If the other player in this room is the AZ bot and the game is
+          // ongoing, pump it now. Fire-and-forget; any errors are emitted
+          // as 'az_error' events inside the pump.
+          maybePumpAz(io, room);
         } else {
           callback({ success: false, error: result.error });
         }
@@ -190,6 +291,9 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
           }
 
           callback({ success: true });
+
+          // Hand off to the AZ if it's their turn in this room.
+          maybePumpAz(io, room);
         } else {
           callback({ success: false, error: result.error });
         }

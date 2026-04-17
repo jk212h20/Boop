@@ -83,6 +83,7 @@ interface UseSocketReturn {
   savedPlayerName: string | null;
   
   createRoom: (playerName: string) => Promise<RoomInfo>;
+  createAzGame: (playerName: string, humanColor?: PlayerColor) => Promise<RoomInfo>;
   joinRoom: (roomCode: string, playerName: string) => Promise<RoomInfo>;
   rejoinRoom: (roomCode: string) => Promise<RoomInfo>;
   placePiece: (row: number, col: number, pieceType: PieceType) => Promise<boolean>;
@@ -326,6 +327,68 @@ export function useSocket(): UseSocketReturn {
       });
     });
   }, []);
+
+  // Create an AZ-bot game. Server creates a room with the human on one side
+  // and a synthetic AlphaZero player on the other. Requires the server to
+  // have AZ_SERVICE_URL configured; otherwise the promise rejects with an
+  // explanatory error.
+  const createAzGame = useCallback(
+    (playerName: string, humanColor: PlayerColor = 'orange'): Promise<RoomInfo> => {
+      return new Promise((resolve, reject) => {
+        if (!socketRef.current) {
+          reject(new Error('Not connected'));
+          return;
+        }
+
+        savePlayerName(playerName);
+
+        socketRef.current.emit(
+          'create_az_game',
+          {
+            playerName,
+            playerToken: playerTokenRef.current,
+            humanColor,
+          },
+          (response: {
+            success: boolean;
+            roomCode?: string;
+            roomId?: string;
+            playerColor?: PlayerColor;
+            azColor?: PlayerColor;
+            gameState?: GameState;
+            error?: string;
+          }) => {
+            if (
+              response.success &&
+              response.roomCode &&
+              response.roomId &&
+              response.playerColor
+            ) {
+              const info: RoomInfo = {
+                roomCode: response.roomCode,
+                roomId: response.roomId,
+                playerColor: response.playerColor,
+              };
+              setRoomInfo(info);
+              setPlayerColor(response.playerColor);
+              setGameState(response.gameState || null);
+              setGameOver(null);
+              setOpponentDisconnected(false);
+              setOpponentMayReconnect(false);
+
+              saveActiveGame(response.roomCode, response.roomId, response.playerColor, playerName);
+              window.location.hash = `/game/${response.roomCode}`;
+
+              resolve(info);
+            } else {
+              reject(new Error(response.error || 'Failed to create AZ game'));
+            }
+          }
+        );
+      });
+    },
+    []
+  );
 
   // Join an existing room
   const joinRoom = useCallback((roomCode: string, playerName: string): Promise<RoomInfo> => {
@@ -611,6 +674,7 @@ export function useSocket(): UseSocketReturn {
     lobbyPlayers,
     savedPlayerName,
     createRoom,
+    createAzGame,
     joinRoom,
     rejoinRoom,
     placePiece,

@@ -33,6 +33,7 @@ function App() {
     lobbyPlayers,
     savedPlayerName,
     createRoom,
+    createAzGame,
     joinRoom,
     rejoinRoom,
     placePiece: onlinePlacePiece,
@@ -123,13 +124,29 @@ function App() {
     await joinRoom(code, name);
   }, [joinRoom]);
 
-  const handlePlayBot = useCallback((name: string, difficulty: BotDifficulty) => {
+  const handlePlayBot = useCallback(async (name: string, difficulty: BotDifficulty) => {
+    // The 'alphazero' option takes the networked path (server-backed AZ
+    // service). Every other difficulty runs the client-side minimax bot.
+    if (difficulty === 'alphazero') {
+      setGameMode('online');
+      setRejoinError(null);
+      try {
+        await createAzGame(name);
+      } catch (err) {
+        // Surface the error; the lobby already shows network errors from
+        // useSocket via `error`, so we also keep gameMode null so the UI
+        // returns to the menu.
+        console.error('Failed to create AZ game:', err);
+        setGameMode(null);
+      }
+      return;
+    }
     const diffConfig = BOT_DIFFICULTIES.find(d => d.id === difficulty);
     const searchDepth = diffConfig?.depth ?? 2;
     setGameMode('bot');
     setRejoinError(null);
     startBotGame(name, { searchDepth });
-  }, [startBotGame]);
+  }, [startBotGame, createAzGame]);
 
   const handleLeaveOnlineGame = useCallback(() => {
     leaveRoom();

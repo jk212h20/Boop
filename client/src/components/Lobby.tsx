@@ -2,7 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WaitingPlayer, PlayerColor } from '../types';
 
-// Bot difficulty options (with smart pruning - much faster at higher depths!)
+// Bot difficulty options.
+//
+// Most entries run entirely client-side: a minimax engine (see
+// src/bot/BotAI.ts) with a tuned search depth. The special 'alphazero'
+// entry is server-backed: the client creates a networked room against
+// a Python AZ service via the server's `create_az_game` socket event,
+// rather than instantiating a local bot. Callers should handle that
+// branch distinctly (see App.tsx::handlePlayBot).
 export const BOT_DIFFICULTIES = [
   { id: 'easy', name: 'Easy', description: 'Depth 1 - Instant, beginner friendly', depth: 1 },
   { id: 'normal', name: 'Normal', description: 'Depth 2 - Fast & balanced', depth: 2 },
@@ -10,6 +17,7 @@ export const BOT_DIFFICULTIES = [
   { id: 'expert', name: 'Expert', description: 'Depth 4 - Very strong (~2s/move)', depth: 4 },
   { id: 'master', name: 'Master', description: 'Depth 5 - Elite (~5-10s/move)', depth: 5 },
   { id: 'grandmaster', name: 'Grandmaster', description: 'Depth 6 - Maximum (~15-30s/move)', depth: 6 },
+  { id: 'alphazero', name: 'AlphaZero (experimental)', description: 'Neural net — online only', depth: 0 },
 ] as const;
 
 export type BotDifficulty = typeof BOT_DIFFICULTIES[number]['id'];

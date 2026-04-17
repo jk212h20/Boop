@@ -435,7 +435,7 @@ function checkAndExecuteGraduation(
 }
 
 // Check win condition
-function checkWinCondition(
+export function checkWinCondition(
   board: Board,
   playerColor: PlayerColor
 ): 'three_cats_in_row' | 'all_eight_cats' | null {

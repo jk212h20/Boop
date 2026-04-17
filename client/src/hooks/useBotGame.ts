@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GameState, PlayerColor, PieceType, GameOverInfo, Cell } from '../types';
-import { createInitialGameState, executeMove, cloneGameState } from '../bot/LocalGame';
+import { checkWinCondition, createInitialGameState, executeMove, cloneGameState } from '../bot/LocalGame';
 import { createBot, BotAI } from '../bot/BotAI';
 import { DEFAULT_BOT_CONFIG, BotConfig } from '../bot/types';
 
@@ -70,9 +70,11 @@ export function useBotGame(): UseBotGameReturn {
           
           // Check for game over
           if (result.newState.phase === 'finished' && result.newState.winner) {
+            const winCondition = checkWinCondition(result.newState.board, result.newState.winner)
+              ?? 'three_cats_in_row';
             setGameOver({
               winner: result.newState.winner,
-              winCondition: 'three_cats_in_row', // We'd need more info to know exact condition
+              winCondition,
               gameState: result.newState,
             });
           }
@@ -130,9 +132,11 @@ export function useBotGame(): UseBotGameReturn {
     
     // Check for game over
     if (result.newState.phase === 'finished' && result.newState.winner) {
+      const winCondition = checkWinCondition(result.newState.board, result.newState.winner)
+        ?? 'three_cats_in_row';
       setGameOver({
         winner: result.newState.winner,
-        winCondition: 'three_cats_in_row',
+        winCondition,
         gameState: result.newState,
       });
       return true;
@@ -199,8 +203,26 @@ export function useBotGame(): UseBotGameReturn {
     newState.pendingGraduationOptions = undefined;
     newState.pendingGraduationPlayer = undefined;
 
-    // Check for win (3 cats in a row)
-    // For simplicity, just check if we need to return to playing
+    // Check for win AFTER graduation. A graduation can win the game by
+    // either promoting kittens into a 3-cats-in-a-row line OR by reaching
+    // all 8 cats on the board. Mirrors server logic in
+    // server/src/game/GameState.ts:selectGraduation (checkWinCondition
+    // then phase/winner set). The prior implementation skipped this
+    // check and silently continued the game — a human could graduate
+    // into a winning position and have the UI not notice.
+    const winCondition = checkWinCondition(newState.board, playerColor);
+    if (winCondition) {
+      newState.phase = 'finished';
+      newState.winner = playerColor;
+      setGameState(newState);
+      setGameOver({
+        winner: playerColor,
+        winCondition,
+        gameState: newState,
+      });
+      return true;
+    }
+
     newState.phase = 'playing';
     newState.currentTurn = botColor;
 

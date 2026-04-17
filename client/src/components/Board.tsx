@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Board as BoardType, PlayerColor, PieceType, Cell, Piece as PieceData, BoopEffect } from '../types';
 import { Piece } from './Piece';
@@ -31,8 +32,15 @@ interface BoardProps {
   isMyTurn: boolean;
   lastMove: Cell | null;
   selectedPieceType: PieceType | null;
+  myColor?: PlayerColor;  // For hover preview of the piece to be placed
   boopedPieces?: BoopEffect[];
   graduatingPieces?: GraduatingPiece[];  // Changed: now includes piece data
+  // The three-phase graduation sequence (see Game.tsx):
+  //   'visible'      -> pieces are shown normally (drop/boop phase)
+  //   'highlighting' -> sparkle+scale keyframes play in-place
+  //   'removing'     -> pieces fade out and scale away
+  //   null | undefined -> no graduation in progress
+  graduationPhase?: 'visible' | 'highlighting' | 'removing' | null;
   ghostPieces?: GhostPiece[];
   highlightedCell?: Cell | null;  // For highlighting placed piece in history view
   isViewingHistory?: boolean;  // When true, clicking returns to current game
@@ -79,8 +87,10 @@ export function Board({
   isMyTurn, 
   lastMove, 
   selectedPieceType,
+  myColor,
   boopedPieces = [],
   graduatingPieces = [],
+  graduationPhase = null,
   ghostPieces = [],
   highlightedCell = null,
   isViewingHistory = false,
@@ -94,6 +104,11 @@ export function Board({
   const DROP_DURATION = 0.4;
   const BOOP_DELAY = DROP_DURATION + 0.1; // Wait for drop to complete
   const BOOP_DURATION = 0.5;
+
+  // Hover state: which empty cell is the cursor over right now?
+  // Used to render a translucent preview of the selected piece so players
+  // can clearly see what they're about to play and where.
+  const [hoveredCell, setHoveredCell] = useState<Cell | null>(null);
 
   // Check if there's a new placement in this render
   const hasNewPlacement = lastMove && !isViewingHistory;
@@ -268,12 +283,22 @@ export function Board({
                     ? `piece-${row}-${col}-${animationKey}` 
                     : `piece-${row}-${col}-${piece?.color}-${piece?.type}`;
 
+                  const isHovered =
+                    canPlace &&
+                    hoveredCell !== null &&
+                    hoveredCell.row === row &&
+                    hoveredCell.col === col;
+
                   return (
                     <motion.div
                       key={`cell-${row}-${col}`}
                       whileHover={canPlace ? { scale: 1.05 } : undefined}
                       whileTap={canPlace ? { scale: 0.95 } : undefined}
                       onClick={() => handleCellClick(row, col)}
+                      onMouseEnter={() => canPlace && setHoveredCell({ row, col })}
+                      onMouseLeave={() => setHoveredCell(prev =>
+                        prev && prev.row === row && prev.col === col ? null : prev
+                      )}
                       className={`
                         relative
                         w-14 h-14 sm:w-16 sm:h-16
@@ -283,11 +308,25 @@ export function Board({
                         flex items-center justify-center
                         transition-colors duration-200
                         ${canPlace ? 'cursor-pointer hover:bg-amber-100 cell-empty' : ''}
+                        ${isHovered ? 'ring-4 ring-green-500 ring-offset-1 bg-green-50' : ''}
                         ${isLastMove && !isViewingHistory ? 'ring-2 ring-yellow-400 ring-offset-1' : ''}
                         ${highlighted ? 'ring-3 ring-blue-400 ring-offset-1 bg-blue-50' : ''}
                         ${isViewingHistory ? 'cursor-pointer' : ''}
                       `}
                     >
+                      {/* Hover preview: translucent rendering of the piece about to be placed.
+                          Shows the selected piece type (kitten or cat) in the player's color,
+                          so the user can see at a glance what they're about to do. */}
+                      {isHovered && selectedPieceType && myColor && !piece && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-60">
+                          <Piece
+                            piece={{ color: myColor, type: selectedPieceType }}
+                            size="lg"
+                            isGhost={true}
+                          />
+                        </div>
+                      )}
+
                       {/* Ghost piece (where a piece was before booping) */}
                       {ghostPiece && !piece && (
                         <div className="absolute inset-0 flex items-center justify-center ghost-piece opacity-30">
@@ -307,10 +346,27 @@ export function Board({
                             ? getHopAnimation(boopAnim.fromRow, boopAnim.fromCol, row, col, !!hasNewPlacement)
                             : isNewPlacement
                               ? dropAnimation
-                              : { initial: false }
+                              : isGraduating && graduationPhase === 'removing'
+                                ? {
+                                    // Graduation-exit: piece scales away and fades
+                                    // upward. This replaces the identity/drop
+                                    // transitions so the exit animation wins.
+                                    initial: false,
+                                    animate: { scale: 0, opacity: 0, y: -50 },
+                                    transition: { duration: 0.6, ease: 'easeIn' },
+                                  }
+                                : { initial: false }
                           )}
-                          className={`relative ${isGraduating ? 'graduating-piece' : ''} ${boopAnim || isNewPlacement ? 'z-20' : ''}`}
-                          style={{ zIndex: boopAnim || isNewPlacement ? 20 : 1 }}
+                          className={`relative ${
+                            isGraduating && graduationPhase === 'highlighting'
+                              ? 'graduating-piece'
+                              : ''
+                          } ${boopAnim || isNewPlacement ? 'z-20' : ''} ${
+                            isGraduating ? 'z-30' : ''
+                          }`}
+                          style={{
+                            zIndex: isGraduating ? 30 : boopAnim || isNewPlacement ? 20 : 1,
+                          }}
                         >
                           {/* Hop arc effect - extra vertical bounce for booped pieces */}
                           {boopAnim ? (
@@ -328,7 +384,7 @@ export function Board({
                                 piece={piece} 
                                 size="lg"
                                 isNew={false}
-                                isGraduating={isGraduating}
+                                isGraduating={isGraduating && graduationPhase === 'highlighting'}
                               />
                             </motion.div>
                           ) : (
@@ -336,12 +392,12 @@ export function Board({
                               piece={piece} 
                               size="lg"
                               isNew={isNewPlacement}
-                              isGraduating={isGraduating}
+                              isGraduating={isGraduating && graduationPhase === 'highlighting'}
                             />
                           )}
                           
-                          {/* Graduation sparkles */}
-                          {isGraduating && (
+                          {/* Graduation sparkles (only during highlight phase) */}
+                          {isGraduating && graduationPhase === 'highlighting' && (
                             <div className="graduation-sparkles">
                               <span className="sparkle sparkle-1">✨</span>
                               <span className="sparkle sparkle-2">⭐</span>
@@ -349,30 +405,6 @@ export function Board({
                               <span className="sparkle sparkle-4">⭐</span>
                             </div>
                           )}
-                        </motion.div>
-                      )}
-
-                      {/* Graduating piece phantom - shows when piece is already removed from board */}
-                      {!piece && graduatingPiece && (
-                        <motion.div
-                          key={`graduating-${row}-${col}-${animationKey}`}
-                          initial={{ scale: 1, opacity: 1 }}
-                          animate={{ scale: 0, opacity: 0, y: -50 }}
-                          transition={{ duration: 0.6, ease: "easeIn" }}
-                          className="relative graduating-piece z-30"
-                          style={{ zIndex: 30 }}
-                        >
-                          <Piece 
-                            piece={graduatingPiece.piece} 
-                            size="lg"
-                            isGraduating={true}
-                          />
-                          <div className="graduation-sparkles">
-                            <span className="sparkle sparkle-1">✨</span>
-                            <span className="sparkle sparkle-2">⭐</span>
-                            <span className="sparkle sparkle-3">✨</span>
-                            <span className="sparkle sparkle-4">⭐</span>
-                          </div>
                         </motion.div>
                       )}
                     </motion.div>

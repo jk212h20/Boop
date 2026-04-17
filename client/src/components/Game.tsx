@@ -50,6 +50,13 @@ export function Game({
   // Animation state - tracks the current move's effects for animation
   const [animatingBoops, setAnimatingBoops] = useState<BoopEffect[]>([]);
   const [animatingGraduations, setAnimatingGraduations] = useState<GraduatingPiece[]>([]);
+  // 'visible' = graduating pieces are on the board and not yet reacting;
+  // 'highlighting' = they play the sparkle+scale keyframes in-place;
+  // 'removing' = they fade out and scale away, then get cleared.
+  // null = no graduation in progress.
+  const [graduationPhase, setGraduationPhase] = useState<
+    'visible' | 'highlighting' | 'removing' | null
+  >(null);
   const [ghostPieces, setGhostPieces] = useState<GhostPiece[]>([]);
   const [fallenPieces, setFallenPieces] = useState<FallenPiece[]>([]);
   const [animationKey, setAnimationKey] = useState(0);
@@ -79,10 +86,28 @@ export function Game({
     gameState.pendingGraduationPlayer === playerColor;
   const graduationOptions = gameState.pendingGraduationOptions || [];
 
-  // Determine what to display based on history viewing
-  const displayBoard = gameHistory.isViewingHistory 
-    ? gameHistory.viewingBoard 
-    : gameState.board;
+  // Determine what to display based on history viewing.
+  //
+  // During graduation animation we overlay the graduating pieces back onto
+  // their cells so they're visible and can be highlighted before being
+  // removed. Without this the cells blank the instant gameState.board
+  // arrives from the server (which already has the cells empty), leading
+  // to the "flash of already-removed pieces" bug. Board.tsx's render
+  // handles the actual removal animation once we clear animatingGraduations.
+  const displayBoard = useMemo(() => {
+    if (gameHistory.isViewingHistory) return gameHistory.viewingBoard;
+    if (animatingGraduations.length === 0) return gameState.board;
+    // Copy the board and restore each graduating cell.
+    const merged = gameState.board.map(row => row.slice());
+    for (const gp of animatingGraduations) {
+      // Only restore if currently empty (don't clobber pieces that landed
+      // there since — shouldn't happen but be defensive).
+      if (!merged[gp.row][gp.col]) {
+        merged[gp.row][gp.col] = gp.piece;
+      }
+    }
+    return merged;
+  }, [gameHistory.isViewingHistory, gameHistory.viewingBoard, gameState.board, animatingGraduations]);
   
   // Get historical player pools if viewing history
   const displayPools = useMemo(() => {
@@ -186,11 +211,25 @@ export function Game({
     }
   }, [gameState.lastMove]);
 
-  // Animation timing constants (must match Board.tsx)
+  // Animation timing constants (must match Board.tsx).
+  //
+  // Timeline for a move that both boops and graduates:
+  //   t=0               move arrives; pieces visible in pre-graduation position
+  //                     (displayBoard overlays graduating pieces back onto their cells).
+  //   0..DROP_DURATION  newly-placed piece drops in.
+  //   BOOP_DELAY        booped pieces start hopping.
+  //   BOOP_END          boops done; graduating pieces get the "graduating-piece"
+  //                     class which plays the sparkle+scale highlight animation.
+  //   +GRADUATION_HIGHLIGHT_DURATION  highlight animation ends.
+  //   +GRADUATION_REMOVAL_DURATION    removal (scale-out + fade) completes.
+  // Cells are cleared from displayBoard only after the final phase ends,
+  // so the visual order is: move, boop, highlight, remove.
   const DROP_DURATION = 400; // ms
   const BOOP_DELAY = DROP_DURATION + 100; // ms, wait for drop to complete
   const BOOP_DURATION = 500; // ms
   const GRADUATION_DELAY = BOOP_DELAY + BOOP_DURATION + 100; // ms, wait for boops to complete
+  const GRADUATION_HIGHLIGHT_DURATION = 800; // ms — matches .graduating-piece keyframe
+  const GRADUATION_REMOVAL_DURATION = 600; // ms — the phantom's exit animation
 
   // Handle game state updates - trigger animations and sounds (live game only)
   useEffect(() => {
@@ -236,17 +275,40 @@ export function Game({
       setGhostPieces(newGhosts);
       setFallenPieces(newFallen);
       
-      // Delay graduation animation until after boops complete - include piece data from prev board
+      // Graduation: keep the pieces on the board (via displayBoard merge)
+      // and step through three phases:
+      //   1. 'visible' — pieces are just there, no special rendering.
+      //      This covers the placement-drop and boop phases.
+      //   2. 'highlighting' — triggered after boops end. Board.tsx applies
+      //      the .graduating-piece class (sparkle + scale keyframe).
+      //   3. 'removing' — triggered after the highlight finishes. Board.tsx
+      //      switches to the exit animation (fade + scale-out).
+      // Finally we clear animatingGraduations, displayBoard snaps to the
+      // post-graduation state, and the cells become empty.
+      const timers: ReturnType<typeof setTimeout>[] = [];
       if (graduated.length > 0) {
-        // The player who just moved is the one whose pieces graduated (currentTurn has already switched)
-        const graduatingPlayer: PlayerColor = gameState.currentTurn === 'orange' ? 'gray' : 'orange';
+        const graduatingPlayer: PlayerColor =
+          gameState.currentTurn === 'orange' ? 'gray' : 'orange';
         const graduatingWithPieces: GraduatingPiece[] = graduated.map(cell => ({
           row: cell.row,
           col: cell.col,
-          // Try to get from prev board, fallback to correct player's kitten
-          piece: prevBoardRef.current[cell.row]?.[cell.col] || { color: graduatingPlayer, type: 'kitten' as PieceType }
+          piece:
+            prevBoardRef.current[cell.row]?.[cell.col] ||
+            { color: graduatingPlayer, type: 'kitten' as PieceType }
         }));
-        setTimeout(() => setAnimatingGraduations(graduatingWithPieces), GRADUATION_DELAY);
+        // Set the full graduation list immediately so displayBoard keeps
+        // the pieces visible from t=0.
+        setAnimatingGraduations(graduatingWithPieces);
+        setGraduationPhase('visible');
+
+        timers.push(setTimeout(() => {
+          setGraduationPhase('highlighting');
+          playSound('graduate');
+        }, GRADUATION_DELAY));
+
+        timers.push(setTimeout(() => {
+          setGraduationPhase('removing');
+        }, GRADUATION_DELAY + GRADUATION_HIGHLIGHT_DURATION));
       }
       
       // Play sounds with proper timing
@@ -258,22 +320,20 @@ export function Game({
         setTimeout(() => playSound('boop'), BOOP_DELAY);
       }
       
-      if (graduated.length > 0) {
-        setTimeout(() => playSound('graduate'), GRADUATION_DELAY);
-      }
-      
       // Clear animation state after all animations complete
-      const totalAnimationTime = graduated.length > 0 
-        ? GRADUATION_DELAY + 800 // Extra time for graduation animation
-        : BOOP_DELAY + BOOP_DURATION + 200;
-        
-      const timer = setTimeout(() => {
+      const totalAnimationTime =
+        graduated.length > 0
+          ? GRADUATION_DELAY + GRADUATION_HIGHLIGHT_DURATION + GRADUATION_REMOVAL_DURATION
+          : BOOP_DELAY + BOOP_DURATION + 200;
+
+      timers.push(setTimeout(() => {
         setAnimatingBoops([]);
         setAnimatingGraduations([]);
+        setGraduationPhase(null);
         setFallenPieces([]);
-      }, totalAnimationTime);
+      }, totalAnimationTime));
       
-      return () => clearTimeout(timer);
+      return () => timers.forEach(clearTimeout);
     } else if (gameState.lastMove) {
       // Just a placement with no boops
       playSound('place');
@@ -479,8 +539,10 @@ export function Game({
               isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
               lastMove={gameHistory.isViewingHistory ? null : gameState.lastMove}
               selectedPieceType={isMyTurn && !gameHistory.isViewingHistory ? selectedPieceType : null}
+              myColor={playerColor}
               boopedPieces={historyAnimationData.boops}
               graduatingPieces={gameHistory.isViewingHistory ? [] : animatingGraduations}
+              graduationPhase={gameHistory.isViewingHistory ? null : graduationPhase}
               ghostPieces={historyAnimationData.ghosts}
               highlightedCell={historyHighlightedCell}
               isViewingHistory={gameHistory.isViewingHistory}

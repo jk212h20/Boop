@@ -6,6 +6,22 @@ const SOCKET_URL = import.meta.env.PROD
   ? window.location.origin 
   : 'http://localhost:3001';
 
+// How long an incoming game_update takes to finish animating in Game.tsx.
+// Must match the timings in Game.tsx's animation useEffect:
+//   - simple placement: drop (~400ms) + small buffer
+//   - booped pieces:    drop + boop (~500ms) + buffer ~ 1200ms
+//   - graduated:        drop + boop + graduation (~800ms) ~ 1800ms
+// We use slightly larger values than Game.tsx's totals to guarantee the
+// animation finishes before the next update is applied, avoiding the
+// "AZ's move renders on top of my move" flicker.
+function animationDurationMs(update: GameUpdate): number {
+  const hasGraduations = (update.graduatedPieces?.length ?? 0) > 0;
+  const hasBoops = (update.boopedPieces?.length ?? 0) > 0;
+  if (hasGraduations) return 1900;
+  if (hasBoops) return 1300;
+  return 500;
+}
+
 // Storage keys
 const PLAYER_TOKEN_KEY = 'boop_player_token';
 const ACTIVE_GAME_KEY = 'boop_active_game';
@@ -120,6 +136,38 @@ export function useSocket(): UseSocketReturn {
   
   const [savedPlayerName] = useState<string | null>(getSavedPlayerName());
 
+  // Queue of pending game_update events. We serialise them so the animation
+  // for update N completes before update N+1's state is applied to React.
+  // Without this, a fast-responding opponent (our AZ bot, which can move in
+  // ~150ms server-side) would overwrite gameState while the player's own
+  // move is still animating — the UI "snaps" and you never see your boops.
+  const updateQueueRef = useRef<GameUpdate[]>([]);
+  const applyingNextAtRef = useRef<number>(0); // wall-clock ms when the next update may apply
+
+  // Drains one update from the queue if the animation window has elapsed.
+  // Scheduled by enqueueGameUpdate and by game_update itself.
+  const drainQueueRef = useRef<() => void>(() => {});
+  drainQueueRef.current = () => {
+    if (updateQueueRef.current.length === 0) return;
+    const now = Date.now();
+    if (now < applyingNextAtRef.current) {
+      // Not yet — reschedule.
+      setTimeout(drainQueueRef.current, applyingNextAtRef.current - now);
+      return;
+    }
+    const next = updateQueueRef.current.shift()!;
+    setGameState(next.gameState);
+    applyingNextAtRef.current = Date.now() + animationDurationMs(next);
+    if (updateQueueRef.current.length > 0) {
+      setTimeout(drainQueueRef.current, applyingNextAtRef.current - Date.now());
+    }
+  };
+
+  const enqueueGameUpdate = useCallback((data: GameUpdate) => {
+    updateQueueRef.current.push(data);
+    drainQueueRef.current();
+  }, []);
+
   // Initialize socket connection
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -201,14 +249,21 @@ export function useSocket(): UseSocketReturn {
     });
 
     socket.on('game_update', (data: GameUpdate) => {
-      setGameState(data.gameState);
+      // Queue rather than apply immediately — see enqueueGameUpdate.
+      enqueueGameUpdate(data);
     });
 
     socket.on('game_over', (data: GameOverInfo) => {
-      setGameOver(data);
-      setGameState(data.gameState);
-      // Game is over, clear active game
-      clearActiveGame();
+      // Delay the game-over overlay until after all queued animations finish.
+      // Otherwise the "You won/lost" banner covers the very move that ended
+      // the game. We base the delay on the queue's current drain-end time.
+      const now = Date.now();
+      const waitMs = Math.max(0, applyingNextAtRef.current - now);
+      setTimeout(() => {
+        setGameOver(data);
+        setGameState(data.gameState);
+        clearActiveGame();
+      }, waitMs);
     });
 
     socket.on('player_disconnected', (data: { playerColor: string; canRejoin?: boolean }) => {

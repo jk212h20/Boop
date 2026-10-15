@@ -505,7 +505,7 @@ export function Game({
         })}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="game-page">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -627,10 +627,10 @@ export function Game({
         </AnimatePresence>
 
         {/* Game layout */}
-        <div className="flex flex-col lg:flex-row gap-4 items-center lg:items-start justify-center">
+        <div className="game-layout">
           {/* Opponent's pool (top/left) */}
           {opponent && (
-            <div className="w-full lg:w-48">
+            <div className="game-pool-opponent">
               <PlayerPool
                 color={opponentColor}
                 kittensInPool={displayPools[opponentColor].kittensInPool}
@@ -645,7 +645,7 @@ export function Game({
           )}
 
           {/* Board */}
-          <div className="flex-shrink-0">
+          <div className="game-board">
             <FloatingBoard3D
               board={displayBoard}
               onCellClick={handleCellClick}
@@ -665,7 +665,7 @@ export function Game({
 
           {/* My pool (bottom/right) */}
           {myPlayer && (
-            <div className="w-full lg:w-48">
+            <div className="game-pool-self">
               <PlayerPool
                 color={playerColor}
                 kittensInPool={displayPools[playerColor].kittensInPool}
@@ -681,7 +681,7 @@ export function Game({
         </div>
 
         {/* Instructions */}
-        <div className="mt-4 text-center text-sm text-gray-600">
+        <div className="game-instructions">
           {gameHistory.isViewingHistory ? (
             <p className="text-blue-600">📜 Viewing move history - click board or "Return to game" to continue playing</p>
           ) : isMyTurn ? (

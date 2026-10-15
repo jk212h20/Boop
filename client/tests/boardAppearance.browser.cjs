@@ -107,6 +107,45 @@ const path = require('node:path');
       }
     }
     await page.screenshot({ path: path.join(out, 'mobile-player-pool.png') });
+    // Audit the full composition, not just whether individual controls exist.
+    for (const width of [1440, 1280, 1279, 1200, 1024, 768, 600, 601, 390, 320]) {
+      await page.setViewportSize({ width, height: width < 600 ? 844 : 1000 });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(350);
+      const layout = await page.evaluate(() => {
+        const bounds = element => {
+          const { x, y, width, height, right, bottom } = element.getBoundingClientRect();
+          return { x, y, width, height, right, bottom };
+        };
+        return {
+          scrollWidth: document.documentElement.scrollWidth,
+          board: bounds(document.querySelector('.game-board')),
+          pools: Array.from(document.querySelectorAll('.player-pool')).map(pool => ({
+            bounds: bounds(pool),
+            name: bounds(pool.querySelector('h3')),
+            nameLine: parseFloat(getComputedStyle(pool.querySelector('h3')).lineHeight),
+            selectors: Array.from(pool.querySelectorAll('[data-pool-target]')).map(button => ({
+              bounds: bounds(button),
+              labelsFit: Array.from(button.querySelectorAll('span')).every(label => label.scrollWidth <= label.clientWidth),
+            })),
+          })),
+        };
+      });
+      assert.ok(layout.scrollWidth <= width, `No horizontal overflow at ${width}px`);
+      for (const pool of layout.pools) {
+        assert.ok(pool.bounds.x >= 0 && pool.bounds.right <= width, `Pool fits at ${width}px`);
+        assert.ok(pool.name.height <= pool.nameLine + 1, `Name must not wrap at ${width}px`);
+        for (const selector of pool.selectors) {
+          assert.ok(selector.bounds.width >= 94, `Selectors need real room at ${width}px`);
+          assert.ok(selector.labelsFit, `Selector text must fit at ${width}px`);
+        }
+        const b = layout.board, p = pool.bounds;
+        assert.ok(p.right <= b.x || p.x >= b.right || p.bottom <= b.y || p.y >= b.bottom,
+          `Pools cannot overlap the board at ${width}px`);
+      }
+      await page.screenshot({ path: path.join(out, `layout-${width}.png`), fullPage: true });
+      console.log(`PASS: full layout at ${width}px; selectors ${layout.pools[0].selectors[0].bounds.width}px wide`);
+    }
     assert.deepEqual(errors, [], 'No uncaught browser exceptions');
     console.log('PASS: mobile controls accessible; no uncaught browser exceptions');
     console.log(`Screenshots: ${out}`);

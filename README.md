@@ -100,7 +100,12 @@ Player names have their own compact panel above two independent piece selectors.
 Stocked selectors remain bright for both players, including while waiting for a
 turn; only zero stock gets a gray empty state. Large counts and text labels show
 availability, while selection remains restricted to your turn. Fly-to-pool
-anchors remain on the corresponding kitten/cat selectors.
+anchors remain on the corresponding kitten/cat selectors. The game uses a
+1300px responsive grid with reserved 240px desktop pool columns; below 1280px
+both pools sit above the board, and phone layouts put compact horizontal
+selectors above/below it. The canvas follows its grid column rather than forcing
+the player pools to shrink. Browser regressions check full-page geometry and
+capture layouts from 320px through 1440px, including breakpoint transitions.
 
 The placement cursor is a pale, translucent kitten labeled **Preview**, with no
 cast shadow or pointer interception. Quilt squares use a procedural woven

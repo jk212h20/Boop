@@ -472,7 +472,7 @@ export function PlayerPool({
   return (
     <section className={`player-pool player-pool-${color}`} aria-label={`${playerName}'s pieces`}>
       <div className={`player-pool-name ${isMyTurn && isCurrentPlayer ? 'turn-active' : ''}`}>
-        <h3 className="font-display font-bold text-lg">
+        <h3 className="font-display font-bold text-lg" title={playerName}>
           {isCurrentPlayer ? '👤 You' : `🎮 ${playerName}`}
         </h3>
         {isMyTurn && isCurrentPlayer && <span className="player-pool-turn">Your Turn!</span>}

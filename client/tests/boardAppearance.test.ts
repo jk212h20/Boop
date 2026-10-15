@@ -11,6 +11,47 @@ test('quilt preferences accept two hex colors and recover from invalid storage',
   }
 });
 
+function makeSkinnedCat(materialName: string) {
+  const geometry = new THREE.BoxGeometry();
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(
+    [1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1,
+     1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1,
+     1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1,
+     1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1], 4));
+  const bones = [new THREE.Bone(), new THREE.Bone()];
+  bones[0].add(bones[1]);
+  const skeleton = new THREE.Skeleton(bones);
+  const mesh = new THREE.SkinnedMesh(geometry,
+    new THREE.MeshStandardMaterial({ color: '#dddddd', name: materialName }));
+  mesh.add(bones[0]);
+  mesh.bind(skeleton);
+  const group = new THREE.Group();
+  group.add(mesh);
+  return group;
+}
+
+test('rigged cats clone with independent skeletons so pieces animate separately', () => {
+  const source = makeSkinnedCat('Fur');
+  const first = createCatScene(source, 'orange', false);
+  const second = createCatScene(source, 'gray', false);
+  const sourceMesh = source.children[0] as THREE.SkinnedMesh;
+  const firstMesh = first.children[0] as THREE.SkinnedMesh;
+  const secondMesh = second.children[0] as THREE.SkinnedMesh;
+  assert.notEqual(firstMesh.skeleton, sourceMesh.skeleton);
+  assert.notEqual(secondMesh.skeleton, sourceMesh.skeleton);
+  assert.notEqual(firstMesh.skeleton, secondMesh.skeleton);
+  // Geometry is deliberately shared between instances; only skeletons and materials clone.
+  assert.equal(firstMesh.geometry, sourceMesh.geometry);
+  assert.equal(sourceMesh.skeleton.bones[0].parent, sourceMesh);
+  assert.equal(firstMesh.skeleton.bones[0].parent, firstMesh);
+  const fur = firstMesh.material as THREE.MeshStandardMaterial;
+  assert.equal(fur.vertexColors, true);
+  assert.equal(fur.color.getHexString(), 'ffffff');
+  assert.match(fur.customProgramCacheKey?.() ?? '', /orange/);
+  const grayFur = (secondMesh.material as THREE.MeshStandardMaterial);
+  assert.notEqual(fur.customProgramCacheKey?.(), grayFur.customProgramCacheKey?.());
+});
+
 test('hover kitten is genuinely translucent, shadowless and does not intercept clicks', () => {
   const source = new THREE.Group();
   const sourceMaterial = new THREE.MeshStandardMaterial({ color: '#dddddd' });

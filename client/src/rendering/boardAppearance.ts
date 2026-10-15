@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { PlayerColor } from '../types';
 
 export type QuiltColors = [string, string];
@@ -27,20 +28,44 @@ const TEAM = {
   gray: { fur: '#64748b', light: '#dce7f2', stripe: '#222b3c', eye: '#48bfd1' },
 };
 
-/** Clone only per-instance materials; leave cached GLB geometry/materials intact. */
+/** Clone per-instance (independent skeletons for rigged models) and apply
+ * team colors. The GLB fur uses a `Mask` vertex-color attribute
+ * (R = cream belly/muzzle/paws, G = tabby stripes); team colors are mixed in
+ * the shader so cached geometry stays shared between pieces. */
 export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, ghost: boolean) {
-  const copy = sourceScene.clone(true);
+  const copy = cloneSkinned(sourceScene);
   const colors = TEAM[color];
   copy.traverse(child => {
     if (!(child instanceof THREE.Mesh)) return;
     child.castShadow = !ghost;
     child.receiveShadow = !ghost;
+    child.frustumCulled = false; // skinned bounds do not track posed vertices
+    const hasMask = Boolean((child.geometry as THREE.BufferGeometry).getAttribute('color'));
     const prepare = (source: THREE.MeshStandardMaterial) => {
       const material = source.clone();
-      if (source.name === 'Fur') material.color.set(colors.fur);
-      if (source.name === 'Muzzle') material.color.set(colors.light);
-      if (source.name === 'Markings') material.color.set(colors.stripe);
-      if (source.name === 'Eyes') material.color.set(colors.eye);
+      if (source.name === 'Eyes' || source.name === 'Iris') material.color.set(colors.eye);
+      if (source.name === 'Fur' && hasMask && !ghost) {
+        // Team coloring happens in the shader; the base stays white.
+        material.color.set('#ffffff');
+        material.vertexColors = true;
+        material.onBeforeCompile = shader => {
+          shader.uniforms.furColor = { value: new THREE.Color(colors.fur) };
+          shader.uniforms.lightColor = { value: new THREE.Color(colors.light) };
+          shader.uniforms.stripeColor = { value: new THREE.Color(colors.stripe) };
+          shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', '#include <common>\nuniform vec3 furColor;\nuniform vec3 lightColor;\nuniform vec3 stripeColor;')
+            .replace('#include <color_fragment>', [
+              '#ifdef USE_COLOR',
+              '  vec3 catFur = mix(furColor, lightColor, vColor.r);',
+              '  catFur = mix(catFur, stripeColor, vColor.g);',
+              '  diffuseColor.rgb = catFur;',
+              '#endif',
+            ].join('\n'));
+        };
+        material.customProgramCacheKey = () => `boop-fur-${color}`;
+      } else if (source.name === 'Fur') {
+        material.color.set(colors.fur);
+      }
       if (ghost) {
         // A pale, translucent silhouette, not an opaque cat inside a bubble.
         material.color.lerp(new THREE.Color('#d9edf0'), .78);

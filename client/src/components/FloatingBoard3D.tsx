@@ -27,8 +27,20 @@ const CELL = 1.06;
 const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) * CELL] as [number, number, number];
 
 function CatModel({ piece, ghost = false }: { piece: PieceData; ghost?: boolean }) {
-  const { scene } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
+  const { scene, animations } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
   const cloned = useMemo(() => createCatScene(scene, piece.color, ghost), [scene, piece.color, ghost]);
+  const mixer = useMemo(() => {
+    if (ghost) return null;
+    const sit = THREE.AnimationClip.findByName(animations, 'Sit');
+    if (!sit) return null;
+    const m = new THREE.AnimationMixer(cloned);
+    m.clipAction(sit).play();
+    return m;
+  }, [cloned, animations, ghost]);
+  const blink = useMemo(() => (mixer ? THREE.AnimationClip.findByName(animations, 'Blink') ?? null : null), [mixer, animations]);
+  const nextBlink = useRef(2 + Math.random() * 4);
+  const blinkAction = useRef<THREE.AnimationAction | null>(null);
+  useEffect(() => () => { mixer?.stopAllAction(); }, [mixer]);
   useEffect(() => () => {
     cloned.traverse(child => {
       if (!(child instanceof THREE.Mesh)) return;
@@ -36,6 +48,18 @@ function CatModel({ piece, ghost = false }: { piece: PieceData; ghost?: boolean 
       materials.forEach(material => material.dispose());
     });
   }, [cloned]);
+  useFrame((_, delta) => {
+    if (!mixer) return;
+    mixer.update(delta);
+    nextBlink.current -= delta;
+    if (blink && nextBlink.current <= 0 && (!blinkAction.current || !blinkAction.current.isRunning())) {
+      const action = mixer.clipAction(blink);
+      action.setLoop(THREE.LoopOnce, 1);
+      action.reset().play();
+      blinkAction.current = action;
+      nextBlink.current = 2.5 + Math.random() * 5;
+    }
+  });
   return <primitive object={cloned} />;
 }
 

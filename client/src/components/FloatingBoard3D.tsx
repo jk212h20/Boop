@@ -1,9 +1,11 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, ThreeEvent, useFrame } from '@react-three/fiber';
-import { ContactShadows, Environment, Float, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
+import { ContactShadows, Environment, Float, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, PlayerColor } from '../types';
 import { GraduatingPiece, FallenPiece } from './Board';
+import { createCatScene, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
+  DEFAULT_QUILT_COLORS, QUILT_STORAGE_KEY, QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
 
 interface FloatingBoard3DProps {
   board: BoardType;
@@ -21,32 +23,19 @@ interface FloatingBoard3DProps {
   animationKey: number;
 }
 
-const TEAM = {
-  orange: { fur: '#ed6b25', light: '#ffd09b', stripe: '#6e2415', eye: '#63bc58' },
-  gray: { fur: '#64748b', light: '#dce7f2', stripe: '#222b3c', eye: '#48bfd1' },
-};
 const CELL = 1.06;
-const at = (row: number, col: number) => [(col - 2.5) * CELL, .4, (row - 2.5) * CELL] as [number, number, number];
+const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) * CELL] as [number, number, number];
 
-function CatModel({ piece }: { piece: PieceData }) {
+function CatModel({ piece, ghost = false }: { piece: PieceData; ghost?: boolean }) {
   const { scene } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
-  const cloned = useMemo(() => {
-    const copy = scene.clone(true);
-    const colors = TEAM[piece.color];
-    copy.traverse(child => {
+  const cloned = useMemo(() => createCatScene(scene, piece.color, ghost), [scene, piece.color, ghost]);
+  useEffect(() => () => {
+    cloned.traverse(child => {
       if (!(child instanceof THREE.Mesh)) return;
-      child.castShadow = true;
-      child.receiveShadow = true;
-      const source = child.material as THREE.MeshStandardMaterial;
-      const material = source.clone();
-      if (source.name === 'Fur') material.color.set(colors.fur);
-      if (source.name === 'Muzzle') material.color.set(colors.light);
-      if (source.name === 'Markings') material.color.set(colors.stripe);
-      if (source.name === 'Eyes') material.color.set(colors.eye);
-      child.material = material;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach(material => material.dispose());
     });
-    return copy;
-  }, [scene, piece.color]);
+  }, [cloned]);
   return <primitive object={cloned} />;
 }
 
@@ -107,42 +96,62 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   return (
     <group ref={group} position={target} renderOrder={isGhost ? -1 : 1}>
       <group rotation={[0, Math.PI, 0]}>
-        <CatModel piece={piece} />
+        <CatModel piece={piece} ghost={isGhost} />
       </group>
       {isGraduating && (
         <pointLight color="#ffd76a" intensity={2.2} distance={2.4} position={[0, 1.25, 0]} />
       )}
-      {isGhost && <mesh position={[0, .2, 0]}><sphereGeometry args={[.65, 16, 10]} /><meshBasicMaterial transparent opacity={.08} color={TEAM[piece.color].fur} /></mesh>}
+      {isGhost && <Html center position={[0, 2.15, 0]} style={{ pointerEvents: 'none' }}>
+        <span className="kitten-preview-label">Preview</span>
+      </Html>}
     </group>
   );
 }
 
-function QuiltCell({ row, col, enabled, active, hovered, onClick, onHover }: {
+type QuiltResources = ReturnType<typeof createFabricTextures> & {
+  patch: THREE.BufferGeometry;
+  stitches: THREE.BufferGeometry;
+};
+
+function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, onClick, onHover }: {
   row: number; col: number; enabled: boolean; active: boolean; hovered: boolean;
+  colors: QuiltColors; fabric: QuiltResources;
   onClick: () => void; onHover: (value: boolean) => void;
 }) {
   const [x, , z] = at(row, col);
-  const shade = (row + col) % 2 === 0 ? '#fff3d8' : '#f8dfb1';
+  const shade = colors[(row + col) % 2];
+  const color = quiltColor(shade, hovered && enabled, active);
+  const threadColor = new THREE.Color(shade).multiplyScalar(.66);
   return (
     <group position={[x, .36, z]}>
-      <mesh
+      <mesh geometry={fabric.patch}
         onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick(); }}
         onPointerEnter={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(true); document.body.style.cursor = enabled ? 'pointer' : 'default'; }}
         onPointerLeave={() => { onHover(false); document.body.style.cursor = 'default'; }}
         castShadow receiveShadow>
-        <boxGeometry args={[.96, .25, .96, 2, 1, 2]} />
-        <meshStandardMaterial color={hovered && enabled ? '#d8f4c2' : active ? '#ffe26f' : shade} roughness={.82} />
+        <meshStandardMaterial color={color} map={fabric.map} bumpMap={fabric.bumpMap}
+          bumpScale={.018} roughness={.98} metalness={0} />
       </mesh>
-      <mesh position={[0, .132, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
-        <torusGeometry args={[.32, .009, 5, 4]} />
-        <meshStandardMaterial color={hovered && enabled ? '#71a95b' : '#c99b67'} roughness={1} />
-      </mesh>
+      <lineSegments geometry={fabric.stitches} raycast={() => {}}>
+        <lineBasicMaterial color={threadColor} transparent opacity={.36} depthWrite={false} />
+      </lineSegments>
+      {(active || (hovered && enabled)) && (
+        <mesh position={[0, .10, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => {}}>
+          <ringGeometry args={[.28, .30, 40]} />
+          <meshBasicMaterial color="#c4d2c9" transparent opacity={hovered && enabled ? .18 : .14} depthWrite={false} />
+        </mesh>
+      )}
     </group>
   );
 }
 
-function Scene(props: FloatingBoard3DProps) {
+function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
   const [hover, setHover] = useState<Cell | null>(null);
+  const fabric = useMemo(() => ({ ...createFabricTextures(), patch: createQuiltPatchGeometry(), stitches: createQuiltStitches() }), []);
+  useEffect(() => () => {
+    fabric.map.dispose(); fabric.bumpMap.dispose(); fabric.patch.dispose(); fabric.stitches.dispose();
+  }, [fabric]);
+  useEffect(() => () => { document.body.style.cursor = ''; }, []);
   const boopTo = (row: number, col: number) => {
     const effect = props.boopedPieces.find(b => b.to?.row === row && b.to?.col === col);
     return effect ? { fromRow: effect.from.row, fromCol: effect.from.col } : undefined;
@@ -158,16 +167,19 @@ function Scene(props: FloatingBoard3DProps) {
           <RoundedBox args={[7.55, .42, 7.55]} radius={.35} smoothness={5} position={[0, -.17, 0]} castShadow receiveShadow>
             <meshStandardMaterial color="#714020" roughness={.66} metalness={.03} />
           </RoundedBox>
-          <RoundedBox args={[6.75, .33, 6.75]} radius={.28} smoothness={5} position={[0, .02, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color="#ad6b34" roughness={.72} />
+          <RoundedBox args={[6.75, .24, 6.75]} radius={.10} smoothness={5} position={[0, .17, 0]} castShadow receiveShadow>
+            <meshStandardMaterial color={new THREE.Color(props.quiltColors[0]).multiplyScalar(.78)}
+              map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.012} roughness={.98} />
           </RoundedBox>
           {Array.from({ length: 6 }, (_, row) => Array.from({ length: 6 }, (_, col) => {
             const piece = props.board[row][col];
             const enabled = !piece && props.isMyTurn && !!props.selectedPieceType && !props.isViewingHistory;
             return <QuiltCell key={`${row}-${col}`} row={row} col={col} enabled={enabled}
-              active={props.lastMove?.row === row && props.lastMove?.col === col}
+              active={(props.lastMove?.row === row && props.lastMove?.col === col) || (props.highlightedCell?.row === row && props.highlightedCell?.col === col)}
               hovered={hover?.row === row && hover?.col === col}
-              onHover={value => setHover(value ? { row, col } : null)} onClick={() => props.onCellClick(row, col)} />;
+              colors={props.quiltColors} fabric={fabric}
+              onHover={value => setHover(previous => value ? { row, col } : previous?.row === row && previous?.col === col ? null : previous)}
+              onClick={() => props.onCellClick(row, col)} />;
           }))}
           {props.board.map((line, row) => line.map((piece, col) => piece && (
             <CatActor key={`${row}-${col}-${piece.color}-${piece.type}`} piece={piece} row={row} col={col}
@@ -176,7 +188,7 @@ function Scene(props: FloatingBoard3DProps) {
               removing={props.graduatingPieces.some(g => g.row === row && g.col === col) && props.graduationPhase === 'removing'}
               animationKey={props.animationKey} />
           )))}
-          {hover && props.myColor && props.selectedPieceType && !props.board[hover.row][hover.col] && (
+          {hover && props.isMyTurn && !props.isViewingHistory && props.myColor && props.selectedPieceType && !props.board[hover.row][hover.col] && (
             <CatActor piece={{ color: props.myColor, type: props.selectedPieceType }} row={hover.row} col={hover.col}
               isGhost animationKey={props.animationKey} />
           )}
@@ -196,16 +208,39 @@ function Scene(props: FloatingBoard3DProps) {
 }
 
 export function FloatingBoard3D(props: FloatingBoard3DProps) {
+  const [quiltColors, setQuiltColors] = useState<QuiltColors>(readQuiltColors);
+  useEffect(() => {
+    try { localStorage.setItem(QUILT_STORAGE_KEY, JSON.stringify(quiltColors)); }
+    catch { /* Preferences still work in memory when storage is unavailable. */ }
+  }, [quiltColors]);
   return (
+    <div className="floating-board-area">
     <div className="floating-board-shell">
       <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 38 }} gl={{ antialias: true, alpha: true }}>
-        <Suspense fallback={null}><Scene {...props} /></Suspense>
+        <Suspense fallback={null}><Scene {...props} quiltColors={quiltColors} /></Suspense>
       </Canvas>
       <div className="board-hint">Drag to look around · scroll to zoom</div>
       <div className="board-cell-anchors" aria-hidden="true">
         {Array.from({ length: 36 }, (_, i) => <span key={i} data-cell={`${Math.floor(i / 6)}-${i % 6}`} />)}
       </div>
       {props.isViewingHistory && <div className="history-3d-badge">Viewing game history · click a square to return</div>}
+    </div>
+    <fieldset className="quilt-palette">
+      <legend>Quilt colors</legend>
+      <div className="quilt-palette-controls">
+        {quiltColors.map((color, index) => (
+          <label key={index} className="quilt-color-control">
+            <input type="color" aria-label={`Quilt color ${index + 1}`} value={color}
+              onChange={event => {
+                const next = event.currentTarget.value;
+                setQuiltColors(previous => index === 0 ? [next, previous[1]] : [previous[0], next]);
+              }} />
+            <span>Fabric {index + 1}</span>
+          </label>
+        ))}
+        <button type="button" className="quilt-reset" onClick={() => setQuiltColors([...DEFAULT_QUILT_COLORS])}>Reset colors</button>
+      </div>
+    </fieldset>
     </div>
   );
 }

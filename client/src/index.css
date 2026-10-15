@@ -44,6 +44,23 @@ body {
 .board-cell-anchors { position: absolute; inset: 14%; display: grid; grid-template-columns: repeat(6, 1fr); pointer-events: none; opacity: 0; }
 .board-cell-anchors span { display: block; }
 
+.kitten-preview-label {
+  display: block; padding: .15rem .4rem; border: 1px dashed rgba(200,225,229,.5);
+  border-radius: .4rem; background: rgba(16,28,39,.7); color: #cce0e4;
+  font-size: .6rem; font-weight: 600; letter-spacing: .045em; pointer-events: none;
+}
+.quilt-palette { margin: .25rem auto 1rem; padding: 0; border: 0; width: fit-content; max-width: 100%; color: #b8c7d1; }
+.quilt-palette legend { width: 100%; padding: 0; margin-bottom: .45rem; text-align: center; font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; }
+.quilt-palette-controls { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .65rem 1.15rem; }
+.quilt-color-control { display: flex; align-items: center; gap: .45rem; cursor: pointer; font-size: .75rem; }
+.quilt-color-control input { appearance: none; width: 2.25rem; height: 2.25rem; padding: .16rem; border: 1px solid #53616b; border-radius: .6rem; background: #17232e; cursor: pointer; }
+.quilt-color-control input::-webkit-color-swatch-wrapper { padding: 0; }
+.quilt-color-control input::-webkit-color-swatch { border: 0; border-radius: .35rem; }
+.quilt-color-control input::-moz-color-swatch { border: 0; border-radius: .35rem; }
+.quilt-reset { padding: .45rem .55rem; border-radius: .4rem; color: #a9bac5; font-size: .7rem; transition: background .15s, color .15s; }
+.quilt-reset:hover { color: #e3edf2; background: rgba(255,255,255,.06); }
+.quilt-color-control input:focus-visible, .quilt-reset:focus-visible { outline: 2px solid #a8c3ce; outline-offset: 3px; }
+
 /* Compact illustrated avatars are used in pools and fly-to-pool celebrations. */
 .kitten-piece { position: relative; display: grid; place-items: center; transition: filter .2s; }
 .kitten-piece-selected { filter: drop-shadow(0 0 8px #facc15); }

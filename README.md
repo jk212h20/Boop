@@ -94,6 +94,27 @@ recolored for each team at runtime. Their state-driven motion includes varied
 idle breathing, placement drops, directional boop hops, landing squash, and
 graduation glow/exit animation.
 
+The placement cursor is a pale, translucent kitten labeled **Preview**, with no
+cast shadow or pointer interception. Quilt squares use a procedural woven
+albedo/bump texture, soft batting, and understated stitch lines; hover and
+last-move cues preserve the fabric colors. **Quilt colors** below the board lets
+you change both alternating fabrics (default: gray and muted sage). Changes are
+instant, saved locally per browser, and can be restored with **Reset colors**;
+they do not change game rules or the opponent's appearance preferences.
+
+Appearance regressions:
+
+```bash
+npm --prefix client run test:appearance
+```
+
+For the browser regression, first verify a local Vite server with `devports`,
+then set `BOOP_TEST_URL` to that server and run
+`npm --prefix client run test:appearance:browser`. It uses the client's Playwright
+dev dependency and installed Google Chrome, checks preview placement, both color
+controls, reload persistence, reset, and mobile layout, and writes screenshots
+to `/tmp/boop-appearance-qa` (override with `BOOP_QA_DIR`).
+
 Model source and rebuild instructions live in `tools/blender/README.md`.
 Append `?preview3d` during local development to enter a deterministic bot game
 for visual review without needing the multiplayer server.

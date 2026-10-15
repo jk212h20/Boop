@@ -1,0 +1,73 @@
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import * as THREE from 'three';
+import { createCatScene, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
+  DEFAULT_QUILT_COLORS, parseQuiltColors, quiltColor } from '../src/rendering/boardAppearance';
+
+test('quilt preferences accept two hex colors and recover from invalid storage', () => {
+  assert.deepEqual(parseQuiltColors('["#556677","#778899"]'), ['#556677', '#778899']);
+  for (const input of [null, '', 'broken', '{}', '[]', '["red","blue"]', '["#123456"]', '["#123456",null]']) {
+    assert.deepEqual(parseQuiltColors(input), DEFAULT_QUILT_COLORS);
+  }
+});
+
+test('hover kitten is genuinely translucent, shadowless and does not intercept clicks', () => {
+  const source = new THREE.Group();
+  const sourceMaterial = new THREE.MeshStandardMaterial({ color: '#dddddd' });
+  sourceMaterial.name = 'Fur';
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(), sourceMaterial);
+  source.add(mesh);
+  const ghost = createCatScene(source, 'orange', true).children[0] as THREE.Mesh;
+  const placed = createCatScene(source, 'orange', false).children[0] as THREE.Mesh;
+  const ghostMaterial = ghost.material as THREE.MeshStandardMaterial;
+  const placedMaterial = placed.material as THREE.MeshStandardMaterial;
+  assert.equal(ghostMaterial.transparent, true);
+  assert.equal(ghostMaterial.opacity, .24);
+  assert.equal(ghostMaterial.depthWrite, false);
+  assert.equal(ghost.castShadow, false);
+  assert.equal(placed.castShadow, true);
+  assert.equal(placedMaterial.opacity, 1);
+  assert.equal(placedMaterial.transparent, false);
+  assert.equal(sourceMaterial.transparent, false);
+  assert.notEqual(ghostMaterial, sourceMaterial);
+  assert.notEqual(ghostMaterial, placedMaterial);
+  const hits: THREE.Intersection[] = [];
+  ghost.raycast(new THREE.Raycaster(), hits);
+  assert.equal(hits.length, 0);
+});
+
+test('both colors retain their identity under subdued selection highlights', () => {
+  const base = new THREE.Color('#849b92');
+  assert.ok(quiltColor('#849b92', false, false).equals(base));
+  const target = new THREE.Color('#c2d0cb');
+  assert.ok(quiltColor('#849b92', true, false).equals(base.clone().lerp(target, .07)));
+  assert.ok(quiltColor('#849b92', false, true).equals(base.clone().lerp(target, .10)));
+});
+
+test('fabric textures have repeatable woven albedo and independent yarn relief', () => {
+  const { map, bumpMap } = createFabricTextures();
+  assert.equal(map.image.width, 128);
+  assert.equal(map.wrapS, THREE.RepeatWrapping);
+  assert.equal(bumpMap.wrapT, THREE.RepeatWrapping);
+  assert.equal(map.colorSpace, THREE.SRGBColorSpace);
+  const pixels = map.image.data as Uint8Array;
+  const heights = bumpMap.image.data as Uint8Array;
+  assert.ok(new Set(pixels).size > 8);
+  assert.ok(new Set(heights).size > 8);
+  // Symmetric yarn profiles deliberately reuse heights; require actual relief,
+  // not an arbitrary count of distinct shades.
+  const yarnHeights = Array.from(heights).filter((_, index) => index % 4 !== 3);
+  assert.ok(Math.max(...yarnHeights) - Math.min(...yarnHeights) > 150);
+  assert.notDeepEqual(pixels, heights);
+  map.dispose(); bumpMap.dispose();
+});
+
+test('patches have softly lofted centers and discrete stitches, not tile borders', () => {
+  const patch = createQuiltPatchGeometry();
+  patch.computeBoundingBox();
+  assert.ok(patch.boundingBox!.max.y > .09);
+  assert.ok(patch.boundingBox!.min.y >= -.061);
+  const stitches = createQuiltStitches();
+  assert.equal(stitches.getAttribute('position').count, 120);
+  patch.dispose(); stitches.dispose();
+});

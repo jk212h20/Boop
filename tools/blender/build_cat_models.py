@@ -33,54 +33,94 @@ WORK.mkdir(parents=True, exist_ok=True)
 FPS = 30
 TARGET_TRIS = 11000
 
-# Kitten coordinates are absolute; the cat stage scales them non-uniformly
-# (longer body, longer legs, slightly smaller head) and scales radii.
-PARAMS = {
-    "kitten": dict(scale=(1.0, 1.0, 1.0), radius=1.0),
-    "cat": dict(scale=(1.06, 1.34, 1.22), radius=1.03),
-}
+# Fully explicit body plans per stage — the two stages are NOT scaled copies.
+# Kitten: chubby baby (short legs, round fat body, huge head, stubby curled
+# tail, thick limbs). Cat: slender adult (long legs, elongated torso, smaller
+# head ratio, long neck, long tapering tail).
+STAGES = ("kitten", "cat")
 
 
-def layout(scale, radius_scale):
-    """All geometry anchor points, scaled per stage.
+def _layout(p):
+    """Assemble the layout dict from a stage's named proportions.
 
-    Ground z=0, facing -Y. Standing kitten: shoulder ~0.50, head center ~0.93.
+    Ground z=0, facing -Y. `shoulder` is the standing shoulder height.
     """
-    mx, my, mz = scale
-    S = lambda x, y, z: Vector((x * mx, y * my, z * mz))
-    R = lambda r: r * radius_scale
+    V = lambda x, y, z: Vector((x, y, z))
+    r = p["radii"]
     L = {
-        "rump": S(0, 0.30, 0.52),
-        "chest": S(0, -0.06, 0.55),
-        "neck_end": S(0, -0.18, 0.80),
-        "head_top": S(0, -0.26, 1.06),
-        "head_c": S(0, -0.22, 0.98),
-        "ear_base": [S(-0.115, -0.24, 1.13), S(0.115, -0.24, 1.13)],
-        # Torso blobs (ellipsoid ratios in L["torso_ratio"]).
-        "torso": [S(0, 0.22, 0.54), S(0, 0.02, 0.56), S(0, -0.16, 0.57)],
-        "torso_ratio": [(0.95, 1.35, 1.02), (0.92, 1.35, 1.0), (0.88, 1.20, 0.98)],
-        "haunch": [S(-0.08, 0.20, 0.50), S(0.08, 0.20, 0.50)],
-        "neck_chain": [[S(0, -0.09, 0.56), S(0, -0.14, 0.68), S(0, -0.20, 0.82)],
-                       [R(0.19), R(0.15), R(0.14)]],
-        "cheeks": [S(-0.11, -0.29, 0.90), S(0.11, -0.29, 0.90)],
-        "chin": S(0, -0.28, 0.85),
-        "muzzle": [S(-0.055, -0.38, 0.905), S(0.055, -0.38, 0.905)],
-        "tail": [S(0, 0.36, 0.50), S(0, 0.56, 0.62), S(0, 0.68, 0.80),
-                 S(0, 0.70, 1.00), S(0, 0.60, 1.12)],
-        "radii": dict(r_body=R(0.25), head_r=R(0.21),
-                      leg=R(0.11), paw=R(0.08), tail=[R(r) for r in (0.065, 0.06, 0.0525, 0.045, 0.0375)]),
+        "rump": V(0, p["rump_y"], p["rump_z"]),
+        "chest": V(0, p["chest_y"], p["chest_z"]),
+        "neck_end": V(0, *p["neck_end"]),
+        "head_top": V(0, *p["head_top"]),
+        "head_c": V(0, *p["head_c"]),
+        "ear_base": [None, None],
+        "torso": [V(0, *t) for t in p["torso"]],
+        "torso_ratio": p["torso_ratio"],
+        "haunch": [None, None],
+        "neck_chain": [[V(0, *c) for c in p["neck_chain"]], [R_ for R_ in p["neck_radii"]]],
+        "cheeks": [None, None],
+        "chin": V(0, *p["chin"]),
+        "muzzle": [None, None],
+        "tail": [V(0, *t) for t in p["tail"]],
+        "radii": dict(r_body=r["r_body"], head_r=r["head_r"], leg=r["leg"], paw=r["paw"],
+                      tail=list(r["tail"])),
     }
     L["front"] = {}
     L["hind"] = {}
-    for side, tag in ((-1, "R"), (1, "L")):
-        L["front"][tag] = (S(side * 0.085, -0.16, 0.40), S(side * 0.09, -0.16, 0.20),
-                           S(side * 0.09, -0.16, 0.075), S(side * 0.09, -0.26, 0.035))
-        L["hind"][tag] = (S(side * 0.095, 0.20, 0.40), S(side * 0.095, -0.02, 0.22),
-                          S(side * 0.095, 0.09, 0.10), S(side * 0.095, -0.14, 0.03))
-    # Derived scalars used by posing.
-    L["H"] = L["chest"].z          # standing shoulder height
-    L["B"] = L["rump"].y - L["chest"].y  # rump-to-chest span
+    for side, i in ((-1, 0), (1, 1)):
+        L["ear_base"][i] = V(side * p["ear_dx"], p["ear_base"][1], p["ear_base"][2])
+        L["haunch"][i] = V(side * p["haunch"][0], p["haunch"][1], p["haunch"][2])
+        L["cheeks"][i] = V(side * p["cheek_dx"], p["cheek_y"], p["cheek_z"])
+        L["muzzle"][i] = V(side * p["muzzle_dx"], p["muzzle_y"], p["muzzle_z"])
+        sh, kn, wr, pw = p["front_leg"]
+        L["front"]["RL"[i > 0]] = (V(side * sh[0], sh[1], sh[2]), V(side * kn[0], kn[1], kn[2]),
+                                   V(side * wr[0], wr[1], wr[2]), V(side * pw[0], pw[1], pw[2]))
+        hp, kn2, hk, toe = p["hind_leg"]
+        L["hind"]["RL"[i > 0]] = (V(side * hp[0], hp[1], hp[2]), V(side * kn2[0], kn2[1], kn2[2]),
+                                  V(side * hk[0], hk[1], hk[2]), V(side * toe[0], toe[1], toe[2]))
+    L["H"] = L["chest"].z
+    L["B"] = L["rump"].y - L["chest"].y
     return L
+
+
+LAYOUTS = {
+    # -- Kitten: round and chubby -----------------------------------------
+    "kitten": _layout(dict(
+        rump_y=.26, rump_z=.37, chest_y=-.11, chest_z=.40,   # shoulder .40
+        torso=[(.18, .385), (.0, .405), (-.15, .405)],
+        torso_ratio=[(.99, 1.30, 1.08), (.96, 1.28, 1.06), (.90, 1.14, 1.02)],
+        haunch=(.09, .15, .345),
+        neck_chain=[(-.14, .44), (-.18, .55), (-.22, .64)],
+        neck_radii=(.195, .165, .155),
+        neck_end=(-.24, .68), head_top=(-.28, .90), head_c=(-.27, .75),
+        ear_dx=.125, ear_base=(0, -.29, .845),
+        cheek_dx=.12, cheek_y=-.34, cheek_z=.695,
+        chin=(-.33, .655), muzzle_dx=.06, muzzle_y=-.42, muzzle_z=.71,
+        tail=[(.32, .355), (.44, .395), (.50, .495), (.46, .61), (.38, .685)],
+        radii=dict(r_body=.255, head_r=.24, leg=.12, paw=.088,
+                   tail=(.078, .070, .062, .053, .045)),
+        front_leg=[(.095, -.13, .29), (.10, -.13, .165), (.10, -.13, .06), (.10, -.205, .03)],
+        hind_leg=[(.10, .16, .29), (.10, -.02, .165), (.10, .07, .08), (.10, -.105, .03)],
+    )),
+    # -- Cat: slender adult -------------------------------------------------
+    "cat": _layout(dict(
+        rump_y=.30, rump_z=.55, chest_y=-.14, chest_z=.60,   # shoulder .60
+        torso=[(.20, .565), (.0, .585), (-.17, .595)],
+        torso_ratio=[(.86, 1.40, .94), (.83, 1.40, .92), (.79, 1.26, .90)],
+        haunch=(.075, .18, .525),
+        neck_chain=[(-.16, .62), (-.22, .78), (-.30, .98)],
+        neck_radii=(.16, .13, .115),
+        neck_end=(-.34, 1.10), head_top=(-.39, 1.34), head_c=(-.38, 1.18),
+        ear_dx=.10, ear_base=(0, -.41, 1.275),
+        cheek_dx=.10, cheek_y=-.46, cheek_z=1.095,
+        chin=(-.45, 1.045), muzzle_dx=.05, muzzle_y=-.52, muzzle_z=1.105,
+        tail=[(.36, .52), (.56, .64), (.70, .86), (.68, 1.10), (.54, 1.26)],
+        radii=dict(r_body=.23, head_r=.185, leg=.082, paw=.068,
+                   tail=(.056, .049, .042, .036, .029)),
+        front_leg=[(.075, -.18, .42), (.08, -.18, .22), (.08, -.18, .065), (.08, -.26, .032)],
+        hind_leg=[(.085, .18, .42), (.085, -.04, .23), (.085, .09, .095), (.085, -.13, .03)],
+    )),
+}
 
 
 def smoothstep(x, a, b):
@@ -208,10 +248,17 @@ def blob(mb, co, radius, ratio=(1, 1, 1)):
 
 
 def chain_blobs(mb, pts, radii):
+    """Blob chain with adaptive subdivision so consecutive surface radii always
+    overlap (thin tails / long legs would otherwise render as detached beads)."""
     pts = [Vector(pt) for pt in pts]
     for a, b, ra, rb in zip(pts, pts[1:], radii, radii[1:]):
-        blob(mb, a, ra)
-        blob(mb, (a + b) / 2, (ra + rb) / 2)
+        dist = (b - a).length
+        # Blobs merge when centers are well inside the sum of their effective
+        # surface radii (~0.575x element radius); subdivide to guarantee it.
+        n = max(1, math.ceil(dist / max(1e-4, 0.55 * 0.575 * (ra + rb))))
+        for k in range(n + 1):
+            t = k / n
+            blob(mb, a.lerp(b, t), ra + (rb - ra) * t)
     blob(mb, pts[-1], radii[-1])
 
 
@@ -751,8 +798,8 @@ def build_actions(arm_obj, L, api):
 
 def build(stage):
     clear_scene()
-    p = PARAMS[stage]
-    L = layout(p["scale"], p["radius"])
+    L = LAYOUTS[stage]
+
     mats = make_materials()
     arm_obj = build_armature(L)
     body_obj = build_body(L, stage)

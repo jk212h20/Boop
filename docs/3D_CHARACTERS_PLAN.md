@@ -1,7 +1,25 @@
 # 3D characters, motion, and bed — plan
 
-Status: in progress (2026-10-15). Owner: `tools/blender/` (assets) and
+Status: Phases 1–2 done (2026-10-15). Phase 3 (bed restyle) is next.
+Owner: `tools/blender/` (assets) and
 `client/src/components/FloatingBoard3D.tsx` (runtime behavior).
+
+## Shipped so far
+
+- Kitten and cat are separate body plans (not scaled copies): the kitten is a
+  chubby baby (shoulder .40, huge head, stubby thick legs, short curled tail);
+  the cat is a slender adult (shoulder .60, smaller head ratio, long legs,
+  long tapering tail). Limb/tail blob chains subdivide adaptively so nothing
+  renders as detached beads.
+- The placement ghost is a pale translucent wash of the player's own team
+  colors (shader-mixed from the mask), not a neutral gray.
+- Motion is cat-like and verified with a live scene probe
+  (`window.__catProbe()` in dev): new pieces WALK in along a gentle arc
+  (`Walk` clip) and sit facing the camera; booped pieces crouch in place,
+  leap a parabolic arc with squash-and-stretch (`Crouch`/`Jump`/`Land`),
+  facing their travel direction; pieces pushed off the bed tumble (`Fall`)
+  into the gutter. Timing lives in `animationTiming.ts`
+  (`WALK_IN_MS`, `BOOP_DURATION_MS = 800`).
 
 ## Is Blender the right tool?
 

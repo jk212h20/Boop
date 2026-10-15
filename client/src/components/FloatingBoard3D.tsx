@@ -1,11 +1,12 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, ThreeEvent, useFrame } from '@react-three/fiber';
+import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Environment, Float, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, PlayerColor } from '../types';
 import { GraduatingPiece, FallenPiece } from './Board';
 import { createCatScene, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
   DEFAULT_QUILT_COLORS, QUILT_STORAGE_KEY, QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
+import { BOOP_DELAY_MS, BOOP_DURATION_MS, WALK_IN_MS } from '../animationTiming';
 
 interface FloatingBoard3DProps {
   board: BoardType;
@@ -26,21 +27,33 @@ interface FloatingBoard3DProps {
 const CELL = 1.06;
 const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) * CELL] as [number, number, number];
 
-function CatModel({ piece, ghost = false }: { piece: PieceData; ghost?: boolean }) {
+function CatModel({ piece, ghost = false, clip = 'Sit' }: { piece: PieceData; ghost?: boolean; clip?: string }) {
   const { scene, animations } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
   const cloned = useMemo(() => createCatScene(scene, piece.color, ghost), [scene, piece.color, ghost]);
   const mixer = useMemo(() => {
     if (ghost) return null;
-    const sit = THREE.AnimationClip.findByName(animations, 'Sit');
-    if (!sit) return null;
     const m = new THREE.AnimationMixer(cloned);
-    m.clipAction(sit).play();
+    const idle = THREE.AnimationClip.findByName(animations, clip);
+    if (idle) m.clipAction(idle).play();
     return m;
-  }, [cloned, animations, ghost]);
+    // The mixer is created once; clip changes crossfade below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloned, ghost]);
+  const currentClip = useRef(clip);
   const blink = useMemo(() => (mixer ? THREE.AnimationClip.findByName(animations, 'Blink') ?? null : null), [mixer, animations]);
   const nextBlink = useRef(2 + Math.random() * 4);
   const blinkAction = useRef<THREE.AnimationAction | null>(null);
   useEffect(() => () => { mixer?.stopAllAction(); }, [mixer]);
+  useEffect(() => {
+    if (!mixer || currentClip.current === clip) return;
+    const next = THREE.AnimationClip.findByName(animations, clip);
+    if (!next) return;
+    const previous = mixer.clipAction(THREE.AnimationClip.findByName(animations, currentClip.current) ?? next);
+    const action = mixer.clipAction(next);
+    action.reset().play();
+    action.crossFadeFrom(previous, .12, true);
+    currentClip.current = clip;
+  }, [clip, mixer, animations]);
   useEffect(() => () => {
     cloned.traverse(child => {
       if (!(child instanceof THREE.Mesh)) return;
@@ -51,6 +64,7 @@ function CatModel({ piece, ghost = false }: { piece: PieceData; ghost?: boolean 
   useFrame((_, delta) => {
     if (!mixer) return;
     mixer.update(delta);
+    if (clip !== 'Sit' && clip !== 'Stand') return; // blink only while at ease
     nextBlink.current -= delta;
     if (blink && nextBlink.current <= 0 && (!blinkAction.current || !blinkAction.current.isRunning())) {
       const action = mixer.clipAction(blink);
@@ -72,17 +86,50 @@ interface CatActorProps {
   isGhost?: boolean;
   isGraduating?: boolean;
   removing?: boolean;
-  landed?: boolean;
   animationKey: number;
 }
 
-function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removing, landed, animationKey }: CatActorProps) {
+// Cat-like motion. Everything below is elapsed-time driven so a re-render
+// never restarts a performance.
+const WALK_IN_S = WALK_IN_MS / 1000;
+const BOOP_DELAY_S = BOOP_DELAY_MS / 1000;
+const BOOP_S = BOOP_DURATION_MS / 1000;
+const CROUCH_F = .19, AIR_F = .52; // remaining fraction of the boop is landing
+const SETTLE_HEADING = Math.atan2(9.2, 12); // face the default camera (~37°)
+
+const easeOut = (t: number) => 1 - (1 - t) * (1 - t);
+const shortestTurn = (from: number, to: number) =>
+  Math.atan2(Math.sin(to - from), Math.cos(to - from));
+
+function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removing, animationKey }: CatActorProps) {
   const group = useRef<THREE.Group>(null);
   const born = useRef(performance.now());
   const removalStarted = useRef<number | null>(null);
-  const seed = useMemo(() => ((row + 2) * 17 + (col + 3) * 31 + piece.color.length * 7) % 23, [row, col, piece.color]);
+  const heading = useRef(SETTLE_HEADING);
+  const seed = useMemo(() => (((row + 2) * 17 + (col + 3) * 31 + piece.color.length * 7) % 23) / 23, [row, col, piece.color]);
+  const offBoard = row < 0 || row > 5 || col < 0 || col > 5;
   const target = at(row, col);
   const origin = boop ? at(boop.fromRow, boop.fromCol) : target;
+  // Walk-in entry: approach from just outside the quilt, along a gentle arc,
+  // like a cat strolling up to a spot it has decided on.
+  const walkFrom = useMemo(() => {
+    const [x, , z] = target;
+    const len = Math.hypot(x, z) || 1;
+    const jitter = (seed - .5) * .5;
+    // Stay on the bed: edge cells must not start beyond the wooden rim.
+    const reach = Math.min(1.05 + jitter, Math.max(.4, 3.35 - Math.max(Math.abs(x), Math.abs(z))));
+    const sx = x + (x / len) * reach - (z / len) * jitter * .5;
+    const sz = z + (z / len) * reach + (x / len) * jitter * .5;
+    return [sx, target[1], sz] as [number, number, number];
+  }, [target, seed]);
+  const walkCtrl = useMemo(() => {
+    const mx = (walkFrom[0] + target[0]) / 2, mz = (walkFrom[2] + target[2]) / 2;
+    const dx = target[0] - walkFrom[0], dz = target[2] - walkFrom[2];
+    const bend = (seed - .5) * .9;
+    return [mx - dz * bend, target[1], mz + dx * bend] as [number, number, number];
+  }, [walkFrom, target, seed]);
+  const qbez = (a: number, c: number, b: number, t: number) =>
+    (1 - t) * (1 - t) * a + 2 * (1 - t) * t * c + t * t * b;
 
   // Coordinate values, not freshly allocated boop prop objects, own the clock.
   useEffect(() => { born.current = performance.now(); }, [animationKey, boop?.fromRow, boop?.fromCol, isNew]);
@@ -90,38 +137,92 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
     removalStarted.current = removing ? performance.now() : null;
   }, [removing, animationKey]);
 
-  useFrame(({ clock }) => {
+  const [clip, setClip] = useState('Sit');
+  const settleHeading = SETTLE_HEADING + (seed - .5) * .7;
+  const scaleBase = piece.type === 'cat' ? .50 : .58;
+
+  useFrame((_, delta) => {
     const g = group.current;
     if (!g) return;
     const elapsed = (performance.now() - born.current) / 1000;
-    const delay = boop ? .5 : 0;
-    const p = boop ? THREE.MathUtils.smoothstep((elapsed - delay) / .52, 0, 1) : 1;
-    g.position.x = THREE.MathUtils.lerp(origin[0], target[0], p);
-    g.position.z = THREE.MathUtils.lerp(origin[2], target[2], p);
-    const idle = Math.sin(clock.elapsedTime * (1.45 + seed * .008) + seed) * .025;
-    const hop = boop && elapsed > delay && p < 1 ? Math.sin(p * Math.PI) * .9 : 0;
-    const drop = isNew && elapsed < .45 ? Math.max(0, (1 - elapsed / .45) * 2.3) : 0;
-    g.position.y = target[1] + idle + hop + drop;
-    g.rotation.y = Math.sin(clock.elapsedTime * .42 + seed) * .045;
-    g.rotation.z = boop && p < 1 ? Math.sin(p * Math.PI) * -.12 : 0;
-    const breathe = 1 + Math.sin(clock.elapsedTime * 1.7 + seed) * .012;
-    const landingSquash = landed && elapsed > delay + .4 && elapsed < delay + .68
-      ? Math.sin(((elapsed - delay - .4) / .28) * Math.PI) * .12
-      : 0;
-    let scale = piece.type === 'cat' ? .58 : .55;
-    if (isGraduating) scale *= 1 + Math.sin(clock.elapsedTime * 10) * .06;
+    let x = target[0], y = target[1], z = target[2];
+    let desiredHeading = settleHeading;
+    let nextClip = 'Sit';
+    let squash = 0, stretch = 0;
+
+    if (isGhost) {
+      nextClip = 'Sit';
+    } else if (boop) {
+      // Real cat jump: crouch anticipation, airborne arc, landing absorb.
+      const t = elapsed - BOOP_DELAY_S;
+      const crouchEnd = CROUCH_F * BOOP_S;
+      const airEnd = (CROUCH_F + AIR_F) * BOOP_S;
+      const dx = target[0] - origin[0], dz = target[2] - origin[2];
+      if (t <= 0) {
+        x = origin[0]; z = origin[2]; // still sitting where it was booped from
+        nextClip = 'Sit';
+      } else if (t < crouchEnd) {
+        const c = t / crouchEnd;
+        x = origin[0]; z = origin[2];
+        nextClip = 'Crouch';
+        squash = Math.sin(c * Math.PI) * .16;
+        desiredHeading = Math.atan2(dx, dz);
+      } else if (t < airEnd) {
+        const p = (t - crouchEnd) / (airEnd - crouchEnd);
+        const e = offBoard ? p : easeOut(p); // falls accelerate, boops glide
+        x = origin[0] + dx * e;
+        z = origin[2] + dz * e;
+        const peak = offBoard ? 1.7 : .85;
+        y += Math.sin(p * Math.PI) * peak;
+        nextClip = offBoard ? 'Fall' : 'Jump';
+        if (offBoard) g.rotation.x = p * Math.PI * 1.5; // tumbling
+        desiredHeading = Math.atan2(dx, dz);
+        stretch = Math.sin(p * Math.PI);
+      } else if (t < BOOP_S) {
+        const l = (t - airEnd) / (BOOP_S - airEnd);
+        nextClip = 'Land';
+        squash = Math.sin(l * Math.PI) * .18;
+      }
+      if (t >= BOOP_S) g.rotation.x = 0;
+    } else if (isNew && elapsed < WALK_IN_S) {
+      // Stroll in along the arc, then settle and sit.
+      const t = elapsed / WALK_IN_S;
+      const e = easeOut(t < .85 ? t : .85 + (t - .85) * 2); // decelerate into the seat
+      x = qbez(walkFrom[0], walkCtrl[0], target[0], Math.min(1, e));
+      z = qbez(walkFrom[2], walkCtrl[2], target[2], Math.min(1, e));
+      y += Math.abs(Math.sin(elapsed * 11)) * .035; // bouncy kitten step
+      const tx = qbez(walkFrom[0], walkCtrl[0], target[0], Math.min(1, e + .02));
+      const tz = qbez(walkFrom[2], walkCtrl[2], target[2], Math.min(1, e + .02));
+      // The tangent degenerates once the path is complete; keep the settle heading.
+      if (Math.hypot(tx - x, tz - z) > 1e-4) desiredHeading = Math.atan2(tx - x, tz - z);
+      nextClip = 'Walk';
+    } else if (isGraduating) {
+      nextClip = 'Celebrate';
+    }
+
+    setClip(previous => (previous === nextClip ? previous : nextClip));
+
+    // Ease the heading; never snap.
+    heading.current += shortestTurn(heading.current, desiredHeading) * Math.min(1, delta * 12);
+    g.position.set(x, y, z);
+    g.rotation.y = heading.current;
+
+    const breathe = 1 + Math.sin(performance.now() / 900 + seed * 20) * .006;
+    const squashY = 1 - squash + stretch * .18;
+    const squashXZ = 1 + squash - stretch * .12;
+    let scale = scaleBase;
+    if (isGraduating) scale *= 1 + Math.sin(performance.now() / 90) * .05;
     if (removing && removalStarted.current !== null) {
       const removalElapsed = (performance.now() - removalStarted.current) / 1000;
       scale *= Math.max(0, 1 - removalElapsed / .65);
     }
-    g.scale.set(scale * breathe * (1 + landingSquash), scale / breathe * (1 - landingSquash), scale * breathe * (1 + landingSquash));
+    g.scale.set(scale * breathe * squashXZ, scale / breathe * squashY, scale * breathe * squashXZ);
   });
 
   return (
-    <group ref={group} position={target} renderOrder={isGhost ? -1 : 1}>
-      <group rotation={[0, 0, 0]}>
-        <CatModel piece={piece} ghost={isGhost} />
-      </group>
+    <group ref={group} position={target} renderOrder={isGhost ? -1 : 1}
+      userData={{ catProbe: isGhost ? 'ghost' : `${piece.color}-${piece.type}-${row}-${col}` }}>
+      <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} />
       {isGraduating && (
         <pointLight color="#ffd76a" intensity={2.2} distance={2.4} position={[0, 1.25, 0]} />
       )}
@@ -169,6 +270,38 @@ function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, onClick
   );
 }
 
+/** Maintainer/QA hook: live cat transform probe (window.__catProbe()) and
+ * exact on-screen cell centers (window.__cellScreen(row, col)). */
+function CatProbe() {
+  const scene = useThree(state => state.scene);
+  const camera = useThree(state => state.camera);
+  const size = useThree(state => state.size);
+  const gl = useThree(state => state.gl);
+  useEffect(() => {
+    (window as unknown as { __catProbe?: () => { cat: string; x: number; y: number; z: number; ry: number }[] }).__catProbe = () => {
+      const out: { cat: string; x: number; y: number; z: number; ry: number }[] = [];
+      scene.traverse(o => {
+        const tag = o.userData?.catProbe;
+        if (typeof tag === 'string' && o.parent) {
+          out.push({ cat: tag, x: +o.position.x.toFixed(3), y: +o.position.y.toFixed(3),
+            z: +o.position.z.toFixed(3), ry: +o.rotation.y.toFixed(3) });
+        }
+      });
+      return out;
+    };
+    (window as unknown as { __cellScreen?: (row: number, col: number) => { x: number; y: number } }).__cellScreen = (row, col) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const v = new THREE.Vector3((col - 2.5) * 1.06, .42, (row - 2.5) * 1.06).project(camera);
+      return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
+    };
+    return () => {
+      const w = window as unknown as { __catProbe?: unknown; __cellScreen?: unknown };
+      delete w.__catProbe; delete w.__cellScreen;
+    };
+  }, [scene, camera, size, gl]);
+  return null;
+}
+
 function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
   const [hover, setHover] = useState<Cell | null>(null);
   const fabric = useMemo(() => ({ ...createFabricTextures(), patch: createQuiltPatchGeometry(), stitches: createQuiltStitches() }), []);
@@ -207,7 +340,7 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
           }))}
           {props.board.map((line, row) => line.map((piece, col) => piece && (
             <CatActor key={`${row}-${col}-${piece.color}-${piece.type}`} piece={piece} row={row} col={col}
-              boop={boopTo(row, col)} landed={!!boopTo(row, col)} isNew={props.lastMove?.row === row && props.lastMove?.col === col && !boopTo(row, col)}
+              boop={boopTo(row, col)} isNew={props.lastMove?.row === row && props.lastMove?.col === col && !boopTo(row, col)}
               isGraduating={props.graduatingPieces.some(g => g.row === row && g.col === col) && props.graduationPhase === 'highlighting'}
               removing={props.graduatingPieces.some(g => g.row === row && g.col === col) && props.graduationPhase === 'removing'}
               animationKey={props.animationKey} />
@@ -218,7 +351,7 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
           )}
           {props.fallenPieces.map((fallen, i) => (
             <CatActor key={`fallen-${i}-${props.animationKey}`} piece={fallen.piece} row={fallen.gutterRow} col={fallen.gutterCol}
-              boop={{ fromRow: fallen.fromRow, fromCol: fallen.fromCol }} landed animationKey={props.animationKey} />
+              boop={{ fromRow: fallen.fromRow, fromCol: fallen.fromCol }} animationKey={props.animationKey} />
           ))}
         </group>
       </Float>
@@ -241,7 +374,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
     <div className="floating-board-area">
     <div className="floating-board-shell">
       <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 38 }} gl={{ antialias: true, alpha: true }}>
-        <Suspense fallback={null}><Scene {...props} quiltColors={quiltColors} /></Suspense>
+        <Suspense fallback={null}><CatProbe /><Scene {...props} quiltColors={quiltColors} /></Suspense>
       </Canvas>
       <div className="board-hint">Drag to look around · scroll to zoom</div>
       <div className="board-cell-anchors" aria-hidden="true">

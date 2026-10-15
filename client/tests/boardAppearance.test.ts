@@ -63,8 +63,14 @@ test('hover kitten is genuinely translucent, shadowless and does not intercept c
   const ghostMaterial = ghost.material as THREE.MeshStandardMaterial;
   const placedMaterial = placed.material as THREE.MeshStandardMaterial;
   assert.equal(ghostMaterial.transparent, true);
-  assert.equal(ghostMaterial.opacity, .24);
+  assert.equal(ghostMaterial.opacity, .34);
   assert.equal(ghostMaterial.depthWrite, false);
+  // The ghost is a pale wash of the PLAYER'S color, not a neutral gray.
+  assert.notEqual(ghostMaterial.color.getHexString(), placedMaterial.color.getHexString());
+  const srgb = THREE.SRGBColorSpace;
+  assert.ok(ghostMaterial.color.getHSL({}, srgb).l > .82, 'ghost stays pale');
+  assert.ok(Math.abs(ghostMaterial.color.getHSL({}, srgb).h - placedMaterial.color.getHSL({}, srgb).h) < .04,
+    'ghost keeps the team hue');
   assert.equal(ghost.castShadow, false);
   assert.equal(placed.castShadow, true);
   assert.equal(placedMaterial.opacity, 1);

@@ -149,8 +149,7 @@ function Scene(props: FloatingBoard3DProps) {
   };
   return (
     <>
-      <color attach="background" args={['#c8f3ed']} />
-      <fog attach="fog" args={['#c8f3ed', 13, 23]} />
+      <fog attach="fog" args={['#17222d', 15, 25]} />
       <ambientLight intensity={1.15} />
       <directionalLight position={[-5, 9, 4]} intensity={2.3} color="#fff0d4" castShadow shadow-mapSize={[2048, 2048]} />
       <directionalLight position={[6, 4, -5]} intensity={1.1} color="#96d9ff" />
@@ -199,7 +198,7 @@ function Scene(props: FloatingBoard3DProps) {
 export function FloatingBoard3D(props: FloatingBoard3DProps) {
   return (
     <div className="floating-board-shell">
-      <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 38 }} gl={{ antialias: true, alpha: false }}>
+      <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 38 }} gl={{ antialias: true, alpha: true }}>
         <Suspense fallback={null}><Scene {...props} /></Suspense>
       </Canvas>
       <div className="board-hint">Drag to look around · scroll to zoom</div>

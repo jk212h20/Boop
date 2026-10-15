@@ -6,8 +6,7 @@ import { checkWinCondition, createInitialGameState, executeMove, cloneGameState 
 import { createBot, BotAI } from '../bot/BotAI';
 import { DEFAULT_BOT_CONFIG, BotConfig } from '../bot/types';
 
-// Animation timing - must match Board.tsx and Game.tsx
-const ANIMATION_COMPLETE_DELAY = 1200; // ms - wait for all animations to finish before bot moves
+import { animationDurationMs } from '../animationTiming';
 
 interface UseBotGameReturn {
   gameState: GameState | null;
@@ -147,7 +146,7 @@ export function useBotGame(): UseBotGameReturn {
       // Delay bot move to allow animations to finish
       setTimeout(() => {
         executeBotMove(result.newState);
-      }, ANIMATION_COMPLETE_DELAY);
+      }, animationDurationMs(result.newState));
     }
 
     return true;
@@ -228,8 +227,8 @@ export function useBotGame(): UseBotGameReturn {
 
     setGameState(newState);
 
-    // Trigger bot move
-    executeBotMove(newState);
+    // Let the chosen graduation finish before the bot's reply appears.
+    setTimeout(() => executeBotMove(newState), animationDurationMs(newState));
 
     return true;
   }, [gameState, playerColor, botColor, executeBotMove]);

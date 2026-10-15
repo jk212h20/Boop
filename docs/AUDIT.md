@@ -1,6 +1,6 @@
 # Boop implementation audit — 2026-10-15
 
-Audited baseline: `3a8b845` (working tree initially clean). This audit adds evidence and documentation only; **none of the gameplay defects below has been fixed**.
+Audited baseline: `3a8b845` (working tree initially clean). The original audit commit added evidence and documentation only. See the repair addendum below for subsequent fixes; the remaining findings describe the audited baseline.
 
 ## Result and limits
 
@@ -128,4 +128,16 @@ Launch Vite using devports inside a registered pi-bg everlasting job, verify the
 
 **These scripts are defect detectors, not a green correctness suite.** Their assertions intentionally confirm broken current behavior. Once an issue is fixed, replace its detector with a positive rule/lifecycle regression rather than treating an assertion failure as a regression in the product. The B05 detector is an explicit source assertion; B08 checks cache invalidation behavior. Hydrated engine fixtures maintain legal eight-piece inventories; selection fixtures can contain preexisting lines to isolate the transition, not to claim a complete generated match replay.
 
-Validation at audit completion: production build passed, all 28 engine/handler/static detectors completed, all 12 browser detectors completed. The audit-only server was stopped. Application code is unchanged.
+Validation at original audit completion: production build passed, all 28 engine/handler/static detectors completed, all 12 browser detectors completed. The audit-only server was stopped. Application code was unchanged at that point.
+
+## Repair addendum — phantom ungraduated kittens (2026-10-15)
+
+Nick reported seeing three kittens in a row with no graduation. A controlled positive browser regression reproduced **three visible orange kittens while the authoritative LocalGame board held three empty cells and the player had already earned three cats**. A no-boop opponent response at about two seconds cancelled the previous 2500ms graduation cleanup timer; the next effect did not clear animatingGraduations, so displayBoard kept restoring them indefinitely. This proves a rendering cause matching the report, not inspection of Nick's particular live match.
+
+Fixes:
+- Game resets old overlays on every live update/history transition, even when the prior completion timer was cancelled. Both a plain reply and a boop-only reply must remove stale graduating pieces.
+- One client timing contract now governs Game, socket serialization and local bot handoff: 2700ms for graduation, covering highlight, 650ms 3D removal, 700ms fly-to-pool and a buffer. Bot replies after selected graduation also wait for completion. This addresses U02 plus the newly reproduced stale-overlay consequence.
+- The 3D actor has a separate removal-phase clock (U04) and keys its boop clock to source coordinates rather than transient prop-object identity (U05). Those two renderer changes are type/build checked; the positive overlay regression intercepts the renderer boundary and does not claim visual GPU validation of its scale curve.
+- History viewing advances prevBoardRef while retiring overlays (the stale before-board component of H06). Returning from history may still replay an update's effects; the broader history audit findings remain open.
+
+`tools/audit/graduation-regression.cjs` is a **positive correctness test**, unlike the original defect detectors. It checks normal three-kitten graduation and cat awards, interruption by both plain and boop-only updates, reset overlay isolation, and shared timing. It failed on the original stale display board and passes after the fix. Production build and the existing audit detectors were also rerun; their unrelated findings remain unresolved. No graduation-rule policy was changed and no deployment was performed.

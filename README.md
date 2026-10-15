@@ -122,8 +122,8 @@ boop-game/
 
 The [2026-10-15 audit](docs/AUDIT.md) documents reproduced rules, multiplayer,
 bot, history, and renderer defects, with severity, source locations, evidence
-scripts, and verification limits. It is an audit of the current implementation,
-not a claim that those defects have been repaired.
+scripts, and verification limits. Its repair addendum tracks the phantom-kitten
+rendering fix; other findings remain open unless explicitly marked repaired.
 
 ## 🛠 Tech Stack
 

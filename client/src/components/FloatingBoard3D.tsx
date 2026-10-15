@@ -66,11 +66,16 @@ interface CatActorProps {
 function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removing, landed, animationKey }: CatActorProps) {
   const group = useRef<THREE.Group>(null);
   const born = useRef(performance.now());
+  const removalStarted = useRef<number | null>(null);
   const seed = useMemo(() => ((row + 2) * 17 + (col + 3) * 31 + piece.color.length * 7) % 23, [row, col, piece.color]);
   const target = at(row, col);
   const origin = boop ? at(boop.fromRow, boop.fromCol) : target;
 
-  useEffect(() => { born.current = performance.now(); }, [animationKey, boop, isNew]);
+  // Coordinate values, not freshly allocated boop prop objects, own the clock.
+  useEffect(() => { born.current = performance.now(); }, [animationKey, boop?.fromRow, boop?.fromCol, isNew]);
+  useEffect(() => {
+    removalStarted.current = removing ? performance.now() : null;
+  }, [removing, animationKey]);
 
   useFrame(({ clock }) => {
     const g = group.current;
@@ -92,7 +97,10 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
       : 0;
     let scale = piece.type === 'cat' ? .58 : .55;
     if (isGraduating) scale *= 1 + Math.sin(clock.elapsedTime * 10) * .06;
-    if (removing) scale *= Math.max(0, 1 - elapsed / .65);
+    if (removing && removalStarted.current !== null) {
+      const removalElapsed = (performance.now() - removalStarted.current) / 1000;
+      scale *= Math.max(0, 1 - removalElapsed / .65);
+    }
     g.scale.set(scale * breathe * (1 + landingSquash), scale / breathe * (1 - landingSquash), scale * breathe * (1 + landingSquash));
   });
 

@@ -1,26 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameState, PlayerColor, PieceType, GameUpdate, GameOverInfo, RoomInfo, WaitingPlayer } from '../types';
+import { animationDurationMs } from '../animationTiming';
 
 const SOCKET_URL = import.meta.env.PROD 
   ? window.location.origin 
   : 'http://localhost:3001';
 
-// How long an incoming game_update takes to finish animating in Game.tsx.
-// Must match the timings in Game.tsx's animation useEffect:
-//   - simple placement: drop (~400ms) + small buffer
-//   - booped pieces:    drop + boop (~500ms) + buffer ~ 1200ms
-//   - graduated:        drop + boop + graduation (~800ms) ~ 1800ms
-// We use slightly larger values than Game.tsx's totals to guarantee the
-// animation finishes before the next update is applied, avoiding the
-// "AZ's move renders on top of my move" flicker.
-function animationDurationMs(update: GameUpdate): number {
-  const hasGraduations = (update.graduatedPieces?.length ?? 0) > 0;
-  const hasBoops = (update.boopedPieces?.length ?? 0) > 0;
-  if (hasGraduations) return 1900;
-  if (hasBoops) return 1300;
-  return 500;
-}
+// Incoming updates use the same complete animation window as Game and bots.
 
 // Storage keys
 const PLAYER_TOKEN_KEY = 'boop_player_token';

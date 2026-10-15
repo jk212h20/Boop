@@ -7,6 +7,10 @@ import { Piece as PieceView } from './Piece';
 import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
+import {
+  BOOP_DELAY_MS, GRADUATION_DELAY_MS, GRADUATION_HIGHLIGHT_MS,
+  animationDurationMs,
+} from '../animationTiming';
 
 // Ghost piece data to show where pieces were before being booped
 interface GhostPiece {
@@ -240,17 +244,27 @@ export function Game({
   //   +GRADUATION_REMOVAL_DURATION    removal (scale-out + fade) completes.
   // Cells are cleared from displayBoard only after the final phase ends,
   // so the visual order is: move, boop, highlight, remove.
-  const DROP_DURATION = 400; // ms
-  const BOOP_DELAY = DROP_DURATION + 100; // ms, wait for drop to complete
-  const BOOP_DURATION = 500; // ms
-  const GRADUATION_DELAY = BOOP_DELAY + BOOP_DURATION + 100; // ms, wait for boops to complete
-  const GRADUATION_HIGHLIGHT_DURATION = 800; // ms — matches .graduating-piece keyframe
-  const GRADUATION_REMOVAL_DURATION = 600; // ms — the phantom's exit animation
+  const BOOP_DELAY = BOOP_DELAY_MS;
+  const GRADUATION_DELAY = GRADUATION_DELAY_MS;
+  const GRADUATION_HIGHLIGHT_DURATION = GRADUATION_HIGHLIGHT_MS;
 
   // Handle game state updates - trigger animations and sounds (live game only)
   useEffect(() => {
+    // Retire every overlay belonging to the previous update, even when its
+    // timer was cancelled by a fast reply, history navigation, or a reset.
+    // Otherwise displayBoard restores already-graduated kittens indefinitely.
+    setAnimatingBoops([]);
+    setAnimatingGraduations([]);
+    setGraduationPhase(null);
+    setFlyingPieces([]);
+    setGhostPieces([]);
+    setFallenPieces([]);
+
     // Don't animate during history viewing - that's handled separately
-    if (gameHistory.isViewingHistory) return;
+    if (gameHistory.isViewingHistory) {
+      prevBoardRef.current = gameState.board;
+      return;
+    }
     
     const booped = gameState.boopedPieces || [];
     const graduated = gameState.graduatedPieces || [];
@@ -366,20 +380,21 @@ export function Game({
       }
       
       if (booped.length > 0) {
-        setTimeout(() => playSound('boop'), BOOP_DELAY);
+        timers.push(setTimeout(() => playSound('boop'), BOOP_DELAY));
       }
       
       // Clear animation state after all animations complete
-      const totalAnimationTime =
-        graduated.length > 0
-          ? GRADUATION_DELAY + GRADUATION_HIGHLIGHT_DURATION + GRADUATION_REMOVAL_DURATION
-          : BOOP_DELAY + BOOP_DURATION + 200;
+      const totalAnimationTime = animationDurationMs({
+        graduatedPieces: graduated,
+        boopedPieces: booped,
+      });
 
       timers.push(setTimeout(() => {
         setAnimatingBoops([]);
         setAnimatingGraduations([]);
         setGraduationPhase(null);
         setFlyingPieces([]);
+        setGhostPieces([]);
         setFallenPieces([]);
       }, totalAnimationTime));
 

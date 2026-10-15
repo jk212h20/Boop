@@ -2,361 +2,88 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles */
+:root { color-scheme: light; }
 body {
   min-height: 100vh;
-  background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 50%, #5eead4 100%); /* Light teal - testing deployment */
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255,255,255,.88), transparent 28rem),
+    radial-gradient(circle at 83% 18%, rgba(255,220,171,.5), transparent 25rem),
+    linear-gradient(155deg, #d8faf3 0%, #9de6dc 48%, #75cfc7 100%);
 }
 
-/* Quilted pattern for the game board */
-.quilt-pattern {
-  background-image: 
-    linear-gradient(45deg, rgba(251, 191, 36, 0.3) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(251, 191, 36, 0.3) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(251, 191, 36, 0.3) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(251, 191, 36, 0.3) 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-}
+.btn-primary { @apply px-6 py-3 bg-boop-orange-500 hover:bg-boop-orange-600 text-white font-bold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200; }
+.btn-secondary { @apply px-6 py-3 bg-boop-gray-500 hover:bg-boop-gray-600 text-white font-bold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200; }
+.card { @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-5; border: 1px solid rgba(255,255,255,.72); }
+.input { @apply w-full px-4 py-3 border-2 border-boop-orange-200 rounded-xl focus:border-boop-orange-400 focus:outline-none focus:ring-2 focus:ring-boop-orange-200 transition-all; }
+.room-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+.spinner { border: 3px solid rgba(251,191,36,.3); border-top-color: #f97316; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Stitched border effect */
-.stitched {
+/* The realtime board owns the scene framing and remains comfortably usable from phones to desktops. */
+.floating-board-shell {
   position: relative;
+  width: min(68vw, 760px);
+  height: min(72vh, 720px);
+  min-width: 560px;
+  min-height: 560px;
+  overflow: hidden;
+  border-radius: 2.25rem;
+  background: linear-gradient(145deg, rgba(255,255,255,.36), rgba(85,173,166,.12));
+  border: 1px solid rgba(255,255,255,.66);
+  box-shadow: 0 40px 90px rgba(33,91,88,.25), inset 0 1px rgba(255,255,255,.7);
 }
+.floating-board-shell canvas { touch-action: none; }
+.board-hint, .history-3d-badge {
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 4;
+  border-radius: 999px; padding: .38rem .8rem; font-size: .72rem; font-weight: 700;
+  color: #315f5c; background: rgba(255,255,255,.75); backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(35,86,83,.12); pointer-events: none; white-space: nowrap;
+}
+.board-hint { bottom: .75rem; opacity: .75; }
+.history-3d-badge { top: .8rem; color: white; background: rgba(37,99,235,.86); }
+.board-cell-anchors { position: absolute; inset: 14%; display: grid; grid-template-columns: repeat(6, 1fr); pointer-events: none; opacity: 0; }
+.board-cell-anchors span { display: block; }
 
-.stitched::before {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border: 2px dashed rgba(0, 0, 0, 0.2);
-  border-radius: inherit;
-  pointer-events: none;
-}
+/* Compact illustrated avatars are used in pools and fly-to-pool celebrations. */
+.kitten-piece { position: relative; display: grid; place-items: center; transition: filter .2s; }
+.kitten-piece-selected { filter: drop-shadow(0 0 8px #facc15); }
+.kitten-piece-ghost { opacity: .32; filter: grayscale(.25); }
+.kitten-shadow { position: absolute; width: 72%; height: 17%; bottom: 3%; border-radius: 50%; background: rgba(36,31,35,.18); filter: blur(3px); }
+.pool-cat-icon { position: relative; width: 72%; aspect-ratio: 1; animation: pool-breathe 3.2s ease-in-out infinite; }
+.pool-cat-face { position: absolute; inset: 20% 6% 3%; border-radius: 46% 46% 50% 50%; background: var(--pool-fur); box-shadow: inset 0 -6px 0 rgba(0,0,0,.08), 0 5px 8px rgba(48,36,30,.18); }
+.pool-cat-ears::before, .pool-cat-ears::after { content: ''; position: absolute; top: 5%; width: 40%; height: 43%; background: var(--pool-fur); clip-path: polygon(50% 0, 100% 100%, 0 82%); }
+.pool-cat-ears::before { left: 4%; transform: rotate(-10deg); } .pool-cat-ears::after { right: 4%; transform: rotate(10deg); }
+.pool-cat-face i { position: absolute; top: 37%; width: 10%; height: 15%; border-radius: 50%; background: #203333; }
+.pool-cat-face i:first-child { left: 28%; } .pool-cat-face i:nth-child(2) { right: 28%; }
+.pool-cat-face b { position: absolute; left: 45%; top: 57%; width: 12%; height: 9%; border-radius: 50% 50% 65% 65%; background: #f07a7e; }
+.kitten-piece-orange { --pool-fur: #f47a31; } .kitten-piece-gray { --pool-fur: #718096; }
+.kitten-piece-grown .pool-cat-face { border-radius: 40% 40% 48% 48%; }
+.kitten-piece-grown .pool-cat-face::after { content: ''; position: absolute; left: 24%; right: 24%; top: 15%; height: 7%; border-radius: 50%; background: rgba(33,33,42,.35); box-shadow: 0 8px 0 rgba(33,33,42,.25); }
+.kitten-selected-pip { position: absolute; right: -2px; top: -4px; color: #eab308; font-size: .8rem; }
+.pool-piece-button { --pool-fur: #718096; background: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.75); }
+.pool-piece-orange { --pool-fur: #f47a31; background: linear-gradient(145deg,#fff2e4,#ffd6b0); }
+.pool-piece-gray { --pool-fur: #718096; background: linear-gradient(145deg,#f3f7fb,#d7e0eb); }
+@keyframes pool-breathe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1.025); } }
 
-/* Piece styles */
-.piece-kitten {
-  @apply rounded-full shadow-piece transition-all duration-200;
-}
+.turn-active { animation: glow 2s ease-in-out infinite; }
+@keyframes glow { 0%,100% { box-shadow: 0 0 8px rgba(251,191,36,.32); } 50% { box-shadow: 0 0 28px rgba(251,191,36,.66); } }
+.graduating-glow { filter: drop-shadow(0 0 12px #fbbf24); }
 
-.piece-cat {
-  @apply rounded-lg shadow-piece transition-all duration-200;
-}
+.history-slider { @apply bg-white/70 backdrop-blur-sm rounded-xl p-3 shadow-lg; }
+.history-btn { @apply w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-lg font-medium text-gray-600 transition-all duration-150 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 disabled:opacity-40 disabled:cursor-not-allowed; }
+.history-range { @apply h-2 rounded-full appearance-none cursor-pointer; background: linear-gradient(to right,#f97316 0%,#f97316 var(--progress,0%),#e5e7eb var(--progress,0%),#e5e7eb 100%); }
+.history-range::-webkit-slider-thumb { @apply appearance-none w-5 h-5 rounded-full bg-boop-orange-500 cursor-pointer shadow-md border-2 border-white; }
+.move-list { @apply space-y-1; }
+.move-list-item { @apply w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm rounded-lg transition-all duration-150 hover:bg-amber-100; }
+.move-list-item.active { @apply bg-amber-200 font-medium; }
+.move-number { @apply font-mono text-xs w-6; }
+.move-notation { @apply flex-1; }
 
-.piece-orange {
-  background: linear-gradient(135deg, #fb923c 0%, #f97316 50%, #ea580c 100%);
+@media (max-width: 1023px) {
+  .floating-board-shell { width: min(96vw, 700px); height: min(72vh, 650px); min-width: 0; min-height: 440px; }
 }
-
-.piece-gray {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 50%, #475569 100%);
+@media (max-width: 600px) {
+  .floating-board-shell { width: 96vw; height: 68vh; min-height: 400px; border-radius: 1.4rem; }
+  .board-hint { display: none; }
 }
-
-/* Cell hover effect */
-.cell-empty:hover {
-  @apply bg-yellow-200/50;
-}
-
-/* Turn indicator glow */
-.turn-active {
-  animation: glow 2s ease-in-out infinite;
-}
-
-/* Win celebration */
-@keyframes celebrate {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  25% { transform: scale(1.1) rotate(-5deg); }
-  75% { transform: scale(1.1) rotate(5deg); }
-}
-
-.celebrating {
-  animation: celebrate 0.5s ease-in-out infinite;
-}
-
-/* Loading spinner */
-.spinner {
-  border: 3px solid rgba(251, 191, 36, 0.3);
-  border-top-color: #f97316;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Room code styling */
-.room-code {
-  font-family: 'Courier New', monospace;
-  letter-spacing: 0.1em;
-}
-
-/* Button styles */
-.btn-primary {
-  @apply px-6 py-3 bg-boop-orange-500 hover:bg-boop-orange-600 text-white font-bold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200;
-}
-
-.btn-secondary {
-  @apply px-6 py-3 bg-boop-gray-500 hover:bg-boop-gray-600 text-white font-bold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200;
-}
-
-/* Card styles */
-.card {
-  @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6;
-}
-
-/* Input styles */
-.input {
-  @apply w-full px-4 py-3 border-2 border-boop-orange-200 rounded-xl focus:border-boop-orange-400 focus:outline-none focus:ring-2 focus:ring-boop-orange-200 transition-all;
-}
-
-/* Ghost piece styling (shows where booped pieces came from) */
-.ghost-piece {
-  pointer-events: none;
-}
-
-/* Graduation glow effect - enhanced with transform */
-.graduating-glow {
-  animation: graduation-glow 0.8s ease-in-out;
-}
-
-@keyframes graduation-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
-    transform: scale(1);
-  }
-  30% {
-    box-shadow: 0 0 30px 12px rgba(251, 191, 36, 1), 0 0 60px 24px rgba(251, 191, 36, 0.6);
-    transform: scale(1.15);
-  }
-  60% {
-    box-shadow: 0 0 20px 8px rgba(251, 191, 36, 0.8), 0 0 40px 16px rgba(251, 191, 36, 0.4);
-    transform: scale(1.1);
-  }
-}
-
-/* Graduation sparkles container */
-.graduation-sparkles {
-  position: absolute;
-  inset: -30px;
-  pointer-events: none;
-  overflow: visible;
-}
-
-/* Individual sparkles - larger and more visible */
-.sparkle {
-  position: absolute;
-  font-size: 20px;
-  animation-duration: 1s;
-  animation-timing-function: ease-out;
-  animation-fill-mode: forwards;
-  opacity: 0;
-}
-
-.sparkle-1 {
-  top: 0;
-  left: 50%;
-  animation-name: sparkle-up;
-}
-
-.sparkle-2 {
-  top: 50%;
-  right: 0;
-  animation-name: sparkle-right;
-  animation-delay: 0.15s;
-}
-
-.sparkle-3 {
-  bottom: 0;
-  left: 50%;
-  animation-name: sparkle-down;
-  animation-delay: 0.3s;
-}
-
-.sparkle-4 {
-  top: 50%;
-  left: 0;
-  animation-name: sparkle-left;
-  animation-delay: 0.2s;
-}
-
-@keyframes sparkle-up {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(0.5);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-35px) scale(1.4);
-  }
-}
-
-@keyframes sparkle-right {
-  0% {
-    opacity: 1;
-    transform: translateX(0) scale(0.5);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(35px) scale(1.4);
-  }
-}
-
-@keyframes sparkle-down {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(0.5);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(35px) scale(1.4);
-  }
-}
-
-@keyframes sparkle-left {
-  0% {
-    opacity: 1;
-    transform: translateX(0) scale(0.5);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(-35px) scale(1.4);
-  }
-}
-
-/* Graduating piece - pulse and grow animation */
-.graduating-piece {
-  z-index: 10;
-  animation: graduating-transform 0.8s ease-in-out;
-}
-
-@keyframes graduating-transform {
-  0% {
-    transform: scale(1);
-    filter: brightness(1);
-  }
-  25% {
-    transform: scale(1.2);
-    filter: brightness(1.3);
-  }
-  50% {
-    transform: scale(1.15) rotate(5deg);
-    filter: brightness(1.5);
-  }
-  75% {
-    transform: scale(1.1) rotate(-3deg);
-    filter: brightness(1.3);
-  }
-  100% {
-    transform: scale(1) rotate(0);
-    filter: brightness(1);
-  }
-}
-
-/* Pulsing glow for turn indicator */
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(251, 191, 36, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(251, 191, 36, 0.8), 0 0 30px rgba(251, 191, 36, 0.4);
-  }
-}
-
-/* History slider styles */
-.history-slider {
-  @apply bg-white/70 backdrop-blur-sm rounded-xl p-3 shadow-lg;
-}
-
-.history-btn {
-  @apply w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center 
-         text-lg font-medium text-gray-600 transition-all duration-150
-         hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800
-         disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200;
-}
-
-.history-range {
-  @apply h-2 rounded-full appearance-none cursor-pointer;
-  background: linear-gradient(to right, #f97316 0%, #f97316 var(--progress, 0%), #e5e7eb var(--progress, 0%), #e5e7eb 100%);
-}
-
-.history-range::-webkit-slider-thumb {
-  @apply appearance-none w-5 h-5 rounded-full bg-boop-orange-500 cursor-pointer shadow-md 
-         border-2 border-white transition-transform;
-}
-
-.history-range::-webkit-slider-thumb:hover {
-  @apply scale-110;
-}
-
-.history-range::-moz-range-thumb {
-  @apply w-5 h-5 rounded-full bg-boop-orange-500 cursor-pointer shadow-md border-2 border-white;
-}
-
-/* Move list styles */
-.move-list {
-  @apply space-y-1;
-}
-
-.move-list-item {
-  @apply w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm rounded-lg 
-         transition-all duration-150 hover:bg-amber-100;
-}
-
-.move-list-item.active {
-  @apply bg-amber-200 font-medium;
-}
-
-.move-number {
-  @apply font-mono text-xs w-6;
-}
-
-.move-notation {
-  @apply flex-1;
-}
-
-/* Ghost piece styling for history view */
-.ghost-piece-indicator {
-  @apply absolute inset-0 border-2 border-dashed rounded-lg pointer-events-none;
-}
-
-.ghost-piece-indicator.orange {
-  @apply border-boop-orange-400 bg-boop-orange-100/30;
-}
-
-.ghost-piece-indicator.gray {
-  @apply border-boop-gray-400 bg-boop-gray-100/30;
-}
-
-/* Placed piece indicator */
-.placed-piece-indicator {
-  @apply absolute inset-0 rounded-lg pointer-events-none ring-4 ring-yellow-400 ring-offset-2;
-}
-
-/* Boop arrow indicator */
-.boop-arrow {
-  @apply absolute pointer-events-none text-2xl z-20;
-  animation: boop-fade 2s ease-out forwards;
-}
-
-@keyframes boop-fade {
-  0% { opacity: 1; transform: scale(1); }
-  70% { opacity: 1; }
-  100% { opacity: 0; transform: scale(0.8); }
-}
-
-/* Gutter cells (where pieces can fall off) */
-.gutter-cell {
-  @apply relative;
-  background: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 4px,
-    rgba(120, 53, 15, 0.1) 4px,
-    rgba(120, 53, 15, 0.1) 8px
-  );
-}
-
-/* Fallen piece styling - normal size, slightly dimmed */
-.fallen-piece {
-  @apply relative;
-  filter: brightness(0.85) saturate(0.9);
-}
+@media (prefers-reduced-motion: reduce) { .pool-cat-icon, .turn-active { animation: none; } }

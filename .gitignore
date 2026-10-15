@@ -3,6 +3,10 @@ node_modules/
 .pnp
 .pnp.js
 
+# Blender source files (regenerate web GLBs with tools/blender/build_kitten_models.py)
+*.blend
+*.blend1
+
 # Build outputs
 dist/
 build/
@@ -41,3 +45,7 @@ coverage/
 # Misc
 .cache/
 *.pdf
+
+# Python scratch
+__pycache__/
+*.pyc

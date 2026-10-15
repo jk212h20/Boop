@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece, BoopEffect } from '../types';
-import { Board, PlayerPool, calculateFallenPosition, GraduatingPiece, FallenPiece } from './Board';
+import { PlayerPool, calculateFallenPosition, GraduatingPiece, FallenPiece } from './Board';
+import { FloatingBoard3D } from './FloatingBoard3D';
 import { Piece as PieceView } from './Piece';
 import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
@@ -630,7 +631,7 @@ export function Game({
 
           {/* Board */}
           <div className="flex-shrink-0">
-            <Board
+            <FloatingBoard3D
               board={displayBoard}
               onCellClick={handleCellClick}
               isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
@@ -640,7 +641,6 @@ export function Game({
               boopedPieces={historyAnimationData.boops}
               graduatingPieces={gameHistory.isViewingHistory ? [] : animatingGraduations}
               graduationPhase={gameHistory.isViewingHistory ? null : graduationPhase}
-              ghostPieces={historyAnimationData.ghosts}
               highlightedCell={historyHighlightedCell}
               isViewingHistory={gameHistory.isViewingHistory}
               fallenPieces={historyAnimationData.fallen}

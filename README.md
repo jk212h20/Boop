@@ -85,6 +85,19 @@ npm run build
 
 The server will serve the built client from `client/dist`.
 
+## 🎨 Real-time 3D presentation
+
+The game board is rendered with React Three Fiber as a softly floating quilted
+bed, with orbit/zoom controls, studio lighting, contact shadows, and responsive
+framing. The kitten and grown-cat GLBs are authored locally in Blender and
+recolored for each team at runtime. Their state-driven motion includes varied
+idle breathing, placement drops, directional boop hops, landing squash, and
+graduation glow/exit animation.
+
+Model source and rebuild instructions live in `tools/blender/README.md`.
+Append `?preview3d` during local development to enter a deterministic bot game
+for visual review without needing the multiplayer server.
+
 ## 📁 Project Structure
 
 ```

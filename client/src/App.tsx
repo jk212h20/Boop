@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { useBotGame } from './hooks/useBotGame';
 import { Lobby, WaitingRoom, QuickMatchLobby, BotDifficulty, BOT_DIFFICULTIES } from './components/Lobby';
@@ -14,7 +14,9 @@ function getGameCodeFromHash(): string | null {
 }
 
 function App() {
+  const preview3D = new URLSearchParams(window.location.search).has('preview3d');
   const [gameMode, setGameMode] = useState<GameMode>(null);
+  const previewMoveMade = useRef(false);
   const [attemptingRejoin, setAttemptingRejoin] = useState(false);
   const [rejoinError, setRejoinError] = useState<string | null>(null);
 
@@ -147,6 +149,22 @@ function App() {
     setRejoinError(null);
     startBotGame(name, { searchDepth });
   }, [startBotGame, createAzGame]);
+
+  // Maintainer-only visual review route: opens a deterministic local bot board
+  // without requiring socket connectivity or changing the normal lobby flow.
+  useEffect(() => {
+    if (preview3D && gameMode === null && !botGameState) {
+      setGameMode('bot');
+      startBotGame('Preview', { searchDepth: 1 });
+    }
+  }, [preview3D, gameMode, botGameState, startBotGame]);
+
+  useEffect(() => {
+    if (preview3D && botGameState?.phase === 'playing' && !previewMoveMade.current) {
+      previewMoveMade.current = true;
+      void botPlacePiece(2, 2, 'kitten');
+    }
+  }, [preview3D, botGameState, botPlacePiece]);
 
   const handleLeaveOnlineGame = useCallback(() => {
     leaveRoom();

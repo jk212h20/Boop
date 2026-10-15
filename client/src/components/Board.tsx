@@ -491,19 +491,20 @@ export function PlayerPool({
       <div className="flex gap-4 justify-center">
         <div className="flex flex-col items-center">
           <motion.button
+            data-pool-target={`${color}-kitten`}
             whileHover={isCurrentPlayer && isMyTurn && kittensInPool > 0 ? { scale: 1.1 } : undefined}
             whileTap={isCurrentPlayer && isMyTurn && kittensInPool > 0 ? { scale: 0.95 } : undefined}
             onClick={() => isCurrentPlayer && isMyTurn && kittensInPool > 0 && onSelectPiece('kitten')}
             disabled={!isCurrentPlayer || !isMyTurn || kittensInPool === 0}
             className={`
-              w-14 h-14 rounded-full flex items-center justify-center text-3xl
-              ${color === 'orange' ? 'bg-boop-orange-400' : 'bg-boop-gray-400'}
+              pool-piece-button w-[4.25rem] h-[4.25rem] rounded-2xl flex items-center justify-center
+              ${color === 'orange' ? 'pool-piece-orange' : 'pool-piece-gray'}
               ${selectedPieceType === 'kitten' ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
               ${!isCurrentPlayer || !isMyTurn || kittensInPool === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer shadow-piece hover:shadow-piece-hover'}
               transition-all
             `}
           >
-            🐱
+            <Piece piece={{ color, type: 'kitten' }} size="md" disabled />
           </motion.button>
           <span className={`text-sm font-bold mt-1 ${kittensInPool === 0 ? 'text-gray-400' : ''}`}>
             {kittensInPool} 🐱
@@ -523,14 +524,14 @@ export function PlayerPool({
             onClick={() => isCurrentPlayer && isMyTurn && catsInPool > 0 && onSelectPiece('cat')}
             disabled={!isCurrentPlayer || !isMyTurn || catsInPool === 0}
             className={`
-              w-14 h-14 rounded-lg flex items-center justify-center text-3xl
-              ${color === 'orange' ? 'bg-boop-orange-500' : 'bg-boop-gray-500'}
+              pool-piece-button w-[4.25rem] h-[4.25rem] rounded-2xl flex items-center justify-center
+              ${color === 'orange' ? 'pool-piece-orange' : 'pool-piece-gray'}
               ${selectedPieceType === 'cat' ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
               ${!isCurrentPlayer || !isMyTurn || catsInPool === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer shadow-piece hover:shadow-piece-hover'}
               transition-all
             `}
           >
-            😼
+            <Piece piece={{ color, type: 'cat' }} size="md" disabled />
           </motion.button>
           <span className={`text-sm font-bold mt-1 ${catsInPool === 0 ? 'text-gray-400' : ''}`}>
             {catsInPool} 😼

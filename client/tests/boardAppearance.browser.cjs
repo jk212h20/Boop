@@ -26,6 +26,30 @@ const path = require('node:path');
     await page.waitForTimeout(2200); // Allow the actual WebGL asset upload/idle handoff.
     assert.equal(await page.getByLabel('Quilt color 1').inputValue(), '#8c9199');
     assert.equal(await page.getByLabel('Quilt color 2').inputValue(), '#849b92');
+    // Passive opponent stock must remain bright; only genuinely empty pools dim.
+    const pools = await page.locator('.player-pool').evaluateAll(elements => elements.map(pool => ({
+      nameBackground: getComputedStyle(pool.querySelector('.player-pool-name')).backgroundColor,
+      background: getComputedStyle(pool).backgroundColor,
+      selectors: Array.from(pool.querySelectorAll('[data-pool-target]')).map(button => ({
+        count: Number(button.querySelector('.pool-piece-count').textContent),
+        countSize: parseFloat(getComputedStyle(button.querySelector('.pool-piece-count')).fontSize),
+        empty: button.classList.contains('pool-piece-empty'),
+        opacity: getComputedStyle(button).opacity,
+        disabled: button.disabled,
+      })),
+    })));
+    assert.equal(pools.length, 2);
+    for (const pool of pools) {
+      assert.equal(pool.background, 'rgba(0, 0, 0, 0)', 'No enclosing panel around a pool');
+      assert.notEqual(pool.nameBackground, 'rgba(0, 0, 0, 0)');
+      for (const selector of pool.selectors) {
+        assert.equal(selector.empty, selector.count === 0);
+        assert.equal(selector.opacity, '1', 'Waiting for a turn must not dim selector boxes');
+        assert.ok(selector.countSize >= 32, 'Availability counts must be prominent');
+      }
+    }
+    assert.ok(pools[0].selectors.some(selector => selector.count > 0 && selector.disabled));
+    console.log('PASS: name-only panels, large counts, and availability independent of turn/ownership');
     await page.screenshot({ path: path.join(out, 'woven-board.png') });
 
     const canvas = page.locator('.floating-board-shell canvas');
@@ -75,6 +99,14 @@ const path = require('node:path');
       assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390, `${label} should fit on mobile`);
     }
     await page.screenshot({ path: path.join(out, 'mobile-controls.png') });
+    for (const pool of await page.locator('.player-pool').all()) {
+      await pool.scrollIntoViewIfNeeded();
+      for (const selector of await pool.locator('[data-pool-target]').all()) {
+        const bounds = await selector.boundingBox();
+        assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390, 'Mobile pool selectors fit');
+      }
+    }
+    await page.screenshot({ path: path.join(out, 'mobile-player-pool.png') });
     assert.deepEqual(errors, [], 'No uncaught browser exceptions');
     console.log('PASS: mobile controls accessible; no uncaught browser exceptions');
     console.log(`Screenshots: ${out}`);

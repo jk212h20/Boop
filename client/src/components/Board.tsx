@@ -469,75 +469,42 @@ export function PlayerPool({
   playerName,
   isCurrentPlayer 
 }: PlayerPoolProps) {
-  const borderColor = color === 'orange' ? 'border-boop-orange-400' : 'border-boop-gray-400';
-  const bgColor = color === 'orange' ? 'bg-boop-orange-50' : 'bg-boop-gray-50';
-  
   return (
-    <div className={`
-      card border-2 ${borderColor} ${bgColor}
-      ${isMyTurn && isCurrentPlayer ? 'turn-active' : ''}
-    `}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-display font-bold text-lg capitalize">
+    <section className={`player-pool player-pool-${color}`} aria-label={`${playerName}'s pieces`}>
+      <div className={`player-pool-name ${isMyTurn && isCurrentPlayer ? 'turn-active' : ''}`}>
+        <h3 className="font-display font-bold text-lg">
           {isCurrentPlayer ? '👤 You' : `🎮 ${playerName}`}
         </h3>
-        {isMyTurn && isCurrentPlayer && (
-          <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full animate-pulse">
-            Your Turn!
-          </span>
-        )}
+        {isMyTurn && isCurrentPlayer && <span className="player-pool-turn">Your Turn!</span>}
       </div>
-      
-      <div className="flex gap-4 justify-center">
-        <div className="flex flex-col items-center">
-          <motion.button
-            data-pool-target={`${color}-kitten`}
-            whileHover={isCurrentPlayer && isMyTurn && kittensInPool > 0 ? { scale: 1.1 } : undefined}
-            whileTap={isCurrentPlayer && isMyTurn && kittensInPool > 0 ? { scale: 0.95 } : undefined}
-            onClick={() => isCurrentPlayer && isMyTurn && kittensInPool > 0 && onSelectPiece('kitten')}
-            disabled={!isCurrentPlayer || !isMyTurn || kittensInPool === 0}
-            className={`
-              pool-piece-button w-[4.25rem] h-[4.25rem] rounded-2xl flex items-center justify-center
-              ${color === 'orange' ? 'pool-piece-orange' : 'pool-piece-gray'}
-              ${selectedPieceType === 'kitten' ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
-              ${!isCurrentPlayer || !isMyTurn || kittensInPool === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer shadow-piece hover:shadow-piece-hover'}
-              transition-all
-            `}
-          >
-            <Piece piece={{ color, type: 'kitten' }} size="md" disabled />
-          </motion.button>
-          <span className={`text-sm font-bold mt-1 ${kittensInPool === 0 ? 'text-gray-400' : ''}`}>
-            {kittensInPool} 🐱
-          </span>
-        </div>
-
-        <div className="flex flex-col items-center">
-          <motion.button
-            // data-pool-target: marks this element as the fly-to destination
-            // for graduating pieces (kittens promote into cats, cats return
-            // to pool as cats — both end up here). Query it by
-            // `[data-pool-target="<color>-cat"]` from Game.tsx at animation
-            // start to get its bounding rect.
-            data-pool-target={`${color}-cat`}
-            whileHover={isCurrentPlayer && isMyTurn && catsInPool > 0 ? { scale: 1.1 } : undefined}
-            whileTap={isCurrentPlayer && isMyTurn && catsInPool > 0 ? { scale: 0.95 } : undefined}
-            onClick={() => isCurrentPlayer && isMyTurn && catsInPool > 0 && onSelectPiece('cat')}
-            disabled={!isCurrentPlayer || !isMyTurn || catsInPool === 0}
-            className={`
-              pool-piece-button w-[4.25rem] h-[4.25rem] rounded-2xl flex items-center justify-center
-              ${color === 'orange' ? 'pool-piece-orange' : 'pool-piece-gray'}
-              ${selectedPieceType === 'cat' ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
-              ${!isCurrentPlayer || !isMyTurn || catsInPool === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer shadow-piece hover:shadow-piece-hover'}
-              transition-all
-            `}
-          >
-            <Piece piece={{ color, type: 'cat' }} size="md" disabled />
-          </motion.button>
-          <span className={`text-sm font-bold mt-1 ${catsInPool === 0 ? 'text-gray-400' : ''}`}>
-            {catsInPool} 😼
-          </span>
-        </div>
+      <div className="player-pool-selectors">
+        {(['kitten', 'cat'] as const).map(type => {
+          const count = type === 'kitten' ? kittensInPool : catsInPool;
+          const empty = count === 0;
+          const selectable = isCurrentPlayer && isMyTurn && !empty;
+          const selected = isCurrentPlayer && selectedPieceType === type && !empty;
+          return (
+            <motion.button key={type} type="button"
+              // Keep the independent selector as the fly-to-pool destination.
+              data-pool-target={`${color}-${type}`}
+              aria-label={`${count} ${type}${count === 1 ? '' : 's'} available`}
+              aria-pressed={selected}
+              whileHover={selectable ? { scale: 1.05 } : undefined}
+              whileTap={selectable ? { scale: .95 } : undefined}
+              onClick={() => selectable && onSelectPiece(type)}
+              disabled={!selectable}
+              className={`pool-piece-button pool-piece-${color}
+                ${empty ? 'pool-piece-empty' : 'pool-piece-available'}
+                ${selected ? 'pool-piece-selected' : ''}
+                ${selectable ? 'pool-piece-selectable' : ''}`}>
+              <Piece piece={{ color, type }} size="md" />
+              <span className="pool-piece-label">{type === 'kitten' ? 'Kittens' : 'Cats'}</span>
+              <span className="pool-piece-count">{count}</span>
+              <span className="pool-piece-availability">available</span>
+            </motion.button>
+          );
+        })}
       </div>
-    </div>
+    </section>
   );
 }

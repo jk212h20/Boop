@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test:appearance": "tsx --test tests/boardAppearance.test.ts",
+    "test:appearance": "tsx --tsconfig tests/tsconfig.json --test tests/boardAppearance.test.ts tests/playerPool.test.tsx",
     "test:appearance:browser": "node tests/boardAppearance.browser.cjs"
   },
   "dependencies": {

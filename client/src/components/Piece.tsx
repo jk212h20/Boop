@@ -32,8 +32,8 @@ export function Piece({
 
   return (
     <motion.div
-      whileHover={!disabled && !isGhost ? { scale: 1.08, y: -2 } : undefined}
-      whileTap={!disabled && !isGhost ? { scale: 0.96 } : undefined}
+      whileHover={onClick && !disabled && !isGhost ? { scale: 1.08, y: -2 } : undefined}
+      whileTap={onClick && !disabled && !isGhost ? { scale: 0.96 } : undefined}
       onClick={disabled ? undefined : onClick}
       role={onClick ? 'button' : undefined}
       aria-label={onClick ? title : undefined}

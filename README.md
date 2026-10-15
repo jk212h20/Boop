@@ -92,7 +92,15 @@ bed, with orbit/zoom controls, studio lighting, contact shadows, and responsive
 framing. The kitten and grown-cat GLBs are authored locally in Blender and
 recolored for each team at runtime. Their state-driven motion includes varied
 idle breathing, placement drops, directional boop hops, landing squash, and
-graduation glow/exit animation.
+graduation glow/exit animation. Both kitten and grown-cat models face toward the
+initial camera. Cast-shadow strength is 0.5 and the under-board contact-shadow
+opacity is 0.14 (half the original values), without dimming the scene lighting.
+
+Player names have their own compact panel above two independent piece selectors.
+Stocked selectors remain bright for both players, including while waiting for a
+turn; only zero stock gets a gray empty state. Large counts and text labels show
+availability, while selection remains restricted to your turn. Fly-to-pool
+anchors remain on the corresponding kitten/cat selectors.
 
 The placement cursor is a pale, translucent kitten labeled **Preview**, with no
 cast shadow or pointer interception. Quilt squares use a procedural woven
@@ -112,7 +120,7 @@ For the browser regression, first verify a local Vite server with `devports`,
 then set `BOOP_TEST_URL` to that server and run
 `npm --prefix client run test:appearance:browser`. It uses the client's Playwright
 dev dependency and installed Google Chrome, checks preview placement, both color
-controls, reload persistence, reset, and mobile layout, and writes screenshots
+controls, reload persistence, reset, pool appearance/counts, and mobile layout, and writes screenshots
 to `/tmp/boop-appearance-qa` (override with `BOOP_QA_DIR`).
 
 Model source and rebuild instructions live in `tools/blender/README.md`.

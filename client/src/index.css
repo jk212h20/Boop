@@ -77,9 +77,38 @@ body {
 .kitten-piece-grown .pool-cat-face { border-radius: 40% 40% 48% 48%; }
 .kitten-piece-grown .pool-cat-face::after { content: ''; position: absolute; left: 24%; right: 24%; top: 15%; height: 7%; border-radius: 50%; background: rgba(33,33,42,.35); box-shadow: 0 8px 0 rgba(33,33,42,.25); }
 .kitten-selected-pip { position: absolute; right: -2px; top: -4px; color: #eab308; font-size: .8rem; }
-.pool-piece-button { --pool-fur: #718096; background: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.75); }
+.player-pool { --pool-accent: #b1c5de; width: 100%; }
+.player-pool-orange { --pool-accent: #ffbb84; }
+.player-pool-name {
+  min-height: 3.5rem; margin-bottom: .9rem; padding: .65rem .75rem;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .4rem;
+  border: 1px solid var(--pool-accent); border-radius: .85rem;
+  background: rgba(245,248,250,.88); color: #24313e;
+}
+.player-pool-name h3 { overflow-wrap: anywhere; }
+.player-pool-turn { border-radius: 999px; padding: .15rem .5rem; background: #fcd46a; color: #5e400e; font-size: .65rem; font-weight: 800; }
+.player-pool-selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; width: 100%; max-width: 15rem; margin: 0 auto; }
+.pool-piece-button {
+  --pool-fur: #718096; display: flex; flex-direction: column; align-items: center;
+  min-width: 0; padding: .65rem .25rem .75rem; border: 1px solid var(--pool-accent);
+  border-radius: 1rem; color: #24313e; opacity: 1;
+  transition: background .2s, box-shadow .2s, border-color .2s;
+}
 .pool-piece-orange { --pool-fur: #f47a31; background: linear-gradient(145deg,#fff2e4,#ffd6b0); }
 .pool-piece-gray { --pool-fur: #718096; background: linear-gradient(145deg,#f3f7fb,#d7e0eb); }
+/* Availability owns appearance; being the opponent or waiting a turn does not dim stock. */
+.pool-piece-available { box-shadow: 0 0 14px color-mix(in srgb, var(--pool-accent) 18%, transparent), inset 0 1px 0 rgba(255,255,255,.8); }
+.pool-piece-empty { background: #26303b; border-color: #485461; color: #91a0ae; box-shadow: none; }
+.pool-piece-empty .kitten-piece { filter: grayscale(1); opacity: .4; }
+.pool-piece-empty .pool-piece-count { color: #91a0ae; }
+.pool-piece-selectable { cursor: pointer; }
+.pool-piece-selectable:hover { box-shadow: 0 0 18px color-mix(in srgb, var(--pool-accent) 32%, transparent); }
+.pool-piece-button:disabled { cursor: default; }
+.pool-piece-selected { outline: 2px solid #f6ce74; outline-offset: 3px; }
+.pool-piece-button:focus-visible { outline: 3px solid #a8d9ed; outline-offset: 3px; }
+.pool-piece-label { font-size: .75rem; font-weight: 700; }
+.pool-piece-count { font-size: 2.25rem; line-height: 1.15; font-weight: 900; font-variant-numeric: tabular-nums; color: #182a38; }
+.pool-piece-availability { font-size: .6rem; font-weight: 600; letter-spacing: .03em; }
 @keyframes pool-breathe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1.025); } }
 
 .turn-active { animation: glow 2s ease-in-out infinite; }

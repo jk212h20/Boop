@@ -95,7 +95,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
 
   return (
     <group ref={group} position={target} renderOrder={isGhost ? -1 : 1}>
-      <group rotation={[0, Math.PI, 0]}>
+      <group rotation={[0, 0, 0]}>
         <CatModel piece={piece} ghost={isGhost} />
       </group>
       {isGraduating && (
@@ -160,7 +160,7 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
     <>
       <fog attach="fog" args={['#17222d', 15, 25]} />
       <ambientLight intensity={1.15} />
-      <directionalLight position={[-5, 9, 4]} intensity={2.3} color="#fff0d4" castShadow shadow-mapSize={[2048, 2048]} />
+      <directionalLight position={[-5, 9, 4]} intensity={2.3} color="#fff0d4" castShadow shadow-intensity={.5} shadow-mapSize={[2048, 2048]} />
       <directionalLight position={[6, 4, -5]} intensity={1.1} color="#96d9ff" />
       <Float speed={1.15} rotationIntensity={.055} floatIntensity={.22} floatingRange={[-.12, .12]}>
         <group rotation={[0, -.08, 0]}>
@@ -198,7 +198,7 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
           ))}
         </group>
       </Float>
-      <ContactShadows position={[0, -1.03, 0]} opacity={.28} scale={13} blur={2.7} far={5} color="#396b69" />
+      <ContactShadows position={[0, -1.03, 0]} opacity={.14} scale={13} blur={2.7} far={5} color="#396b69" />
       <Environment preset="apartment" environmentIntensity={.32} />
       <OrbitControls makeDefault enablePan={false} minDistance={8.5} maxDistance={14}
         minPolarAngle={.52} maxPolarAngle={1.16} minAzimuthAngle={-.75} maxAzimuthAngle={.75}

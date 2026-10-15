@@ -381,7 +381,17 @@ export function Game({
         setFlyingPieces([]);
         setFallenPieces([]);
       }, totalAnimationTime));
-      
+
+      // Update previous board reference. Must happen on every effect run —
+      // including the boop/graduation branch — otherwise `prevBoardRef`
+      // stays stuck on a stale board for all future turns. When a later
+      // move graduates a piece at a cell whose *stale* occupant was the
+      // opposite color, the graduation restore logic (see `displayBoard`
+      // above and the `prevBoardRef.current[cell.row]?.[cell.col]` lookup
+      // a few lines up) would surface that stale piece, producing a
+      // one-frame flash in the wrong color during the highlight animation.
+      prevBoardRef.current = gameState.board;
+
       return () => timers.forEach(clearTimeout);
     } else if (gameState.lastMove) {
       // Just a placement with no boops
@@ -389,8 +399,8 @@ export function Game({
       setGhostPieces([]);
       setFallenPieces([]);
     }
-    
-    // Update previous board reference
+
+    // Update previous board reference (no-boop / no-graduation path).
     prevBoardRef.current = gameState.board;
   }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, playSound, gameHistory.isViewingHistory]);
 

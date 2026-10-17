@@ -20,12 +20,15 @@ interface UseBotGameReturn {
   selectGraduation: (optionIndex: number) => Promise<boolean>;
   resetGame: () => void;
   endBotGame: () => void;
+  /** Increments on every new bot game; use as a React key so Game remounts fresh. */
+  gameId: number;
 }
 
 export function useBotGame(): UseBotGameReturn {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [gameOver, setGameOver] = useState<GameOverInfo | null>(null);
   const [botThinking, setBotThinking] = useState(false);
+  const [gameId, setGameId] = useState(0);
   
   // Player is always orange, bot is always gray
   const playerColor: PlayerColor = 'orange';
@@ -93,6 +96,10 @@ export function useBotGame(): UseBotGameReturn {
     setGameState(newState);
     setGameOver(null);
     setBotThinking(false);
+    // New game identity: App uses this as the Game component's key so the
+    // whole subtree (history, review index, animation overlays) remounts
+    // empty instead of carrying over the previous game's review state.
+    setGameId(id => id + 1);
     
     // Store config for reset
     botConfigRef.current = botConfig;
@@ -261,5 +268,6 @@ export function useBotGame(): UseBotGameReturn {
     selectGraduation,
     resetGame,
     endBotGame,
+    gameId,
   };
 }

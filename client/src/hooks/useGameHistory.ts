@@ -44,9 +44,15 @@ export function useGameHistory(initialBoard?: Board): UseGameHistoryReturn {
     initialBoard || Array(6).fill(null).map(() => Array(6).fill(null))
   );
   
+  // True once any move has been recorded. After that, `initialBoard` must no
+  // longer overwrite the stored opening position: Game.tsx passes the LIVE
+  // board as initialBoard, so accepting updates past move 1 turns "go to
+  // start" into "show the latest board".
+  const hasRecordedRef = useRef(false);
+  
   // Update initial board when a new game starts
   useEffect(() => {
-    if (initialBoard) {
+    if (initialBoard && !hasRecordedRef.current) {
       initialBoardRef.current = cloneBoard(initialBoard);
     }
   }, [initialBoard]);
@@ -115,6 +121,7 @@ export function useGameHistory(initialBoard?: Board): UseGameHistoryReturn {
     };
     
     setHistory(prev => [...prev, newMove]);
+    hasRecordedRef.current = true;
     // Auto-advance to latest move
     setCurrentMoveIndex(history.length);  // Will be the new length - 1 after state update
   }, [history.length]);
@@ -123,6 +130,7 @@ export function useGameHistory(initialBoard?: Board): UseGameHistoryReturn {
   const clearHistory = useCallback(() => {
     setHistory([]);
     setCurrentMoveIndex(-1);
+    hasRecordedRef.current = false;
   }, []);
   
   return {

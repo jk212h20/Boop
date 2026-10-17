@@ -58,6 +58,7 @@ function App() {
     selectGraduation: botSelectGraduation,
     resetGame: resetBotGame,
     endBotGame,
+    gameId: botGameId,
   } = useBotGame();
 
   // Handle URL-based rejoin on app load
@@ -212,6 +213,7 @@ function App() {
     if (gameMode === 'bot' && botGameState) {
       return (
         <Game
+          key={`bot-${botGameId}`}
           gameState={botGameState}
           playerColor={botPlayerColor}
           roomCode="vs Bot"
@@ -255,6 +257,7 @@ function App() {
       if (roomInfo && onlinePlayerColor && onlineGameState) {
         return (
           <Game
+            key={roomInfo.roomCode}
             gameState={onlineGameState}
             playerColor={onlinePlayerColor}
             roomCode={roomInfo.roomCode}

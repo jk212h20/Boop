@@ -6,6 +6,63 @@ import { checkWinCondition, createInitialGameState, executeMove, cloneGameState 
 import { createBot, BotAI } from '../bot/BotAI';
 import { DEFAULT_BOT_CONFIG, BotConfig } from '../bot/types';
 
+// Resolve a pending graduation choice for the bot: execute the option that
+// graduates the most kittens (ties -> first listed). Mirrors the human path
+// in selectGraduation below. Without this, a bot move that ends in
+// selecting_graduation deadlocks the game: nothing else ever resolves it.
+export function applyBotGraduationChoice(state: GameState, botColor: PlayerColor): GameState {
+  const newState = cloneGameState(state);
+  const player = newState.players[botColor];
+  const options = newState.pendingGraduationOptions || [];
+  if (!player || options.length === 0) return newState;
+
+  let bestIndex = 0;
+  let bestKittens = -1;
+  options.forEach((option, index) => {
+    const kittens = option.filter(cell => {
+      const piece = newState.board[cell.row]?.[cell.col];
+      return piece && piece.color === botColor && piece.type === 'kitten';
+    }).length;
+    if (kittens > bestKittens) {
+      bestKittens = kittens;
+      bestIndex = index;
+    }
+  });
+
+  const option = options[bestIndex];
+  const graduatedPieces: Cell[] = [];
+  for (const cell of option) {
+    const piece = newState.board[cell.row]?.[cell.col];
+    if (piece) {
+      newState.board[cell.row][cell.col] = null;
+      graduatedPieces.push(cell);
+      if (piece.type === 'kitten') {
+        player.kittensRetired++;
+        player.catsInPool++;
+      } else {
+        player.catsInPool++;
+      }
+    }
+  }
+
+  newState.graduatedPieces = graduatedPieces;
+  newState.pendingGraduationOptions = undefined;
+  newState.pendingGraduationPlayer = undefined;
+
+  // Safety net: a graduation only removes pieces, so this cannot create a
+  // win — but keep parity with the human selection path.
+  const winCondition = checkWinCondition(newState.board, botColor);
+  if (winCondition) {
+    newState.phase = 'finished';
+    newState.winner = botColor;
+    return newState;
+  }
+
+  newState.phase = 'playing';
+  newState.currentTurn = botColor === 'orange' ? 'gray' : 'orange';
+  return newState;
+}
+
 import { animationDurationMs } from '../animationTiming';
 
 interface UseBotGameReturn {
@@ -68,16 +125,26 @@ export function useBotGame(): UseBotGameReturn {
         const result = executeMove(state, move.row, move.col, move.pieceType, botColor);
         
         if (result.valid) {
-          setGameState(result.newState);
+          let resultingState = result.newState;
+
+          // If the bot's move left a pending graduation choice for the bot,
+          // resolve it here. Nothing else will — the human selector rejects
+          // bot selections — so this previously deadlocked the game.
+          if (resultingState.phase === 'selecting_graduation' &&
+              resultingState.pendingGraduationPlayer === botColor) {
+            resultingState = applyBotGraduationChoice(resultingState, botColor);
+          }
+
+          setGameState(resultingState);
           
           // Check for game over
-          if (result.newState.phase === 'finished' && result.newState.winner) {
-            const winCondition = checkWinCondition(result.newState.board, result.newState.winner)
+          if (resultingState.phase === 'finished' && resultingState.winner) {
+            const winCondition = checkWinCondition(resultingState.board, resultingState.winner)
               ?? 'three_cats_in_row';
             setGameOver({
-              winner: result.newState.winner,
+              winner: resultingState.winner,
               winCondition,
-              gameState: result.newState,
+              gameState: resultingState,
             });
           }
         }

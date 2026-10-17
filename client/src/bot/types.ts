@@ -18,7 +18,10 @@ export interface SimulationResult {
   newBoard: Board;
   boopedPieces: BoopEffect[];
   graduatedPieces: Cell[];
+  /** True only when the MOVER wins with this move. */
   wins: boolean;
+  /** True when the move hands the opponent a winning configuration. */
+  opponentWins?: boolean;
   winCondition?: 'three_cats_in_row' | 'all_eight_cats';
   createsGraduation: boolean;
   newKittensInPool: number;

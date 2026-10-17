@@ -770,11 +770,12 @@ function GraduationSelectionModal({
         className="card max-w-lg w-full"
       >
         <h2 className="font-display text-2xl font-bold text-center mb-4 text-boop-orange-600">
-          🎓 Choose Which 3 to Graduate!
+          🎓 Choose What to Graduate!
         </h2>
         
         <p className="text-gray-600 text-center mb-4">
-          You have multiple 3-in-a-row options. Select which kittens to graduate into cats.
+          Select which group to graduate: a line of three, or a single kitten
+          when all 8 of your pieces are on the bed.
         </p>
 
         <div className="space-y-3">

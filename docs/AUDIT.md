@@ -141,3 +141,50 @@ Fixes:
 - History viewing advances prevBoardRef while retiring overlays (the stale before-board component of H06). Returning from history may still replay an update's effects; the broader history audit findings remain open.
 
 `tools/audit/graduation-regression.cjs` is a **positive correctness test**, unlike the original defect detectors. It checks normal three-kitten graduation and cat awards, interruption by both plain and boop-only updates, reset overlay isolation, and shared timing. It failed on the original stale display board and passes after the fix. Production build and the existing audit detectors were also rerun; their unrelated findings remain unresolved. No graduation-rule policy was changed and no deployment was performed.
+
+## Repair addendum — rules correctness (2026-10-17)
+
+Commit `a694a06` fixed the stale previous-game review board (a new game showed
+an old board, e.g. two kittens, when rematch happened while parked in history
+view): `Game` is now keyed per game identity and `useGameHistory` stops
+accepting live-board "initial" updates after moves are recorded.
+
+This addendum fixes the reproduced rules findings R01–R04, V01–V03 and B01 in
+BOTH engines (`server/src/game/GameState.ts`, `client/src/bot/LocalGame.ts`):
+
+- **R01**: the win check now runs on the post-boop board BEFORE graduation, so
+  a `Cat Cat Cat Kitten` line wins instead of the graduation consuming two
+  cats of the winning line. Graduation can no longer destroy a win.
+- **R02**: the post-boop win check covers both players. A placement that boops
+  the opponent's cats into a line ends the game with the opponent as winner.
+  If both players complete a line on the same motion, the mover wins
+  (active-player precedence) — a documented policy choice, per the
+  rule-question note above.
+- **R03/R04**: the all-8-on-board graduation now offers every on-board kitten
+  as its own single-piece option, alongside any line options (the
+  "choose which you would activate" rule), instead of force-retiring the
+  first row-major kitten. Declining entirely is still not offered: with the
+  pool empty the player would have no legal placement next turn.
+- **Line of two**: the protection now follows the rulebook's literal wording —
+  "when ANY two pieces are already in a line... a piece played into that line
+  cannot push those pieces" — so a companion anywhere along the push ray
+  (adjacent or across a gap) blocks the push. Placement into the gap still
+  pushes the two pieces apart (no companion lies beyond them in the push
+  direction). This is the one interpretive call in this addendum; if the
+  publisher's FAQ rules the pair must be adjacent, the ray scan in
+  `executeBoop` collapses back to the destination-occupied check.
+- **V01–V03**: runtime piece-type enum and integer coordinate/option-index
+  validation in both engines' move and graduation entry points.
+- **B01**: the local bot resolves its own pending graduation choice
+  (`applyBotGraduationChoice`, most kittens graduated first), and
+  `cloneGameState` no longer drops `pendingGraduationOptions` /
+  `pendingGraduationPlayer` — previously any clone of a
+  `selecting_graduation` state lost the options.
+- `simulateMove.wins` means "the mover wins"; opponent wins are surfaced as
+  `opponentWins` so bot search does not chase moves that hand the opponent a
+  line.
+
+Regression tests: `server/tests/rules.test.ts` (10) and
+`client/tests/rules.test.ts` (8), run with `npm test` in each package. All
+pass; typecheck clean in both packages; appearance tests unchanged. The
+remaining S/M/U findings are untouched. Not deployed.

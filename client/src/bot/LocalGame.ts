@@ -30,7 +30,7 @@ export function cloneBoard(board: Board): Board {
 
 // Deep clone game state
 export function cloneGameState(state: GameState): GameState {
-  return {
+  const cloned: GameState = {
     board: cloneBoard(state.board),
     players: {
       orange: state.players.orange ? { ...state.players.orange } : null,
@@ -43,6 +43,18 @@ export function cloneGameState(state: GameState): GameState {
     boopedPieces: [...state.boopedPieces],
     graduatedPieces: [...state.graduatedPieces],
   };
+  // Pending graduation selection is part of the state; dropping it made any
+  // clone of a selecting_graduation state lose the options (which deadlock
+  // the bot resolver and desync the UI).
+  if (state.pendingGraduationOptions) {
+    cloned.pendingGraduationOptions = state.pendingGraduationOptions.map(option =>
+      option.map(cell => ({ ...cell }))
+    );
+  }
+  if (state.pendingGraduationPlayer) {
+    cloned.pendingGraduationPlayer = state.pendingGraduationPlayer;
+  }
+  return cloned;
 }
 
 // Create empty board
@@ -155,8 +167,24 @@ function executeBoop(
     const destRow = adjRow + dRow;
     const destCol = adjCol + dCol;
 
-    // Check if destination is blocked by another piece
-    if (isValidPosition(destRow, destCol) && newBoard[destRow][destCol] !== null) {
+    // Rules: "When any two pieces are already in a line on the board,
+    // another piece played into that line cannot push those pieces."
+    // The pushed piece may not move along this direction if ANY piece
+    // (either color) already lies beyond it on the same ray: an adjacent
+    // companion (destination occupied) or one further along the line
+    // (two pieces in a line with a gap). They can still be booped from
+    // other directions. Mirrors server/src/game/GameState.ts executeBoop.
+    let lineOfTwoBlocks = false;
+    for (let k = 2; ; k++) {
+      const r2 = placedRow + dRow * k;
+      const c2 = placedCol + dCol * k;
+      if (!isValidPosition(r2, c2)) break;
+      if (newBoard[r2][c2] !== null) {
+        lineOfTwoBlocks = true;
+        break;
+      }
+    }
+    if (lineOfTwoBlocks) {
       continue;
     }
 
@@ -403,25 +431,26 @@ function checkAndExecuteGraduation(
   const newBoard = cloneBoard(board);
 
   // Find all unique graduation options
-  const options = findGraduationOptions(newBoard, playerColor);
+  const options: Cell[][] = [...findGraduationOptions(newBoard, playerColor)];
 
-  if (options.length === 0) {
-    // Check if all 8 pieces are on board
-    const piecesOnBoard = countPiecesOnBoard(newBoard, playerColor);
-    if (piecesOnBoard.total >= 8 && player.kittensRetired + player.catsInPool < MAX_CATS) {
-      // Find a kitten to graduate
-      for (let row = 0; row < BOARD_SIZE; row++) {
-        for (let col = 0; col < BOARD_SIZE; col++) {
-          const piece = newBoard[row][col];
-          if (piece && piece.color === playerColor && piece.type === 'kitten') {
-            newBoard[row][col] = null;
-            player.kittensRetired++;
-            player.catsInPool++;
-            return { board: newBoard, graduatedPieces: [{ row, col }], catsEarned: 1 };
-          }
+  // Rules: "if all 8 of your pieces are on the bed, you may graduate any
+  // one Kitten" — and "if you have both a three in a row and eight pieces
+  // on the board, choose which you would activate." So offer each on-board
+  // kitten as its own single-piece option EVEN when line options exist.
+  // Mirrors server/src/game/GameState.ts checkAndExecuteGraduation.
+  const counts = countPiecesOnBoard(newBoard, playerColor);
+  if (counts.total >= 8 && player.kittensRetired + player.catsInPool < MAX_CATS) {
+    for (let row = 0; row < BOARD_SIZE; row++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        const piece = newBoard[row][col];
+        if (piece && piece.color === playerColor && piece.type === 'kitten') {
+          options.push([{ row, col }]);
         }
       }
     }
+  }
+
+  if (options.length === 0) {
     return { board: newBoard, graduatedPieces: [], catsEarned: 0 };
   }
 
@@ -539,20 +568,30 @@ export function simulateMove(
   const boopResult = executeBoop(simBoard, row, col, newPiece, simPlayers);
   simBoard = boopResult.board;
 
-  // Check for graduation
-  const gradResult = checkAndExecuteGraduation(simBoard, simPlayer, color);
-  simBoard = gradResult.board;
+  // Win check comes BEFORE graduation on the post-boop board: a cat line
+  // existing after motion wins immediately and must not be consumed by a
+  // graduation. Mover first, then opponent (a placement can boop the
+  // opponent's cats into a line). Mirrors the server engine.
+  const opponentColor: PlayerColor = color === 'orange' ? 'gray' : 'orange';
+  const moverWin = checkWinCondition(simBoard, color);
+  const opponentWin = moverWin ? null : checkWinCondition(simBoard, opponentColor);
 
-  // Check for win
-  const winResult = checkWinCondition(simBoard, color);
+  // Check for graduation (only relevant when the move did not win)
+  const gradResult = (moverWin || opponentWin)
+    ? { board: simBoard, graduatedPieces: [] as Cell[], catsEarned: 0 }
+    : checkAndExecuteGraduation(simBoard, simPlayer, color);
+  simBoard = gradResult.board;
 
   return {
     valid: true,
     newBoard: simBoard,
     boopedPieces: boopResult.boopedPieces,
     graduatedPieces: gradResult.graduatedPieces,
-    wins: winResult !== null,
-    winCondition: winResult || undefined,
+    // `wins` means THE MOVER wins — BotAI interprets it as a winning move.
+    // Opponent wins are surfaced separately so search can avoid them.
+    wins: moverWin !== null,
+    winCondition: moverWin || undefined,
+    opponentWins: !moverWin && opponentWin !== null,
     createsGraduation: gradResult.graduatedPieces.length > 0,
     newKittensInPool: simPlayer.kittensInPool,
     newCatsInPool: simPlayer.catsInPool,
@@ -579,6 +618,13 @@ export function executeMove(
   // Clone state and player
   const newState = cloneGameState(state);
   const player = newState.players[color]!;
+
+  // Validate move shape: piece type is the runtime enum and coordinates
+  // are real integers (a fractional row would throw on board lookup).
+  if ((pieceType !== 'kitten' && pieceType !== 'cat') ||
+      !Number.isInteger(row) || !Number.isInteger(col)) {
+    return { newState: state, valid: false, error: 'Invalid move' };
+  }
 
   // Validate position is empty
   if (!isValidPosition(row, col) || newState.board[row][col] !== null) {
@@ -611,6 +657,20 @@ export function executeMove(
   newState.board = boopResult.board;
   newState.boopedPieces = boopResult.boopedPieces;
 
+  // Win check BEFORE graduation on the post-boop board (see simulateMove;
+  // mirrors server/src/game/GameState.ts placePiece). Mover first, then
+  // opponent — a placement can boop the opponent's cats into a line.
+  const opponentColor: PlayerColor = color === 'orange' ? 'gray' : 'orange';
+  const moverWin = checkWinCondition(newState.board, color);
+  const opponentWin = moverWin ? null : checkWinCondition(newState.board, opponentColor);
+  const winResult = moverWin ?? opponentWin;
+
+  if (winResult) {
+    newState.phase = 'finished';
+    newState.winner = moverWin ? color : opponentColor;
+    return { newState, valid: true };
+  }
+
   // Check for graduation
   const gradResult = checkAndExecuteGraduation(newState.board, player, color);
   newState.board = gradResult.board;
@@ -625,15 +685,8 @@ export function executeMove(
     return { newState, valid: true };
   }
 
-  // Check for win
-  const winResult = checkWinCondition(newState.board, color);
-  if (winResult) {
-    newState.phase = 'finished';
-    newState.winner = color;
-  } else {
-    // Switch turns
-    newState.currentTurn = color === 'orange' ? 'gray' : 'orange';
-  }
+  // Switch turns
+  newState.currentTurn = color === 'orange' ? 'gray' : 'orange';
 
   return { newState, valid: true };
 }

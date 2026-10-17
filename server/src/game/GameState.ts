@@ -187,6 +187,14 @@ export class BoopGame {
       return { valid: false, error: 'Not your turn', boopedPieces: [], graduatedPieces: [], newCatsEarned: 0, winner: null };
     }
 
+    // Validate the move shape: piece type is the runtime enum and the
+    // coordinates are real integers (fractional values would read undefined
+    // board rows and corrupt state instead of being rejected).
+    if ((pieceType !== 'kitten' && pieceType !== 'cat') ||
+        !Number.isInteger(row) || !Number.isInteger(col)) {
+      return { valid: false, error: 'Invalid move', boopedPieces: [], graduatedPieces: [], newCatsEarned: 0, winner: null };
+    }
+
     // Validate position is empty
     if (!this.isValidPosition(row, col)) {
       return { valid: false, error: 'Invalid position', boopedPieces: [], graduatedPieces: [], newCatsEarned: 0, winner: null };
@@ -220,10 +228,39 @@ export class BoopGame {
     // Execute booping
     this.executeBoop(row, col, newPiece);
 
-    // Check for graduation (3 in a row of current player's kittens)
+    // Rules: "Only check for a WIN after all booped pieces complete their
+    // movement." A three-cats-in-a-row or all-8-cats configuration that
+    // exists on the post-boop board wins immediately, BEFORE any graduation
+    // is resolved — a graduation must never be able to destroy a win.
+    // Check the mover first; if the mover did not win, check the opponent
+    // too, since a placement can boop the opponent's cats into a winning
+    // line. If both lines complete on the same motion, the mover wins
+    // (active-player precedence on the mover's own turn).
+    const opponentColor: PlayerColor = player.color === 'orange' ? 'gray' : 'orange';
+    const moverWin = this.checkWinCondition(player.color);
+    const opponentWin = moverWin ? null : this.checkWinCondition(opponentColor);
+    const winResult = moverWin ?? opponentWin;
+    const winnerColor = moverWin ? player.color : opponentWin ? opponentColor : null;
+
+    if (winnerColor) {
+      this.phase = 'finished';
+      this.winner = winnerColor;
+      this.currentTurn = this.currentTurn === 'orange' ? 'gray' : 'orange';
+
+      return {
+        valid: true,
+        boopedPieces: [...this.boopedPieces],
+        graduatedPieces: [],
+        newCatsEarned: 0,
+        winner: this.winner,
+        winCondition: winResult || undefined
+      };
+    }
+
+    // Check for graduation (3 in a row of current player's pieces)
     const graduationResult = this.checkAndExecuteGraduation(player.color);
 
-    // If we entered graduation selection phase, don't switch turns or check win yet
+    // If we entered graduation selection phase, don't switch turns yet
     if (this.pendingGraduationOptions && this.pendingGraduationOptions.length > 1) {
       return {
         valid: true,
@@ -236,14 +273,6 @@ export class BoopGame {
       };
     }
 
-    // Check for win condition
-    const winResult = this.checkWinCondition(player.color);
-
-    if (winResult) {
-      this.phase = 'finished';
-      this.winner = player.color;
-    }
-
     // Switch turns
     this.currentTurn = this.currentTurn === 'orange' ? 'gray' : 'orange';
 
@@ -253,7 +282,7 @@ export class BoopGame {
       graduatedPieces: [...this.graduatedPieces],
       newCatsEarned: graduationResult,
       winner: this.winner,
-      winCondition: winResult || undefined
+      winCondition: undefined
     };
   }
 
@@ -277,9 +306,24 @@ export class BoopGame {
       const destRow = adjRow + dRow;
       const destCol = adjCol + dCol;
 
-      // Check if destination is blocked by another piece (line of 2+ rule)
-      if (this.isValidPosition(destRow, destCol) && this.board[destRow][destCol] !== null) {
-        // Cannot push into an occupied space
+      // Rules: "When any two pieces are already in a line on the board,
+      // another piece played into that line cannot push those pieces."
+      // The pushed piece may not move along this direction if ANY piece
+      // (either color) already lies beyond it on the same ray: an adjacent
+      // companion (destination occupied) or one further along the line
+      // (two pieces in a line with a gap). They can still be booped from
+      // other directions.
+      let lineOfTwoBlocks = false;
+      for (let k = 2; ; k++) {
+        const r2 = placedRow + dRow * k;
+        const c2 = placedCol + dCol * k;
+        if (!this.isValidPosition(r2, c2)) break;
+        if (this.board[r2][c2] !== null) {
+          lineOfTwoBlocks = true;
+          break;
+        }
+      }
+      if (lineOfTwoBlocks) {
         continue;
       }
 
@@ -316,34 +360,34 @@ export class BoopGame {
     }
   }
 
-  // Check for and execute graduation (3 kittens in a row)
-  // Returns: number of cats earned (0 means either no graduation or pending choice)
+  // Check for and execute graduation (3 in a row, or the all-8-on-board
+  // single-kitten graduation). Returns: number of cats earned (0 means either
+  // no graduation or pending choice)
   private checkAndExecuteGraduation(playerColor: PlayerColor): number {
     const player = this.players[playerColor];
     if (!player) return 0;
 
     // Find all unique graduation options for this player
-    const options = this.findGraduationOptions(playerColor);
+    const options: Cell[][] = [...this.findGraduationOptions(playerColor)];
 
-    if (options.length === 0) {
-      // Check if all 8 pieces are on board - can graduate one kitten
-      const piecesOnBoard = this.countPiecesOnBoard(playerColor);
-      if (piecesOnBoard >= 8 && player.kittensRetired + player.catsInPool < MAX_CATS) {
-        // Find a kitten to graduate
-        for (let row = 0; row < BOARD_SIZE; row++) {
-          for (let col = 0; col < BOARD_SIZE; col++) {
-            const piece = this.board[row][col];
-            if (piece && piece.color === playerColor && piece.type === 'kitten') {
-              // Graduate this single kitten
-              this.board[row][col] = null;
-              player.kittensRetired++;
-              player.catsInPool++;
-              this.graduatedPieces.push({ row, col });
-              return 1;
-            }
+    // Rules: "if all 8 of your pieces are on the bed, you may graduate any
+    // one Kitten" — and "if you have both a three in a row and eight pieces
+    // on the board, choose which you would activate." So offer each on-board
+    // kitten as its own single-piece option EVEN when line options exist.
+    // (Declining entirely is not offered: with the pool empty the player
+    // would have no legal placement next turn.)
+    if (this.countPiecesOnBoard(playerColor) >= 8 && player.kittensRetired + player.catsInPool < MAX_CATS) {
+      for (let row = 0; row < BOARD_SIZE; row++) {
+        for (let col = 0; col < BOARD_SIZE; col++) {
+          const piece = this.board[row][col];
+          if (piece && piece.color === playerColor && piece.type === 'kitten') {
+            options.push([{ row, col }]);
           }
         }
       }
+    }
+
+    if (options.length === 0) {
       return 0;
     }
 
@@ -452,7 +496,8 @@ export class BoopGame {
       return { valid: false, error: 'Not your turn to select graduation', graduatedPieces: [], newCatsEarned: 0, winner: null };
     }
 
-    if (!this.pendingGraduationOptions || optionIndex < 0 || optionIndex >= this.pendingGraduationOptions.length) {
+    if (!this.pendingGraduationOptions || !Number.isInteger(optionIndex) ||
+        optionIndex < 0 || optionIndex >= this.pendingGraduationOptions.length) {
       return { valid: false, error: 'Invalid graduation option', graduatedPieces: [], newCatsEarned: 0, winner: null };
     }
 

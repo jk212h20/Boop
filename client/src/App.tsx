@@ -15,6 +15,11 @@ function getGameCodeFromHash(): string | null {
 
 function App() {
   const preview3D = new URLSearchParams(window.location.search).has('preview3d');
+  // Auto-play a scripted opening (placement at (2,2) + bot reply) only when
+  // explicitly requested. A plain ?preview3d must show the true fresh-game
+  // state — an empty board — so a hard reload actually verifies new-game
+  // correctness instead of watching the demo open by itself.
+  const previewDemo = new URLSearchParams(window.location.search).has('demo');
   const [gameMode, setGameMode] = useState<GameMode>(null);
   const previewMoveMade = useRef(false);
   const [attemptingRejoin, setAttemptingRejoin] = useState(false);
@@ -161,11 +166,11 @@ function App() {
   }, [preview3D, gameMode, botGameState, startBotGame]);
 
   useEffect(() => {
-    if (preview3D && botGameState?.phase === 'playing' && !previewMoveMade.current) {
+    if (previewDemo && preview3D && botGameState?.phase === 'playing' && !previewMoveMade.current) {
       previewMoveMade.current = true;
       void botPlacePiece(2, 2, 'kitten');
     }
-  }, [preview3D, botGameState, botPlacePiece]);
+  }, [previewDemo, preview3D, botGameState, botPlacePiece]);
 
   const handleLeaveOnlineGame = useCallback(() => {
     leaveRoom();

@@ -87,20 +87,23 @@ The server will serve the built client from `client/dist`.
 
 ## 🎨 Real-time 3D presentation
 
-The game board is rendered with React Three Fiber as a softly floating quilted
+The game board is rendered with React Three Fiber as a grounded oak-framed quilted
 bed, with orbit/zoom controls, studio lighting, contact shadows, and responsive
 framing. The kitten and grown-cat GLBs are authored locally in Blender and
-recolored for each team at runtime. Their state-driven motion includes varied
+recolored for each team at runtime. Kittens have enlarged baby heads; adults are visibly larger. The bed has an
+upholstered headboard, side rails, legs, and a floor beneath it. Booped pieces
+hop off the edge, land, and scamper into their team’s open reserve box.
+The piece selectors render the same independently animated GLB models,
+including their idle and blink clips. Their state-driven motion includes varied
 idle breathing, placement drops, directional boop hops, landing squash, and
-graduation glow/exit animation. Both kitten and grown-cat models face toward the
+graduation glow and straight-up ascent. Both kitten and grown-cat models face toward the
 initial camera. Cast-shadow strength is 0.5 and the under-board contact-shadow
 opacity is 0.14 (half the original values), without dimming the scene lighting.
 
 Player names have their own compact panel above two independent piece selectors.
 Stocked selectors remain bright for both players, including while waiting for a
 turn; only zero stock gets a gray empty state. Large counts and text labels show
-availability, while selection remains restricted to your turn. Fly-to-pool
-anchors remain on the corresponding kitten/cat selectors. The game uses a
+availability, while selection remains restricted to your turn. Removed rows ascend vertically without a duplicate flying icon. The game uses a
 1300px responsive grid with reserved 240px desktop pool columns; below 1280px
 both pools sit above the board, and phone layouts put compact horizontal
 selectors above/below it. The canvas follows its grid column rather than forcing

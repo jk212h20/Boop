@@ -19,7 +19,7 @@ const path = require('node:path');
     const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto(new URL('?preview3d', url).href);
+    await page.goto(new URL('?preview3d&demo', url).href);
     await page.getByLabel('Quilt color 1').waitFor();
     // Wait for the deterministic preview move and bot response, not page load.
     await page.getByText('Move 2/2', { exact: false }).waitFor({ timeout: 30000 });

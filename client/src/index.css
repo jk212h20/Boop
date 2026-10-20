@@ -111,7 +111,7 @@ body {
 /* Availability owns appearance; being the opponent or waiting a turn does not dim stock. */
 .pool-piece-available { box-shadow: 0 0 14px color-mix(in srgb, var(--pool-accent) 18%, transparent), inset 0 1px 0 rgba(255,255,255,.8); }
 .pool-piece-empty { background: #26303b; border-color: #485461; color: #91a0ae; box-shadow: none; }
-.pool-piece-empty .kitten-piece { filter: grayscale(1); opacity: .4; }
+.pool-piece-empty .animated-piece-icon { filter: grayscale(1); opacity: .4; }
 .pool-piece-empty .pool-piece-count { color: #91a0ae; }
 .pool-piece-selectable { cursor: pointer; }
 .pool-piece-selectable:hover { box-shadow: 0 0 18px color-mix(in srgb, var(--pool-accent) 32%, transparent); }
@@ -158,7 +158,7 @@ body {
     grid-template-areas: 'icon label' 'icon count' 'icon availability';
     justify-items: center; padding: .65rem .5rem;
   }
-  .pool-piece-button .kitten-piece { grid-area: icon; width: 48px; height: 48px; }
+  .pool-piece-button .animated-piece-icon { grid-area: icon; width: 48px; height: 48px; }
   .pool-piece-label { grid-area: label; }
   .pool-piece-count { grid-area: count; }
   .pool-piece-availability { grid-area: availability; }
@@ -168,6 +168,9 @@ body {
 }
 @media (max-width: 359px) {
   .pool-piece-button { grid-template-columns: 40px minmax(0, 1fr); }
-  .pool-piece-button .kitten-piece { width: 40px; height: 40px; }
+  .pool-piece-button .animated-piece-icon { width: 40px; height: 40px; }
 }
 @media (prefers-reduced-motion: reduce) { .pool-cat-icon, .turn-active { animation: none; } }
+
+.animated-piece-icon { display: block; width: 64px; height: 72px; flex-shrink: 0; pointer-events: none; }
+.reserve-box-label { font-size: 10px; white-space: nowrap; font-weight: 700; color: #56391f; }

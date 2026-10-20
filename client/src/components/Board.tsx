@@ -1,3 +1,4 @@
+import { AnimatedPieceIcon } from './FloatingBoard3D';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Board as BoardType, PlayerColor, PieceType, Cell, Piece as PieceData, BoopEffect } from '../types';
@@ -497,7 +498,7 @@ export function PlayerPool({
                 ${empty ? 'pool-piece-empty' : 'pool-piece-available'}
                 ${selected ? 'pool-piece-selected' : ''}
                 ${selectable ? 'pool-piece-selectable' : ''}`}>
-              <Piece piece={{ color, type }} size="md" />
+              <AnimatedPieceIcon piece={{ color, type }} />
               <span className="pool-piece-label">{type === 'kitten' ? 'Kittens' : 'Cats'}</span>
               <span className="pool-piece-count">{count}</span>
               <span className="pool-piece-availability">available</span>

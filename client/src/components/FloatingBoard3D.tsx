@@ -1,12 +1,12 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Environment, Float, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
+import { ContactShadows, Environment, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, PlayerColor } from '../types';
 import { GraduatingPiece, FallenPiece } from './Board';
 import { createCatScene, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
   DEFAULT_QUILT_COLORS, QUILT_STORAGE_KEY, QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
-import { BOOP_DELAY_MS, BOOP_DURATION_MS, WALK_IN_MS } from '../animationTiming';
+import { BOOP_DELAY_MS, WALK_IN_MS } from '../animationTiming';
 
 interface FloatingBoard3DProps {
   board: BoardType;
@@ -29,7 +29,16 @@ const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) *
 
 function CatModel({ piece, ghost = false, clip = 'Sit' }: { piece: PieceData; ghost?: boolean; clip?: string }) {
   const { scene, animations } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
-  const cloned = useMemo(() => createCatScene(scene, piece.color, ghost), [scene, piece.color, ghost]);
+  const cloned = useMemo(() => {
+    const model = createCatScene(scene, piece.color, ghost);
+    if (piece.type === 'kitten') {
+      // Baby proportions, applied to the shared rig so every animation retains them.
+      model.traverse(node => {
+        if (node.name === 'head') node.scale.setScalar(1.22);
+      });
+    }
+    return model;
+  }, [scene, piece.color, piece.type, ghost]);
   const mixer = useMemo(() => {
     if (ghost) return null;
     const m = new THREE.AnimationMixer(cloned);
@@ -93,7 +102,9 @@ interface CatActorProps {
 // never restarts a performance.
 const WALK_IN_S = WALK_IN_MS / 1000;
 const BOOP_DELAY_S = BOOP_DELAY_MS / 1000;
-const BOOP_S = BOOP_DURATION_MS / 1000;
+const BOOP_S = .8; // hop, then floor landing and scamper within the shared timing budget
+const FLOOR_Y = -1.03;
+const boxAt = (color: PlayerColor): [number, number, number] => [color === 'orange' ? -4.2 : 4.2, FLOOR_Y, 3.4];
 const CROUCH_F = .19, AIR_F = .52; // remaining fraction of the boop is landing
 const SETTLE_HEADING = Math.atan2(9.2, 12); // face the default camera (~37°)
 
@@ -139,7 +150,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
 
   const [clip, setClip] = useState('Sit');
   const settleHeading = SETTLE_HEADING + (seed - .5) * .7;
-  const scaleBase = piece.type === 'cat' ? .50 : .58;
+  const scaleBase = piece.type === 'cat' ? .65 : .55;
 
   useFrame((_, delta) => {
     const g = group.current;
@@ -172,18 +183,32 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
         const e = offBoard ? p : easeOut(p); // falls accelerate, boops glide
         x = origin[0] + dx * e;
         z = origin[2] + dz * e;
-        const peak = offBoard ? 1.7 : .85;
+        const peak = offBoard ? .65 : .85;
         y += Math.sin(p * Math.PI) * peak;
+        if (offBoard) y += (FLOOR_Y - target[1]) * p * p;
         nextClip = offBoard ? 'Fall' : 'Jump';
-        if (offBoard) g.rotation.x = p * Math.PI * 1.5; // tumbling
+        if (offBoard) g.rotation.x = Math.sin(p * Math.PI) * .3;
         desiredHeading = Math.atan2(dx, dz);
         stretch = Math.sin(p * Math.PI);
       } else if (t < BOOP_S) {
         const l = (t - airEnd) / (BOOP_S - airEnd);
         nextClip = 'Land';
+        if (offBoard) y = FLOOR_Y;
         squash = Math.sin(l * Math.PI) * .18;
       }
-      if (t >= BOOP_S) g.rotation.x = 0;
+      if (t >= BOOP_S) {
+        g.rotation.x = 0;
+        if (offBoard) {
+          const destination = boxAt(piece.color);
+          const run = Math.min(1, (t - BOOP_S) / 1.3);
+          x = target[0] + (destination[0] - target[0]) * run;
+          z = target[2] + (destination[2] - target[2]) * run;
+          y = FLOOR_Y + Math.abs(Math.sin((t - BOOP_S) * 22)) * .045 * (1 - run);
+          desiredHeading = Math.atan2(destination[0] - target[0], destination[2] - target[2]);
+          nextClip = run < 1 ? 'Walk' : 'Sit';
+          if (run > .88) y -= (run - .88) / .12 * .35;
+        }
+      }
     } else if (isNew && elapsed < WALK_IN_S) {
       // Stroll in along the arc, then settle and sit.
       const t = elapsed / WALK_IN_S;
@@ -214,7 +239,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
     if (isGraduating) scale *= 1 + Math.sin(performance.now() / 90) * .05;
     if (removing && removalStarted.current !== null) {
       const removalElapsed = (performance.now() - removalStarted.current) / 1000;
-      scale *= Math.max(0, 1 - removalElapsed / .65);
+      g.position.y = target[1] + 6 * Math.pow(Math.min(1, removalElapsed / .7), 1.3);
     }
     g.scale.set(scale * breathe * squashXZ, scale / breathe * squashY, scale * breathe * squashXZ);
   });
@@ -319,15 +344,29 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
       <ambientLight intensity={1.15} />
       <directionalLight position={[-5, 9, 4]} intensity={2.3} color="#fff0d4" castShadow shadow-intensity={.5} shadow-mapSize={[2048, 2048]} />
       <directionalLight position={[6, 4, -5]} intensity={1.1} color="#96d9ff" />
-      <Float speed={1.15} rotationIntensity={.055} floatIntensity={.22} floatingRange={[-.12, .12]}>
+      <group>
         <group rotation={[0, -.08, 0]}>
-          <RoundedBox args={[7.55, .42, 7.55]} radius={.35} smoothness={5} position={[0, -.17, 0]} castShadow receiveShadow>
+          <RoundedBox args={[7.15, .32, 7.15]} radius={.35} smoothness={5} position={[0, -.17, 0]} castShadow receiveShadow>
             <meshStandardMaterial color="#714020" roughness={.66} metalness={.03} />
           </RoundedBox>
           <RoundedBox args={[6.75, .24, 6.75]} radius={.10} smoothness={5} position={[0, .17, 0]} castShadow receiveShadow>
             <meshStandardMaterial color={new THREE.Color(props.quiltColors[0]).multiplyScalar(.78)}
               map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.012} roughness={.98} />
           </RoundedBox>
+          {/* Upholstered mattress, oak rails and four grounded legs. */}
+          {[-3.42, 3.42].map(x => <RoundedBox key={`rail-${x}`} args={[.18, .46, 7.1]} radius={.07} position={[x, -.10, 0]} castShadow><meshStandardMaterial color="#b78557" roughness={.7} /></RoundedBox>)}
+          {[-3.2, 3.2].flatMap(x => [-3.2, 3.2].map(z => <RoundedBox key={`${x}-${z}`} args={[.3, .68, .3]} radius={.06} position={[x, -.67, z]} castShadow><meshStandardMaterial color="#805332" roughness={.8} /></RoundedBox>))}
+          <RoundedBox args={[7.15, 1.25, .22]} radius={.1} position={[0, .30, -3.65]} castShadow><meshStandardMaterial color="#b78557" roughness={.7} /></RoundedBox>
+          <RoundedBox args={[6.7, .64, .12]} radius={.08} position={[0, .47, -3.49]}><meshStandardMaterial color="#e6d7bf" roughness={1} /></RoundedBox>
+          {(['orange', 'gray'] as PlayerColor[]).map(color => {
+            const [x, y, z] = boxAt(color);
+            return <group key={color} position={[x, y, z]}>
+              <RoundedBox args={[1.35, .12, 1.25]} radius={.05} position={[0, -.06, 0]} receiveShadow><meshStandardMaterial color="#c99b68" /></RoundedBox>
+              {[-.66, .66].map(side => <RoundedBox key={side} args={[.10, .48, 1.25]} radius={.025} position={[side, .18, 0]}><meshStandardMaterial color="#c99b68" /></RoundedBox>)}
+              <RoundedBox args={[1.35, .48, .1]} radius={.025} position={[0, .18, .6]}><meshStandardMaterial color="#bd8c59" /></RoundedBox>
+              <Html center position={[0, .25, .68]} style={{pointerEvents: 'none'}}><span className={`reserve-box-label reserve-box-${color}`}>{color === 'orange' ? 'Orange' : 'Gray'} box</span></Html>
+            </group>;
+          })}
           {Array.from({ length: 6 }, (_, row) => Array.from({ length: 6 }, (_, col) => {
             const piece = props.board[row][col];
             const enabled = !piece && props.isMyTurn && !!props.selectedPieceType && !props.isViewingHistory;
@@ -354,7 +393,8 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
               boop={{ fromRow: fallen.fromRow, fromCol: fallen.fromCol }} animationKey={props.animationKey} />
           ))}
         </group>
-      </Float>
+      </group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.16, 0]} receiveShadow><planeGeometry args={[200, 200]} /><meshStandardMaterial color="#e4e9df" roughness={1} /></mesh>
       <ContactShadows position={[0, -1.03, 0]} opacity={.14} scale={13} blur={2.7} far={5} color="#396b69" />
       <Environment preset="apartment" environmentIntensity={.32} />
       <OrbitControls makeDefault enablePan={false} minDistance={8.5} maxDistance={14}
@@ -404,3 +444,11 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
 
 useGLTF.preload('/assets/models/boop-kitten.glb');
 useGLTF.preload('/assets/models/boop-cat.glb');
+
+/** Pool portraits use the exact board model, rig and idle/blink clips. */
+export function AnimatedPieceIcon({ piece }: { piece: PieceData }) {
+  return <span className="animated-piece-icon" aria-hidden="true"><Canvas dpr={[1, 1.5]} camera={{ position: [1.3, 1.1, 2], fov: 30 }} gl={{ alpha: true }}>
+    <ambientLight intensity={1.5} /><directionalLight position={[3, 5, 4]} intensity={2} />
+    <Suspense fallback={null}><group position={[0, -.45, 0]} rotation={[0, SETTLE_HEADING, 0]} scale={piece.type === 'cat' ? 1.1 : 1}><CatModel piece={piece} /></group></Suspense>
+  </Canvas></span>;
+}

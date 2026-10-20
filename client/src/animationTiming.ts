@@ -4,10 +4,10 @@
 export const WALK_IN_MS = 1100;
 export const DROP_DURATION_MS = 400;
 export const BOOP_DELAY_MS = DROP_DURATION_MS + 100;
-export const BOOP_DURATION_MS = 800;
+export const BOOP_DURATION_MS = 2200;
 export const GRADUATION_DELAY_MS = BOOP_DELAY_MS + BOOP_DURATION_MS + 100;
 export const GRADUATION_HIGHLIGHT_MS = 800;
-// Covers the 650ms 3D removal and the 700ms fly-to-pool transition.
+// Covers the straight-up 700ms ascent out of the scene.
 export const GRADUATION_REMOVAL_MS = 700;
 
 export function animationDurationMs(effects: {

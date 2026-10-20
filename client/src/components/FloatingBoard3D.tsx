@@ -258,6 +258,33 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   );
 }
 
+/** Graduation payoff follows the ascent; arrivals are real animated cats,
+ * not screen-space icons. A single-piece graduation receives one cat. */
+function ReserveArrival({ color, index }: { color: PlayerColor; index: number }) {
+  const group = useRef<THREE.Group>(null);
+  const started = useRef(performance.now());
+  const [clip, setClip] = useState('Jump');
+  useFrame(() => {
+    const g = group.current;
+    if (!g) return;
+    const t = (performance.now() - started.current) / 1000 - .7 - index * .12;
+    g.visible = t >= 0 && t < 1.15;
+    if (t < 0) return;
+    const [bx, by, bz] = boxAt(color);
+    const fall = Math.min(1, t / .65);
+    const offset = (index - 1) * .34;
+    const landed = t >= .65;
+    g.position.set(bx + offset, by + (1 - fall * fall) * 7 + (landed ? Math.sin(Math.min(1, (t - .65) / .2) * Math.PI) * .07 : 0), bz - .12);
+    g.rotation.y = SETTLE_HEADING;
+    const squash = landed ? Math.sin(Math.min(1, (t - .65) / .2) * Math.PI) * .15 : 0;
+    const settle = t > .95 ? Math.max(0, 1 - (t - .95) / .2) : 1;
+    g.scale.set(.52 * (1 + squash) * settle, .52 * (1 - squash) * settle, .52 * (1 + squash) * settle);
+    const next = landed ? 'Land' : 'Jump';
+    setClip(previous => previous === next ? previous : next);
+  });
+  return <group ref={group} visible={false} userData={{ catProbe: `arrival-${color}-${index}` }}><CatModel piece={{color, type: 'cat'}} clip={clip} /></group>;
+}
+
 type QuiltResources = ReturnType<typeof createFabricTextures> & {
   patch: THREE.BufferGeometry;
   stitches: THREE.BufferGeometry;
@@ -388,16 +415,25 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
             <CatActor piece={{ color: props.myColor, type: props.selectedPieceType }} row={hover.row} col={hover.col}
               isGhost animationKey={props.animationKey} />
           )}
+          {props.graduationPhase === 'removing' && props.graduatingPieces.map((piece, index) => (
+            <ReserveArrival key={`arrival-${props.animationKey}-${index}`} color={piece.piece.color} index={index} />
+          ))}
           {props.fallenPieces.map((fallen, i) => (
             <CatActor key={`fallen-${i}-${props.animationKey}`} piece={fallen.piece} row={fallen.gutterRow} col={fallen.gutterCol}
               boop={{ fromRow: fallen.fromRow, fromCol: fallen.fromCol }} animationKey={props.animationKey} />
           ))}
         </group>
       </group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.16, 0]} receiveShadow><planeGeometry args={[200, 200]} /><meshStandardMaterial color="#e4e9df" roughness={1} /></mesh>
+      {/* Finite carpet leaves the surrounding WebGL canvas truly transparent. */}
+      <RoundedBox args={[11.8, .10, 11.2]} radius={.22} smoothness={5} position={[0, -1.13, .4]} receiveShadow>
+        <meshStandardMaterial color="#bcae94" map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.04} roughness={1} />
+      </RoundedBox>
+      <RoundedBox args={[11.3, .018, 10.7]} radius={.2} smoothness={5} position={[0, -1.069, .4]} receiveShadow>
+        <meshStandardMaterial color="#7e9690" map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.045} roughness={1} />
+      </RoundedBox>
       <ContactShadows position={[0, -1.03, 0]} opacity={.14} scale={13} blur={2.7} far={5} color="#396b69" />
       <Environment preset="apartment" environmentIntensity={.32} />
-      <OrbitControls makeDefault enablePan={false} minDistance={8.5} maxDistance={14}
+      <OrbitControls makeDefault enablePan={false} minDistance={10} maxDistance={26}
         minPolarAngle={.52} maxPolarAngle={1.16} minAzimuthAngle={-.75} maxAzimuthAngle={.75}
         target={[0, .2, 0]} />
     </>
@@ -413,7 +449,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   return (
     <div className="floating-board-area">
     <div className="floating-board-shell">
-      <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 38 }} gl={{ antialias: true, alpha: true }}>
+      <Canvas shadows dpr={[1, 1.7]} camera={{ position: [12.4, 14.6, 16.2], fov: 38 }} gl={{ antialias: true, alpha: true }}>
         <Suspense fallback={null}><CatProbe /><Scene {...props} quiltColors={quiltColors} /></Suspense>
       </Canvas>
       <div className="board-hint">Drag to look around · scroll to zoom</div>

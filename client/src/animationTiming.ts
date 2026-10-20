@@ -7,8 +7,8 @@ export const BOOP_DELAY_MS = DROP_DURATION_MS + 100;
 export const BOOP_DURATION_MS = 2200;
 export const GRADUATION_DELAY_MS = BOOP_DELAY_MS + BOOP_DURATION_MS + 100;
 export const GRADUATION_HIGHLIGHT_MS = 800;
-// Covers the straight-up 700ms ascent out of the scene.
-export const GRADUATION_REMOVAL_MS = 700;
+// 700ms ascent followed by staggered cats jumping down into the reserve.
+export const GRADUATION_REMOVAL_MS = 2100;
 
 export function animationDurationMs(effects: {
   graduatedPieces?: readonly unknown[];

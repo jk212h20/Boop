@@ -7,7 +7,7 @@ import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
 import {
-  BOOP_DELAY_MS, GRADUATION_DELAY_MS, GRADUATION_HIGHLIGHT_MS,
+  BOOP_DELAY_MS, FALLEN_TRIP_MS, GRADUATION_DELAY_MS, GRADUATION_HIGHLIGHT_MS,
   animationDurationMs,
 } from '../animationTiming';
 
@@ -63,7 +63,21 @@ export function Game({
     'visible' | 'highlighting' | 'removing' | null
   >(null);
   const [ghostPieces, setGhostPieces] = useState<GhostPiece[]>([]);
+  // Returning cats carry their own clock. Their trip is cosmetic, so it must
+  // not extend the move budget or be cancelled by the next turn: each piece is
+  // stamped with an id and retired by its own timer.
   const [fallenPieces, setFallenPieces] = useState<FallenPiece[]>([]);
+  const fallenIdRef = useRef(0);
+  const fallenTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const clearFallen = () => {
+    fallenTimersRef.current.forEach(clearTimeout);
+    fallenTimersRef.current = [];
+    setFallenPieces([]);
+  };
+  useEffect(() => () => {
+    fallenTimersRef.current.forEach(clearTimeout);
+    fallenTimersRef.current = [];
+  }, []);
   const [animationKey, setAnimationKey] = useState(0);
   
   // Track previous board state to get piece data for ghosts
@@ -248,10 +262,12 @@ export function Game({
     setAnimatingGraduations([]);
     setGraduationPhase(null);
     setGhostPieces([]);
-    setFallenPieces([]);
+    // Fallen pieces are deliberately not cleared here: a cat still walking
+    // home belongs to its own trip, not to this update.
 
     // Don't animate during history viewing - that's handled separately
     if (gameHistory.isViewingHistory) {
+      clearFallen();
       prevBoardRef.current = gameState.board;
       return;
     }
@@ -293,7 +309,14 @@ export function Game({
       // (Board.tsx animation handles the delay timing)
       setAnimatingBoops(booped);
       setGhostPieces(newGhosts);
-      setFallenPieces(newFallen);
+      if (newFallen.length > 0) {
+        const stamped: FallenPiece[] = newFallen.map(piece => ({ ...piece, id: ++fallenIdRef.current }));
+        const ids = new Set(stamped.map(piece => piece.id));
+        setFallenPieces(previous => [...previous, ...stamped]);
+        fallenTimersRef.current.push(setTimeout(() => {
+          setFallenPieces(previous => previous.filter(piece => !ids.has(piece.id)));
+        }, FALLEN_TRIP_MS));
+      }
       
       // Graduation: keep the pieces on the board (via displayBoard merge)
       // and step through three phases:
@@ -352,8 +375,7 @@ export function Game({
         setAnimatingBoops([]);
         setAnimatingGraduations([]);
         setGraduationPhase(null);
-            setGhostPieces([]);
-        setFallenPieces([]);
+        setGhostPieces([]);
       }, totalAnimationTime));
 
       // Update previous board reference. Must happen on every effect run —
@@ -371,7 +393,6 @@ export function Game({
       // Just a placement with no boops
       playSound('place');
       setGhostPieces([]);
-      setFallenPieces([]);
     }
 
     // Update previous board reference (no-boop / no-graduation path).

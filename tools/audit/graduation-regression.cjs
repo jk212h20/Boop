@@ -43,9 +43,9 @@ async function main(){
    window.__animationDuration({boopedPieces:[{to:null}]}),
    window.__animationDuration({graduatedPieces:[{}]}),
   ]);
-  // Returned-to-box boops get an extra tail for the trot and the hop into the
-  // inventory portrait; on-board boops keep the plain boop budget.
-  assert.deepEqual(timings,[1200,3600,4200,6500]);
+  // A returned-to-box trip is cosmetic and must NOT add to the move budget:
+  // the game may advance while the cat is still walking home.
+  assert.deepEqual(timings,[1200,3600,3600,6500]);
   console.log('PASS: shared handoff timing covers the complete graduation and fly-to-pool sequence');
   async function graduate(){
    await page.evaluate(()=>window.__game.setState(window.__fixture()));await page.waitForTimeout(30);

@@ -20,6 +20,7 @@ export interface GraduatingPiece {
 
 // Fallen piece with calculated position in gutter
 export interface FallenPiece {
+  id?: number;        // Stable identity: the trip outlives the move that caused it
   fromRow: number;    // Original board position row
   fromCol: number;    // Original board position col
   gutterRow: number;  // -1 for top, 6 for bottom (in board coords)

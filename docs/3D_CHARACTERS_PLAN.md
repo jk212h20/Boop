@@ -122,3 +122,30 @@ through `InventoryFlightContext` and rendered by `FloatingBoard3D`, which owns
 the DOM `<Canvas>`. A `BoardErrorBoundary` keeps any future 3D failure contained
 to the board. `tools/audit/boop-return-regression.cjs` runs the real board and
 asserts the page survives, the hop appears, and the cat does not shrink away.
+
+## Graphics pass (2026-10-20, second commit)
+
+- **Shadows:** the key light casts into a 2048 map bounded to the bed; the rug
+  receives it, so cats and furniture sit on surfaces instead of floating.
+- **No runtime CDN:** `Environment` is built from `<Lightformer>`s, so a failed
+  network fetch can no longer leave the board unlit.
+- **Quilt contrast:** defaults moved from two similar greys to
+  `#b7c4c7` / `#5f7d88`. Anyone still on the old defaults is migrated; an
+  explicit choice is never overwritten.
+- **Room:** woven rug at the cats' floor height, radial contact occlusion, a
+  round bedside table with a mug and books, a toy mouse, and two pillows
+  propped behind row 0.
+- **Readability:** playable cells advertise themselves with a soft ring, and
+  the last move keeps a warm ring plus a corner pip.
+- **Motion:** the walk-in bob is locked to the path (stride matches distance)
+  with a body roll; idle cats get procedural head glances, a tail swish and ear
+  flicks from their own seed, layered on the Sit clip without fighting it.
+- **Feedback:** a dust puff at the booped square, a 220ms board shake on impact,
+  and a gold halo plus rising sparkles over graduating kittens.
+- **Cost:** pool portraits are rendered once from the real rig and cached as
+  images, taking the page from five WebGL contexts (six during a return hop) to
+  one; shaders are precompiled before the first placement.
+- **Accessibility:** `prefers-reduced-motion` now snaps pieces to their cells,
+  hides return trips, and disables shake, sparkles and idle motion.
+- **Palette UI:** named presets behind a "Bedroom" popover replace two unnamed
+  swatches.

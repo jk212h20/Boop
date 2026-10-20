@@ -3,7 +3,10 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { PlayerColor } from '../types';
 
 export type QuiltColors = [string, string];
-export const DEFAULT_QUILT_COLORS: QuiltColors = ['#8c9199', '#849b92'];
+// Two clearly separated values: the cells have to read as a grid at a glance,
+// and the previous pair differed mostly in hue, not lightness.
+export const DEFAULT_QUILT_COLORS: QuiltColors = ['#b7c4c7', '#5f7d88'];
+const LEGACY_QUILT_COLORS: QuiltColors = ['#8c9199', '#849b92'];
 export const QUILT_STORAGE_KEY = 'boop.quilt-colors.v1';
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
@@ -12,7 +15,10 @@ export function parseQuiltColors(saved: string | null): QuiltColors {
     const value: unknown = saved === null ? null : JSON.parse(saved);
     if (Array.isArray(value) && value.length === 2 && value.every(color =>
       typeof color === 'string' && HEX_COLOR.test(color))) {
-      return [value[0], value[1]];
+      // Anyone still on the old defaults gets the new contrast; an explicit
+      // choice is never overwritten.
+      const isLegacyDefault = value[0] === LEGACY_QUILT_COLORS[0] && value[1] === LEGACY_QUILT_COLORS[1];
+      return isLegacyDefault ? [...DEFAULT_QUILT_COLORS] : [value[0], value[1]];
     }
   } catch { /* Old or damaged preferences should not prevent a game loading. */ }
   return [...DEFAULT_QUILT_COLORS];
@@ -139,6 +145,23 @@ export function createFabricTextures() {
     texture.needsUpdate = true;
   }
   return { map, bumpMap };
+}
+
+/** A soft radial falloff used as a fake contact occlusion under the bed. It
+ * holds the furniture to the floor even where the shadow map is soft. */
+export function createContactShadowTexture(size = 256) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext('2d')!;
+  const gradient = context.createRadialGradient(size / 2, size / 2, size * .12, size / 2, size / 2, size * .5);
+  gradient.addColorStop(0, 'rgba(0,0,0,.46)');
+  gradient.addColorStop(.55, 'rgba(0,0,0,.2)');
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
 export function quiltColor(base: string, hovered: boolean, active: boolean) {

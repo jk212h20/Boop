@@ -76,7 +76,7 @@ async function main() {
       const state = await page.evaluate(() => ({
         cat: window.__catProbe().find(p => p.cat.startsWith('gray-cat')) ?? null,
         board: document.querySelectorAll('.floating-board-shell canvas').length,
-        hop: [...document.querySelectorAll('body > div')].some(el => getComputedStyle(el).position === 'fixed' && el.querySelector('canvas')),
+        hop: [...document.querySelectorAll('body > div')].some(el => getComputedStyle(el).position === 'fixed' && el.querySelector('.animated-piece-icon')),
       }));
       assert.equal(state.board, 1, 'the board canvas must survive the whole return trip');
       if (state.hop) sawHop = true;

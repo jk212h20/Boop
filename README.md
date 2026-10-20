@@ -89,11 +89,15 @@ The server will serve the built client from `client/dist`.
 
 The game board is rendered with React Three Fiber as a grounded oak-framed quilted
 bed, with drag-to-orbit (zoom is deliberately off: the bed is framed to fill its
-shell), studio lighting, contact shadows, and responsive framing. The kitten and grown-cat GLBs are authored locally in Blender and
+shell), a shadow-casting key light, a self-contained environment map (no CDN
+fetch at runtime), a woven rug with contact occlusion, a bedside table, and
+responsive framing. Quilt colors are chosen from named presets behind the
+"Bedroom" control. The kitten and grown-cat GLBs are authored locally in Blender and
 recolored for each team at runtime. Kittens have enlarged baby heads; adults are visibly larger. The bed has an
 upholstered headboard, side rails, legs, and a floor beneath it. Booped pieces
-hop off the edge, land on a woven sage carpet, trot to their team’s existing
-animated inventory selector at close to full size, then hop into its portrait. No separate 3D reserve boxes are used. A darker, subtle sage diamond-and-weave carpet begins just below the inventory selectors and extends
+hop off the edge, land on the rug, trot to their team’s inventory selector at
+close to full size, then hop into its portrait. That walk home is cosmetic and
+runs on its own timer, so it never delays the next turn. No separate 3D reserve boxes are used. A darker, subtle sage diamond-and-weave carpet begins just below the inventory selectors and extends
 to the left, right, and bottom screen edges, not the top. Booped pieces
 walk below their matching selector, then jump to its projected portrait center;
 returned stock is held back until the return animation finishes. The transparent

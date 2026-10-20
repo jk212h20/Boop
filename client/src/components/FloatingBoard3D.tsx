@@ -2,13 +2,15 @@ import { createPortal } from 'react-dom';
 import { Component, Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
-import { Environment, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
+import { Environment, Html, Lightformer, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, PlayerColor } from '../types';
 import { GraduatingPiece, FallenPiece } from './Board';
-import { createCatScene, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
-  DEFAULT_QUILT_COLORS, QUILT_STORAGE_KEY, QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
-import { BOOP_DELAY_MS, WALK_IN_MS } from '../animationTiming';
+import { ensurePortraits, portraitUrl, subscribePortraits } from '../rendering/portraits';
+import { createCatScene, createContactShadowTexture, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
+  QUILT_STORAGE_KEY, QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
+import { BOOP_DELAY_MS, GRADUATION_HIGHLIGHT_MS, WALK_IN_MS } from '../animationTiming';
+import { prefersReducedMotion } from '../rendering/motion';
 
 interface FloatingBoard3DProps {
   board: BoardType;
@@ -38,7 +40,7 @@ interface InventoryFlight { id: number; piece: PieceData; from: { x: number; y: 
 type RequestInventoryFlight = (piece: PieceData, from: { x: number; y: number }) => void;
 const InventoryFlightContext = createContext<RequestInventoryFlight>(() => {});
 
-function CatModel({ piece, ghost = false, clip = 'Sit' }: { piece: PieceData; ghost?: boolean; clip?: string }) {
+function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: PieceData; ghost?: boolean; clip?: string; seed?: number }) {
   const { scene, animations } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
   const cloned = useMemo(() => {
     const model = createCatScene(scene, piece.color, ghost);
@@ -81,9 +83,46 @@ function CatModel({ piece, ghost = false, clip = 'Sit' }: { piece: PieceData; gh
       materials.forEach(material => material.dispose());
     });
   }, [cloned]);
+  // Idle life: small procedural head/tail/ear motion layered on top of the clip
+  // so eight cats on one board do not breathe and sit in lockstep.
+  const rig = useMemo(() => ({
+    head: cloned.getObjectByName('head') ?? null,
+    tail: cloned.getObjectByName('tail0') ?? null,
+    earL: cloned.getObjectByName('ear.L') ?? null,
+    earR: cloned.getObjectByName('ear.R') ?? null,
+  }), [cloned]);
+  const applied = useRef({ head: new THREE.Vector3(), tail: 0, earL: 0, earR: 0 });
+
   useFrame((_, delta) => {
     if (!mixer) return;
+    if (prefersReducedMotion()) return; // no breathing, glances or blinks
+    // Take our previous offsets back out so the clip drives from its own pose.
+    const a = applied.current;
+    if (rig.head) { rig.head.rotation.x -= a.head.x; rig.head.rotation.y -= a.head.y; rig.head.rotation.z -= a.head.z; }
+    if (rig.tail) rig.tail.rotation.y -= a.tail;
+    if (rig.earL) rig.earL.rotation.z -= a.earL;
+    if (rig.earR) rig.earR.rotation.z -= a.earR;
     mixer.update(delta);
+
+    const seconds = performance.now() / 1000;
+    const atEase = clip === 'Sit' || clip === 'Stand';
+    let headYaw = 0, headPitch = 0, tailYaw = 0, earL = 0, earR = 0;
+    if (atEase) {
+      const phase = seconds * .55 + seed * 11;
+      // Slow drift plus an occasional deliberate glance around the room.
+      const glance = Math.sin(seconds * .21 + seed * 23);
+      headYaw = Math.sin(phase) * .09 + Math.sign(glance) * Math.pow(Math.abs(glance), 6) * .3;
+      headPitch = Math.sin(phase * .7) * .035;
+      tailYaw = Math.sin(seconds * 1.25 + seed * 7) * .22;
+      const flick = Math.max(0, Math.sin(seconds * 1.7 + seed * 29) - .97) * 22;
+      earL = flick * .06; earR = flick * .05;
+    }
+    if (rig.head) { rig.head.rotation.y += headYaw; rig.head.rotation.x += headPitch; }
+    if (rig.tail) rig.tail.rotation.y += tailYaw;
+    if (rig.earL) rig.earL.rotation.z += earL;
+    if (rig.earR) rig.earR.rotation.z += earR;
+    a.head.set(headPitch, headYaw, 0); a.tail = tailYaw; a.earL = earL; a.earR = earR;
+
     if (clip !== 'Sit' && clip !== 'Stand') return; // blink only while at ease
     nextBlink.current -= delta;
     if (blink && nextBlink.current <= 0 && (!blinkAction.current || !blinkAction.current.isRunning())) {
@@ -194,11 +233,20 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   useFrame((_, delta) => {
     const g = group.current;
     if (!g) return;
+    if (prefersReducedMotion()) {
+      // No walk, no arc, no tumble: pieces simply are where they are.
+      g.rotation.set(0, settleHeading, 0);
+      g.position.set(target[0], target[1], target[2]);
+      g.scale.setScalar(scaleBase);
+      g.visible = !offBoard && !(removing && removalStarted.current !== null);
+      setClip('Sit');
+      return;
+    }
     const elapsed = (performance.now() - born.current) / 1000;
     let x = target[0], y = target[1], z = target[2];
     let desiredHeading = settleHeading;
     let nextClip = 'Sit';
-    let squash = 0, stretch = 0;
+    let squash = 0, stretch = 0, roll = 0;
 
     if (isGhost) {
       nextClip = 'Sit';
@@ -286,7 +334,11 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
       const e = easeOut(t < .85 ? t : .85 + (t - .85) * 2); // decelerate into the seat
       x = qbez(walkFrom[0], walkCtrl[0], target[0], Math.min(1, e));
       z = qbez(walkFrom[2], walkCtrl[2], target[2], Math.min(1, e));
-      y += Math.abs(Math.sin(elapsed * 11)) * .035; // bouncy kitten step
+      // Lock the bob to the path so the stride matches the distance covered,
+      // and roll the body a touch into each step.
+      const stridePhase = Math.min(1, e) * Math.PI * 5;
+      y += Math.abs(Math.sin(stridePhase)) * .05 * (1 - Math.max(0, e - .85) * 6);
+      roll = Math.sin(stridePhase) * .045;
       const tx = qbez(walkFrom[0], walkCtrl[0], target[0], Math.min(1, e + .02));
       const tz = qbez(walkFrom[2], walkCtrl[2], target[2], Math.min(1, e + .02));
       // The tangent degenerates once the path is complete; keep the settle heading.
@@ -302,6 +354,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
     heading.current += shortestTurn(heading.current, desiredHeading) * Math.min(1, delta * 12);
     g.position.set(x, y, z);
     g.rotation.y = heading.current;
+    g.rotation.z = roll;
 
     const breathe = 1 + Math.sin(performance.now() / 900 + seed * 20) * .006;
     const squashY = 1 - squash + stretch * .18;
@@ -318,7 +371,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   return (
     <><group ref={group} position={target} renderOrder={isGhost ? -1 : 1}
       userData={{ catProbe: isGhost ? 'ghost' : `${piece.color}-${piece.type}-${row}-${col}` }}>
-      <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} />
+      <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} seed={seed} />
       {isGraduating && (
         <pointLight color="#ffd76a" intensity={2.2} distance={2.4} position={[0, 1.25, 0]} />
       )}
@@ -377,7 +430,70 @@ function ReserveArrival({ color, index }: { color: PlayerColor; index: number })
     const next = landed ? 'Land' : 'Jump';
     setClip(previous => previous === next ? previous : next);
   });
-  return <group ref={group} visible={false} userData={{ catProbe: `arrival-${color}-${index}` }}><CatModel piece={{color, type: 'cat'}} clip={clip} /></group>;
+  return <group ref={group} visible={false} userData={{ catProbe: `arrival-${color}-${index}` }}><CatModel piece={{color, type: 'cat'}} clip={clip} seed={index * .37} /></group>;
+}
+
+const QUILT_PRESETS: { name: string; colors: QuiltColors }[] = [
+  { name: 'Sage linen', colors: ['#b7c4c7', '#5f7d88'] },
+  { name: 'Bedtime', colors: ['#dfe3ef', '#4f5a86'] },
+  { name: 'Peach tea', colors: ['#f6ded0', '#c0756a'] },
+  { name: 'Meadow', colors: ['#e4ecd9', '#6f8a5e'] },
+  { name: 'Overcast', colors: ['#cfd6dc', '#7a8794'] },
+];
+
+/** The quilt palette lives behind a button: a named preset reads better than
+ * unnamed swatches, and it keeps the board area calm. */
+function BedroomPalette({ colors, onChange }: { colors: QuiltColors; onChange: (next: QuiltColors) => void }) {
+  const [open, setOpen] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (panel.current && !panel.current.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', escape); };
+  }, [open]);
+  return (
+    <div className="bedroom-palette" ref={panel}>
+      <button type="button" className="bedroom-palette-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+        <span className="bedroom-swatch" style={{ background: colors[0] }} />
+        <span className="bedroom-swatch" style={{ background: colors[1] }} />
+        Bedroom
+      </button>
+      {open && (
+        <div className="bedroom-palette-panel" role="dialog" aria-label="Quilt palette">
+          <p className="bedroom-palette-title">Quilt colors</p>
+          <div className="bedroom-presets">
+            {QUILT_PRESETS.map(preset => {
+              const active = preset.colors[0] === colors[0] && preset.colors[1] === colors[1];
+              return <button key={preset.name} type="button" aria-pressed={active}
+                className={`bedroom-preset${active ? ' is-active' : ''}`}
+                onClick={() => onChange([...preset.colors] as QuiltColors)}>
+                <span className="bedroom-swatch" style={{ background: preset.colors[0] }} />
+                <span className="bedroom-swatch" style={{ background: preset.colors[1] }} />
+                {preset.name}
+              </button>;
+            })}
+          </div>
+          <div className="bedroom-custom">
+            {colors.map((color, index) => (
+              <label key={index} className="quilt-color-control">
+                <input type="color" aria-label={`Fabric ${index + 1}`} value={color}
+                  onChange={event => {
+                    const next = event.currentTarget.value;
+                    onChange(index === 0 ? [next, colors[1]] : [colors[0], next]);
+                  }} />
+                <span>Fabric {index + 1}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** A 3D crash must never take the whole page down. A lost WebGL context or an
@@ -420,12 +536,131 @@ function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, onClick
       <lineSegments geometry={fabric.stitches} raycast={() => {}}>
         <lineBasicMaterial color={threadColor} transparent opacity={.36} depthWrite={false} />
       </lineSegments>
-      {(active || (hovered && enabled)) && (
+      {/* Playable cells advertise themselves; the last move keeps a warm,
+          persistent marker so you can always see what just happened. */}
+      {enabled && (
         <mesh position={[0, .10, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => {}}>
-          <ringGeometry args={[.28, .30, 40]} />
-          <meshBasicMaterial color="#c4d2c9" transparent opacity={hovered && enabled ? .18 : .14} depthWrite={false} />
+          <ringGeometry args={[.30, .325, 40]} />
+          <meshBasicMaterial color="#f6e3b4" transparent opacity={hovered ? .55 : .24} depthWrite={false} />
         </mesh>
       )}
+      {active && (
+        <>
+          <mesh position={[0, .105, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => {}}>
+            <ringGeometry args={[.33, .365, 40]} />
+            <meshBasicMaterial color="#f0b349" transparent opacity={.6} depthWrite={false} />
+          </mesh>
+          <mesh position={[.36, .105, .36]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => {}}>
+            <circleGeometry args={[.055, 16]} />
+            <meshBasicMaterial color="#f0b349" transparent opacity={.85} depthWrite={false} />
+          </mesh>
+        </>
+      )}
+    </group>
+  );
+}
+
+/** Dust kicked up where a piece was pushed. Purely cosmetic, starts with the
+ * boop itself, and never touches board state. */
+function BoopPuff({ row, col }: { row: number; col: number }) {
+  const group = useRef<THREE.Group>(null);
+  const ring = useRef<THREE.Mesh>(null);
+  const cloud = useRef<THREE.Points>(null);
+  const born = useRef(performance.now());
+  const dirs = useMemo(() => Array.from({ length: 12 }, (_, i) => {
+    const angle = (i / 12) * Math.PI * 2 + Math.random() * .3;
+    return { x: Math.cos(angle), z: Math.sin(angle), lift: .3 + Math.random() * .5 };
+  }), []);
+  const positions = useMemo(() => new Float32Array(dirs.length * 3), [dirs]);
+  useFrame(() => {
+    const g = group.current;
+    if (!g) return;
+    const t = (performance.now() - born.current) / 1000 - BOOP_DELAY_S;
+    if (t < 0 || t > .62) { g.visible = false; return; }
+    g.visible = true;
+    const p = t / .62;
+    if (ring.current) {
+      // A dust cloud, not a target reticle: it only lives for the first quarter
+      // of the puff and never forms a hard warm ring.
+      const scale = .45 + p * 1.1;
+      ring.current.scale.set(scale, scale, 1);
+      (ring.current.material as THREE.MeshBasicMaterial).opacity = Math.max(0, .42 - p * 1.6);
+    }
+    if (cloud.current) {
+      dirs.forEach((dir, i) => {
+        positions[i * 3] = dir.x * p * 1.4;
+        positions[i * 3 + 1] = Math.sin(p * Math.PI * .85) * dir.lift * 1.4;
+        positions[i * 3 + 2] = dir.z * p * 1.4;
+      });
+      cloud.current.geometry.attributes.position.needsUpdate = true;
+      (cloud.current.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - p * 1.1);
+    }
+  });
+  const [x, y, z] = at(row, col);
+  return (
+    <group ref={group} position={[x, y - .02, z]} visible={false}>
+      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} raycast={() => {}}>
+        <circleGeometry args={[.34, 28]} />
+        <meshBasicMaterial color="#cfc3ae" transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <points ref={cloud} raycast={() => {}}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial color="#ded2bd" size={.12} transparent opacity={0} depthWrite={false} sizeAttenuation />
+      </points>
+    </group>
+  );
+}
+
+/** Graduation payoff: a gold ring and a rising sparkle burst over each kitten
+ * that just lined up. */
+function GraduationSparkles({ row, col }: { row: number; col: number }) {
+  const group = useRef<THREE.Group>(null);
+  const halo = useRef<THREE.Mesh>(null);
+  const cloud = useRef<THREE.Points>(null);
+  const born = useRef(performance.now());
+  const dirs = useMemo(() => Array.from({ length: 26 }, () => {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = .1 + Math.random() * .35;
+    return { x: Math.cos(angle) * radius, z: Math.sin(angle) * radius, rise: .5 + Math.random() * .9, spin: .5 + Math.random() };
+  }), []);
+  const positions = useMemo(() => new Float32Array(dirs.length * 3), [dirs]);
+  useFrame(() => {
+    const g = group.current;
+    if (!g) return;
+    const t = (performance.now() - born.current) / 1000;
+    if (t > GRADUATION_HIGHLIGHT_MS / 1000) { g.visible = false; return; }
+    const p = t / (GRADUATION_HIGHLIGHT_MS / 1000);
+    if (halo.current) {
+      const scale = .3 + p * 1.5;
+      halo.current.scale.set(scale, scale, 1);
+      (halo.current.material as THREE.MeshBasicMaterial).opacity = (1 - p) * .8;
+    }
+    if (cloud.current) {
+      dirs.forEach((dir, i) => {
+        positions[i * 3] = dir.x * (1 + p * dir.spin);
+        positions[i * 3 + 1] = dir.rise * p * 1.4 - p * p * .25;
+        positions[i * 3 + 2] = dir.z * (1 + p * dir.spin);
+      });
+      cloud.current.geometry.attributes.position.needsUpdate = true;
+      (cloud.current.material as THREE.PointsMaterial).opacity = Math.sin(p * Math.PI) * 1.1;
+    }
+  });
+  const [x, y, z] = at(row, col);
+  return (
+    <group ref={group} position={[x, y + .06, z]}>
+      <mesh ref={halo} rotation={[-Math.PI / 2, 0, 0]} raycast={() => {}}>
+        <ringGeometry args={[.2, .26, 36]} />
+        <meshBasicMaterial color="#ffd76a" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} />
+      </mesh>
+      <points ref={cloud} raycast={() => {}}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial color="#ffe9a8" size={.085} transparent opacity={0} depthWrite={false}
+          blending={THREE.AdditiveBlending} sizeAttenuation />
+      </points>
     </group>
   );
 }
@@ -562,6 +797,15 @@ function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: Q
       <RoundedBox args={[6.86, .2, .2]} radius={.08} position={[0, .18, -3.88]} castShadow>
         <meshStandardMaterial color={wood} roughness={.6} />
       </RoundedBox>
+      {/* Two pillows propped against the headboard, behind the playable row. */}
+      {[-1.62, 1.62].map(x => (
+        <group key={`pillow-${x}`} position={[x, .58, -3.6]} rotation={[-.28, x > 0 ? -.06 : .06, 0]}>
+          <RoundedBox args={[2.6, .78, .52]} radius={.34} smoothness={5} castShadow receiveShadow>
+            <meshStandardMaterial color={new THREE.Color(quiltColors[0]).lerp(new THREE.Color('#ffffff'), .55)}
+              map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.02} roughness={.97} />
+          </RoundedBox>
+        </group>
+      ))}
 
       {/* Low footboard: below quilt level, so it never hides the near row. */}
       <RoundedBox args={[7.5, .5, .2]} radius={.1} position={[0, -.02, 3.9]} castShadow receiveShadow>
@@ -577,21 +821,110 @@ function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: Q
 const BOARD_VIEW_DIR = new THREE.Vector3(9.2, 10.8, 12).normalize();
 const BOARD_DISTANCE = 12.6;
 
+/** Warm the shader cache before the first piece is placed, so the first
+ * placement does not hitch while materials compile. */
+function Precompile() {
+  const gl = useThree(state => state.gl);
+  const scene = useThree(state => state.scene);
+  const camera = useThree(state => state.camera);
+  useEffect(() => {
+    const handle = requestAnimationFrame(() => { try { gl.compile(scene, camera); } catch { /* not fatal */ } });
+    return () => cancelAnimationFrame(handle);
+  }, [gl, scene, camera]);
+  return null;
+}
+
 function FrameBoard() {
   const camera = useThree(state => state.camera);
   const size = useThree(state => state.size);
   const controls = useThree(state => state.controls) as { update?: () => void } | null;
   useEffect(() => {
     const aspect = size.width / Math.max(1, size.height);
-    // Stacked/portrait shells have less width, so stand further back to keep
-    // the whole bed (headboard included) inside the frame.
-    const distance = BOARD_DISTANCE * (aspect < 1.3 ? 1.3 / aspect : 1);
+    // The shell is square or wider, and the vertical field of view is fixed, so
+    // one distance frames the bed everywhere. Only a genuinely portrait shell
+    // needs to stand further back.
+    const distance = BOARD_DISTANCE * (aspect < 1 ? 1 / aspect : 1);
     camera.position.copy(BOARD_VIEW_DIR).multiplyScalar(distance);
     camera.lookAt(0, .18, 0);
     camera.updateProjectionMatrix();
     controls?.update?.();
   }, [camera, size.width, size.height, controls]);
   return null;
+}
+
+/** The room around the bed: a woven rug on the floor, a soft contact shadow,
+ * and a little bedside furniture so the bed reads as furniture rather than a
+ * floating slab. Everything here sits outside the playable quilt. */
+function Room({ fabric, quiltColors }: { fabric: QuiltResources; quiltColors: QuiltColors }) {
+  const shadow = useMemo(() => createContactShadowTexture(), []);
+  useEffect(() => () => shadow.dispose(), [shadow]);
+  const wood = '#6d4527';
+  const woodLight = '#96633c';
+  const slate = new THREE.Color('#33464f');
+
+  return (
+    <group>
+      {/* Rug. Its top is exactly the floor the cats land on. */}
+      <mesh position={[0, FLOOR_Y - .012, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[6.6, 64]} />
+        <meshStandardMaterial color={slate} map={fabric.map} bumpMap={fabric.bumpMap}
+          bumpScale={.02} roughness={.99} />
+      </mesh>
+      <mesh position={[0, FLOOR_Y - .006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[6.35, 6.6, 64]} />
+        <meshStandardMaterial color="#20313a" roughness={.98} />
+      </mesh>
+      <mesh position={[0, FLOOR_Y - .001, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>
+        <planeGeometry args={[10.4, 10.4]} />
+        <meshBasicMaterial map={shadow} transparent depthWrite={false} opacity={.85} />
+      </mesh>
+
+      {/* Bedside table, left of the headboard. */}
+      <group position={[4.72, 0, -1.15]}>
+        <mesh position={[0, -.52, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[.62, .58, .1, 24]} />
+          <meshStandardMaterial color={woodLight} roughness={.55} />
+        </mesh>
+        <mesh position={[0, -.78, 0]} castShadow>
+          <cylinderGeometry args={[.09, .09, .44, 12]} />
+          <meshStandardMaterial color={wood} roughness={.62} />
+        </mesh>
+        <mesh position={[0, -1.0, 0]} castShadow>
+          <cylinderGeometry args={[.3, .3, .05, 20]} />
+          <meshStandardMaterial color={wood} roughness={.62} />
+        </mesh>
+        {/* Mug and a small book. */}
+        <mesh position={[.2, -.43, .08]} castShadow>
+          <cylinderGeometry args={[.11, .1, .17, 18]} />
+          <meshStandardMaterial color={new THREE.Color(quiltColors[1]).lerp(new THREE.Color('#ffffff'), .35)} roughness={.6} />
+        </mesh>
+        <mesh position={[-.19, -.455, -.05]} rotation={[0, .34, 0]} castShadow>
+          <boxGeometry args={[.3, .05, .22]} />
+          <meshStandardMaterial color="#b4553f" roughness={.8} />
+        </mesh>
+        <mesh position={[-.19, -.4, -.05]} rotation={[0, .34, 0]} castShadow>
+          <boxGeometry args={[.28, .045, .2]} />
+          <meshStandardMaterial color="#e8dcc4" roughness={.9} />
+        </mesh>
+      </group>
+
+      {/* A toy mouse on the rug at the foot of the bed. */}
+      <group position={[2.5, FLOOR_Y + .05, 3.9]} rotation={[0, -.6, 0]}>
+        <mesh castShadow>
+          <sphereGeometry args={[.12, 16, 12]} />
+          <meshStandardMaterial color="#9aa6ad" roughness={.9} />
+        </mesh>
+        <mesh position={[.12, .01, 0]} castShadow>
+          <sphereGeometry args={[.055, 12, 10]} />
+          <meshStandardMaterial color="#7f8b92" roughness={.9} />
+        </mesh>
+        <mesh position={[-.14, .01, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[.012, .006, .2, 6]} />
+          <meshStandardMaterial color="#c8b6a0" roughness={.9} />
+        </mesh>
+      </group>
+    </group>
+  );
 }
 
 function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
@@ -608,9 +941,14 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
   return (
     <>
       <FrameBoard />
-      <ambientLight intensity={2.55} />
-      <directionalLight position={[-5, 9, 4]} intensity={2.0} color="#ffffff" />
-      <directionalLight position={[6, 4, -5]} intensity={1.8} color="#ffffff" />
+      <ambientLight intensity={1.5} />
+      {/* One shadow-casting key light, scoped to the bed so the map stays crisp. */}
+      <directionalLight position={[-5, 9, 4]} intensity={2.1} color="#fff6e8" castShadow
+        shadow-mapSize={[2048, 2048]} shadow-bias={-.0006} shadow-normalBias={.02}
+        shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7}
+        shadow-camera-bottom={-7} shadow-camera-near={.5} shadow-camera-far={34} />
+      <directionalLight position={[6, 4, -5]} intensity={1.5} color="#eef4ff" />
+      <Room fabric={fabric} quiltColors={props.quiltColors} />
       <group>
         <group rotation={[0, -.08, 0]}>
           <BedShell quiltColors={props.quiltColors} fabric={fabric} />
@@ -635,18 +973,34 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
             <CatActor piece={{ color: props.myColor, type: props.selectedPieceType }} row={hover.row} col={hover.col}
               isGhost animationKey={props.animationKey} />
           )}
+          {props.animationKey > 0 && props.boopedPieces.map((boop, index) => (
+            <BoopPuff key={`puff-${props.animationKey}-${index}`} row={boop.from.row} col={boop.from.col} />
+          ))}
+          {props.graduationPhase === 'highlighting' && props.graduatingPieces.map((piece, index) => (
+            <GraduationSparkles key={`sparkle-${props.animationKey}-${index}`} row={piece.row} col={piece.col} />
+          ))}
           {props.graduationPhase === 'removing' && props.graduatingPieces.map((piece, index) => (
             <ReserveArrival key={`arrival-${props.animationKey}-${index}`} color={piece.piece.color} index={index} />
           ))}
-          {props.fallenPieces.map((fallen, i) => (
-            <CatActor key={`fallen-${i}-${props.animationKey}`} piece={fallen.piece} row={fallen.gutterRow} col={fallen.gutterCol}
-              boop={{ fromRow: fallen.fromRow, fromCol: fallen.fromCol }} animationKey={props.animationKey} />
-          ))}
+          {/* A returning cat outlives the move that booped it: its key and its
+              animation clock are the piece's own id, so a fast opponent reply
+              can never restart or cut short the walk home. */}
+          {props.fallenPieces.map((fallen, i) => {
+            const tripKey = fallen.id ?? i;
+            return <CatActor key={`fallen-${tripKey}`} piece={fallen.piece} row={fallen.gutterRow} col={fallen.gutterCol}
+              boop={{ fromRow: fallen.fromRow, fromCol: fallen.fromCol }} animationKey={tripKey} />;
+          })}
         </group>
       </group>
       {/* The page-wide carpet is behind the transparent canvas, without a
           second floor surface creating a rectangular visual division. */}
-      <Environment preset="apartment" environmentIntensity={.7} />
+      {/* Built in-memory from lightformers: no runtime fetch to a CDN, so a
+          flaky network can never leave the board unlit or blank. */}
+      <Environment resolution={64} environmentIntensity={.8}>
+        <Lightformer intensity={2.2} position={[0, 8, 4]} scale={[12, 6, 1]} rotation={[-Math.PI / 2, 0, 0]} />
+        <Lightformer intensity={1.1} position={[-8, 3, 2]} scale={[8, 4, 1]} rotation={[0, Math.PI / 2, 0]} color="#ffe6c9" />
+        <Lightformer intensity={.8} position={[8, 2, -3]} scale={[8, 4, 1]} rotation={[0, -Math.PI / 2, 0]} color="#d6e6ff" />
+      </Environment>
       {/* Zoom stays off: the board is framed to its shell, so there is nothing
           to discover by scrolling and no way to end up small and fogged out. */}
       <OrbitControls makeDefault enablePan={false} enableZoom={false}
@@ -669,6 +1023,23 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
     const observer = new ResizeObserver(update); document.querySelectorAll('.player-pool').forEach(el => observer.observe(el));
     return () => { observer.disconnect(); window.removeEventListener('resize', update); document.body.style.removeProperty('--carpet-top'); };
   }, []);
+  const shellRef = useRef<HTMLDivElement>(null);
+  // A short camera-shake on impact, tied to the boop itself.
+  useEffect(() => {
+    if (prefersReducedMotion() || props.boopedPieces.length === 0) return;
+    let knock: ReturnType<typeof setTimeout> | undefined;
+    const start = setTimeout(() => {
+      const shell = shellRef.current;
+      if (!shell) return;
+      shell.classList.add('board-shake');
+      knock = setTimeout(() => shell.classList.remove('board-shake'), 240);
+    }, BOOP_DELAY_MS);
+    return () => {
+      clearTimeout(start);
+      if (knock) clearTimeout(knock);
+      shellRef.current?.classList.remove('board-shake');
+    };
+  }, [props.animationKey, props.boopedPieces.length]);
   const [quiltColors, setQuiltColors] = useState<QuiltColors>(readQuiltColors);
   useEffect(() => {
     try { localStorage.setItem(QUILT_STORAGE_KEY, JSON.stringify(quiltColors)); }
@@ -688,11 +1059,12 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   useEffect(() => () => { timers.current.forEach(clearTimeout); timers.current = []; }, []);
   return (
     <div className="floating-board-area">
-    <div className="floating-board-shell">
+    <div className="floating-board-shell" ref={shellRef}>
       <BoardErrorBoundary>
       <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 46 }} gl={{ antialias: true, alpha: true }}>
         <Suspense fallback={null}>
           <CatProbe />
+          <Precompile />
           <InventoryFlightContext.Provider value={requestFlight}>
             <Scene {...props} quiltColors={quiltColors} />
           </InventoryFlightContext.Provider>
@@ -706,22 +1078,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
       </div>
       {props.isViewingHistory && <div className="history-3d-badge">Viewing game history · click a square to return</div>}
     </div>
-    <fieldset className="quilt-palette">
-      <legend>Quilt colors</legend>
-      <div className="quilt-palette-controls">
-        {quiltColors.map((color, index) => (
-          <label key={index} className="quilt-color-control">
-            <input type="color" aria-label={`Quilt color ${index + 1}`} value={color}
-              onChange={event => {
-                const next = event.currentTarget.value;
-                setQuiltColors(previous => index === 0 ? [next, previous[1]] : [previous[0], next]);
-              }} />
-            <span>Fabric {index + 1}</span>
-          </label>
-        ))}
-        <button type="button" className="quilt-reset" onClick={() => setQuiltColors([...DEFAULT_QUILT_COLORS])}>Reset colors</button>
-      </div>
-    </fieldset>
+    <BedroomPalette colors={quiltColors} onChange={setQuiltColors} />
     </div>
   );
 }
@@ -729,10 +1086,16 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
 useGLTF.preload('/assets/models/boop-kitten.glb');
 useGLTF.preload('/assets/models/boop-cat.glb');
 
-/** Pool portraits use the exact board model, rig and idle/blink clips. */
+/** Pool portraits are the same rig, rendered once and cached as an image, so
+ * the page keeps a single WebGL context instead of one per portrait. */
 export function AnimatedPieceIcon({ piece }: { piece: PieceData }) {
-  return <span className="animated-piece-icon" aria-hidden="true"><Canvas dpr={[1, 1.5]} camera={{ position: [1.3, 1.1, 2], fov: 30 }} gl={{ alpha: true }}>
-    <ambientLight intensity={1.5} /><directionalLight position={[3, 5, 4]} intensity={2} />
-    <Suspense fallback={null}><group position={[0, -.45, 0]} rotation={[0, SETTLE_HEADING, 0]} scale={piece.type === 'cat' ? 1.1 : 1}><CatModel piece={piece} /></group></Suspense>
-  </Canvas></span>;
+  const [, bump] = useState(0);
+  useEffect(() => {
+    void ensurePortraits().then(() => bump(value => value + 1));
+    return subscribePortraits(() => bump(value => value + 1));
+  }, []);
+  const url = portraitUrl(piece.color, piece.type);
+  return <span className="animated-piece-icon" aria-hidden="true">
+    {url ? <img src={url} alt="" draggable={false} /> : null}
+  </span>;
 }

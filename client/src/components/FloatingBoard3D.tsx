@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Environment, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
+import { Environment, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, PlayerColor } from '../types';
 import { GraduatingPiece, FallenPiece } from './Board';
@@ -368,9 +368,9 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
   return (
     <>
       <fog attach="fog" args={['#17222d', 15, 25]} />
-      <ambientLight intensity={1.15} />
-      <directionalLight position={[-5, 9, 4]} intensity={2.3} color="#fff0d4" castShadow shadow-intensity={.5} shadow-mapSize={[2048, 2048]} />
-      <directionalLight position={[6, 4, -5]} intensity={1.1} color="#96d9ff" />
+      <ambientLight intensity={2.4} />
+      <directionalLight position={[-5, 9, 4]} intensity={2.0} color="#ffffff" />
+      <directionalLight position={[6, 4, -5]} intensity={1.8} color="#ffffff" />
       <group>
         <group rotation={[0, -.08, 0]}>
           <RoundedBox args={[7.15, .32, 7.15]} radius={.35} smoothness={5} position={[0, -.17, 0]} castShadow receiveShadow>
@@ -424,15 +424,12 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
           ))}
         </group>
       </group>
-      {/* Finite carpet leaves the surrounding WebGL canvas truly transparent. */}
-      <RoundedBox args={[11.8, .10, 11.2]} radius={.22} smoothness={5} position={[0, -1.13, .4]} receiveShadow>
-        <meshStandardMaterial color="#bcae94" map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.04} roughness={1} />
-      </RoundedBox>
-      <RoundedBox args={[11.3, .018, 10.7]} radius={.2} smoothness={5} position={[0, -1.069, .4]} receiveShadow>
-        <meshStandardMaterial color="#7e9690" map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.045} roughness={1} />
-      </RoundedBox>
-      <ContactShadows position={[0, -1.03, 0]} opacity={.14} scale={13} blur={2.7} far={5} color="#396b69" />
-      <Environment preset="apartment" environmentIntensity={.32} />
+      {/* Continuous floor: its edges lie outside the viewport, never crop the bed. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.08, 0]}>
+        <planeGeometry args={[200, 200]} />
+        <meshStandardMaterial color="#d9e4d8" map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.012} roughness={1} />
+      </mesh>
+      <Environment preset="apartment" environmentIntensity={.7} />
       <OrbitControls makeDefault enablePan={false} minDistance={10} maxDistance={26}
         minPolarAngle={.52} maxPolarAngle={1.16} minAzimuthAngle={-.75} maxAzimuthAngle={.75}
         target={[0, .2, 0]} />
@@ -449,7 +446,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   return (
     <div className="floating-board-area">
     <div className="floating-board-shell">
-      <Canvas shadows dpr={[1, 1.7]} camera={{ position: [12.4, 14.6, 16.2], fov: 38 }} gl={{ antialias: true, alpha: true }}>
+      <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 46 }} gl={{ antialias: true, alpha: true }}>
         <Suspense fallback={null}><CatProbe /><Scene {...props} quiltColors={quiltColors} /></Suspense>
       </Canvas>
       <div className="board-hint">Drag to look around · scroll to zoom</div>

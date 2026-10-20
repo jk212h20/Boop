@@ -174,3 +174,11 @@ body {
 
 .animated-piece-icon { display: block; width: 64px; height: 72px; flex-shrink: 0; pointer-events: none; }
 .reserve-box-label { font-size: 10px; white-space: nowrap; font-weight: 700; color: #56391f; }
+
+/* The scene spans the layout, not a clipped box between the inventories. */
+.game-layout { position: relative; }
+.game-pool-opponent, .game-pool-self { position: relative; z-index: 5; }
+.floating-board-shell { isolation: isolate; }
+@media (min-width: 1280px) {
+  .floating-board-shell { width: calc(100% + 528px); margin-left: -264px; aspect-ratio: 1.6 / 1; }
+}

@@ -93,8 +93,9 @@ framing. The kitten and grown-cat GLBs are authored locally in Blender and
 recolored for each team at runtime. Kittens have enlarged baby heads; adults are visibly larger. The bed has an
 upholstered headboard, side rails, legs, and a floor beneath it. Booped pieces
 hop off the edge, land on a woven sage carpet, and scamper into their team’s
-open reserve box. The scene outside the finite carpet is transparent, with no
-rectangular floor backdrop. After a removed row ascends, three animated cats
+open reserve box. The bright carpet continues beyond the viewport edges. On desktop the
+scene spans beneath both inventories instead of being clipped to the board
+column; soft white fill lighting replaces heavy cast/contact shadows. After a removed row ascends, three animated cats
 jump down from above into the reserve box; single-piece graduations receive
 one cat. The shared animation budget includes both ascent and arrivals.
 The piece selectors render the same independently animated GLB models,

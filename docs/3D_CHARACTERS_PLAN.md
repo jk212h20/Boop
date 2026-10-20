@@ -160,3 +160,23 @@ asserts the page survives, the hop appears, and the cat does not shrink away.
   displaced by two damped outward wave crests and faded with a radial alpha map.
   It runs 0.85s from the moment of impact. Its base sits above the lofted patch
   top (y .468), otherwise the quilt hides it.
+
+## The view belongs to the player (2026-10-20)
+
+`FrameBoard` used to rewrite the camera direction to `BOARD_VIEW_DIR` whenever
+the board's size changed, so a layout shift on the opponent's turn (or a
+Suspense re-entry while a model loads) snapped the orbit back to the default.
+It now:
+
+- only ever adjusts the **radius**, along whatever direction the player is
+  looking from;
+- skips the update entirely when the required distance moves by less than 0.6,
+  so a scrollbar appearing is not a camera event at all;
+- reads OrbitControls through a ref, so a re-created controls instance cannot
+  re-trigger framing.
+
+The Canvas camera/gl options are module constants too, because react-three-fiber
+re-applies camera options when that object changes identity.
+`tools/audit/camera-view-regression.cjs` drags the board, then asserts the orbit
+survives a layout shift, a placement plus the computer's reply, and a breakpoint
+change.

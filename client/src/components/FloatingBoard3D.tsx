@@ -36,6 +36,11 @@ const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) *
 // the react-three-fiber tree: a portal created there is reconciled by R3F,
 // which throws "Canvas is not part of the THREE namespace" the moment a
 // booped cat reaches the box and unmounts the whole game.
+// Stable identity: react-three-fiber re-applies camera options when the object
+// changes, and a re-applied position would throw away the player's orbit.
+const BOARD_CAMERA = { position: [9.2, 10.8, 12] as [number, number, number], fov: 46 };
+const BOARD_GL = { antialias: true, alpha: true };
+
 interface InventoryFlight { id: number; piece: PieceData; from: { x: number; y: number } }
 type RequestInventoryFlight = (piece: PieceData, from: { x: number; y: number }) => void;
 const InventoryFlightContext = createContext<RequestInventoryFlight>(() => {});
@@ -715,14 +720,20 @@ function CatProbe() {
       });
       return out;
     };
+    (window as unknown as { __boardView?: () => { azimuth: number; polar: number; distance: number } }).__boardView = () => {
+      const offset = camera.position.clone().sub(new THREE.Vector3(0, .18, 0));
+      return { azimuth: +Math.atan2(offset.x, offset.z).toFixed(3),
+        polar: +Math.acos(offset.y / (offset.length() || 1)).toFixed(3),
+        distance: +offset.length().toFixed(2) };
+    };
     (window as unknown as { __cellScreen?: (row: number, col: number) => { x: number; y: number } }).__cellScreen = (row, col) => {
       const rect = gl.domElement.getBoundingClientRect();
       const v = new THREE.Vector3((col - 2.5) * 1.06, .42, (row - 2.5) * 1.06).project(camera);
       return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
     };
     return () => {
-      const w = window as unknown as { __catProbe?: unknown; __cellScreen?: unknown };
-      delete w.__catProbe; delete w.__cellScreen;
+      const w = window as unknown as { __catProbe?: unknown; __cellScreen?: unknown; __boardView?: unknown };
+      delete w.__catProbe; delete w.__cellScreen; delete w.__boardView;
     };
   }, [scene, camera, size, gl]);
   return null;
@@ -860,18 +871,34 @@ function Precompile() {
 function FrameBoard() {
   const camera = useThree(state => state.camera);
   const size = useThree(state => state.size);
-  const controls = useThree(state => state.controls) as { update?: () => void } | null;
+  const controls = useThree(state => state.controls) as { update?: () => void; target?: THREE.Vector3 } | null;
+  // Read through a ref: a re-created controls instance (Suspense re-entry when
+  // a new model loads mid-game) must not re-run the framing effect and snap the
+  // view back.
+  const controlsRef = useRef(controls);
+  controlsRef.current = controls;
+  const applied = useRef(0);
   useEffect(() => {
     const aspect = size.width / Math.max(1, size.height);
     // The shell is square or wider, and the vertical field of view is fixed, so
     // one distance frames the bed everywhere. Only a genuinely portrait shell
     // needs to stand further back.
     const distance = BOARD_DISTANCE * (aspect < 1 ? 1 / aspect : 1);
-    camera.position.copy(BOARD_VIEW_DIR).multiplyScalar(distance);
-    camera.lookAt(0, .18, 0);
+    // Re-frame only when the required distance really changed. A scrollbar
+    // appearing, or any other few-pixel layout shift on the opponent's turn,
+    // must not pull the camera back to the framed angle the player left.
+    if (Math.abs(distance - applied.current) < .6) return;
+    applied.current = distance;
+    const active = controlsRef.current;
+    const target = active?.target ?? new THREE.Vector3(0, .18, 0);
+    const direction = camera.position.clone().sub(target);
+    // Keep whatever orbit the player has chosen; only the radius is ours.
+    if (direction.lengthSq() < 1e-6) direction.copy(BOARD_VIEW_DIR);
+    camera.position.copy(target).addScaledVector(direction.normalize(), distance);
+    camera.lookAt(target);
     camera.updateProjectionMatrix();
-    controls?.update?.();
-  }, [camera, size.width, size.height, controls]);
+    active?.update?.();
+  }, [camera, size.width, size.height]);
   return null;
 }
 
@@ -1088,7 +1115,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
     <div className="floating-board-area">
     <div className="floating-board-shell" ref={shellRef}>
       <BoardErrorBoundary>
-      <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 46 }} gl={{ antialias: true, alpha: true }}>
+      <Canvas shadows dpr={[1, 1.7]} camera={BOARD_CAMERA} gl={BOARD_GL}>
         <Suspense fallback={null}>
           <CatProbe />
           <Precompile />

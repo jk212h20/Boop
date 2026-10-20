@@ -68,10 +68,11 @@ test('R04: a triple plus eight pieces on board offers both activation types', ()
   assert.ok(opts.some(o => o.length === 1));
 });
 
-test('line of two: gapped pair protected; adjacent pair protected; free push works', () => {
+test('line of two: gapped pair moves; adjacent pair protected; free push works', () => {
   const gap = setup(s => { s.board[2][0] = K('gray'); s.board[2][2] = K('gray'); });
   const rGap = executeMove(gap, 2, 3, 'kitten', 'orange');
-  assert.equal(rGap.newState.boopedPieces.length, 0);
+  assert.equal(rGap.newState.boopedPieces.length, 1);
+  assert.deepEqual(rGap.newState.boopedPieces[0].to, { row: 2, col: 1 });
 
   const pair = setup(s => { s.board[2][1] = K('gray'); s.board[2][2] = K('gray'); });
   const rPair = executeMove(pair, 2, 3, 'kitten', 'orange');
@@ -118,3 +119,26 @@ test('B01: bot graduation resolver resolves the pending selection', () => {
   assert.equal(resolved.pendingGraduationOptions, undefined);
   assert.equal(resolved.players.gray!.catsInPool, 3);
 });
+
+// Early-game reproduction: both adjacent kittens must move, even when a
+// distant piece shares the opponent kitten's ray.
+for (const own of ['orange', 'gray'] as PlayerColor[]) {
+  for (const [dr, dc] of [[0, 1], [1, 0], [1, 1]]) {
+    test(`boop is color-neutral with a distant piece: ${own} ray ${dr},${dc}`, () => {
+      const opp = own === 'orange' ? 'gray' : 'orange';
+      const st = setup(s => {
+        s.currentTurn = own;
+        s.board[2-dr][2-dc] = K(own);
+        s.board[2+dr][2+dc] = K(opp);
+        s.board[2+3*dr][2+3*dc] = K(opp);
+      });
+      const result = executeMove(st, 2, 2, 'kitten', own);
+      assert.equal(result.valid, true);
+      assert.equal(result.newState.boopedPieces.length, 2);
+      assert.deepEqual(result.newState.board[2-2*dr][2-2*dc], K(own));
+      assert.deepEqual(result.newState.board[2+2*dr][2+2*dc], K(opp));
+      assert.deepEqual(result.newState.board[2+3*dr][2+3*dc], K(opp));
+      assert.equal(st.board[2+2*dr][2+2*dc], null, 'input state unchanged');
+    });
+  }
+}

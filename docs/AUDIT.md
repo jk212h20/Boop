@@ -165,14 +165,12 @@ BOTH engines (`server/src/game/GameState.ts`, `client/src/bot/LocalGame.ts`):
   "choose which you would activate" rule), instead of force-retiring the
   first row-major kitten. Declining entirely is still not offered: with the
   pool empty the player would have no legal placement next turn.
-- **Line of two**: the protection now follows the rulebook's literal wording —
-  "when ANY two pieces are already in a line... a piece played into that line
-  cannot push those pieces" — so a companion anywhere along the push ray
-  (adjacent or across a gap) blocks the push. Placement into the gap still
-  pushes the two pieces apart (no companion lies beyond them in the push
-  direction). This is the one interpretive call in this addendum; if the
-  publisher's FAQ rules the pair must be adjacent, the ray scan in
-  `executeBoop` collapses back to the destination-occupied check.
+- **Line of two (corrected 2026-10-20)**: the earlier interpretation
+  incorrectly protected separated pieces anywhere along the push ray. This
+  caused an adjacent kitten to remain still despite an empty destination.
+  Both engines now block only an occupied destination; a separated pair is
+  not protected. Color does not affect a kitten-to-kitten boop. Regressions
+  cover adjacent pairs, separated pairs, and simultaneous own/opponent pushes.
 - **V01–V03**: runtime piece-type enum and integer coordinate/option-index
   validation in both engines' move and graduation entry points.
 - **B01**: the local bot resolves its own pending graduation choice

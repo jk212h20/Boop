@@ -75,11 +75,12 @@ test('R04: a triple plus eight pieces on board offers both activation types', ()
   assert.ok(res.pendingGraduationOptions.some((o: { length: number }) => o.length === 1));
 });
 
-test('line of two: a gapped pair is protected from in-line placement', () => {
+test('line of two: a gapped pair moves into its empty destination', () => {
   const { g, board } = freshGame();
   board[2][0] = K('gray'); board[2][2] = K('gray');
   const res = (g as any).placePiece('o', 2, 3, 'kitten');
-  assert.equal(res.boopedPieces.length, 0);
+  assert.equal(res.boopedPieces.length, 1);
+  assert.deepEqual(res.boopedPieces[0].to, { row: 2, col: 1 });
 });
 
 test('line of two: both ends of an adjacent pair are protected', () => {
@@ -122,4 +123,14 @@ test('V03: non-integer graduation indices are rejected', () => {
   (g as any).pendingGraduationOptions = [[{ row: 0, col: 0 }]];
   assert.equal((g as any).selectGraduation('o', 0.5).valid, false);
   assert.equal((g as any).selectGraduation('o', Number.NaN).valid, false);
+});
+
+test('own and opponent kittens both boop despite a distant piece', () => {
+  const { g, board } = freshGame();
+  board[2][1] = K('orange'); board[2][3] = K('gray'); board[2][5] = K('gray');
+  const res = (g as any).placePiece('o', 2, 2, 'kitten');
+  assert.equal(res.boopedPieces.length, 2);
+  assert.deepEqual(board[2][0], K('orange'));
+  assert.deepEqual(board[2][4], K('gray'));
+  assert.deepEqual(board[2][5], K('gray'));
 });

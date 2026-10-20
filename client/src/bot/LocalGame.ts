@@ -167,26 +167,9 @@ function executeBoop(
     const destRow = adjRow + dRow;
     const destCol = adjCol + dCol;
 
-    // Rules: "When any two pieces are already in a line on the board,
-    // another piece played into that line cannot push those pieces."
-    // The pushed piece may not move along this direction if ANY piece
-    // (either color) already lies beyond it on the same ray: an adjacent
-    // companion (destination occupied) or one further along the line
-    // (two pieces in a line with a gap). They can still be booped from
-    // other directions. Mirrors server/src/game/GameState.ts executeBoop.
-    let lineOfTwoBlocks = false;
-    for (let k = 2; ; k++) {
-      const r2 = placedRow + dRow * k;
-      const c2 = placedCol + dCol * k;
-      if (!isValidPosition(r2, c2)) break;
-      if (newBoard[r2][c2] !== null) {
-        lineOfTwoBlocks = true;
-        break;
-      }
-    }
-    if (lineOfTwoBlocks) {
-      continue;
-    }
+    // Only an occupied destination blocks a push. A distant piece across
+    // an empty square is not an adjacent, protected pair. Color is irrelevant.
+    if (isValidPosition(destRow, destCol) && newBoard[destRow][destCol]) continue;
 
     // Capture piece data before modifying board
     const boopedPieceData: Piece = { color: adjPiece.color, type: adjPiece.type };

@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import {
-  createInitialGameState, executeMove, cloneGameState,
+  createInitialGameState, executeMove, cloneGameState, resolveGraduationChoice,
 } from '../src/bot/LocalGame';
 import { applyBotGraduationChoice } from '../src/hooks/useBotGame';
 import type { GameState, Piece, PlayerColor } from '../src/types';
@@ -142,3 +142,53 @@ for (const own of ['orange', 'gray'] as PlayerColor[]) {
     });
   }
 }
+
+test('R05: a boop that lines up the opponent\'s kittens graduates them for their owner', () => {
+  const st = setup(s => {
+    s.board[3][0] = K('orange'); s.board[3][1] = K('orange'); s.board[3][3] = K('orange');
+    s.currentTurn = 'gray';
+  });
+  // Gray plays (3,4): the kitten at (3,3) is pushed to (3,2) -> orange 3-line.
+  const r = executeMove(st, 3, 4, 'kitten', 'gray');
+  assert.equal(r.valid, true);
+  assert.equal(r.newState.winner, null);
+  assert.equal(r.newState.graduatedPieces.length, 3);
+  assert.equal(r.newState.players.orange!.kittensRetired, 3);
+  assert.equal(r.newState.players.orange!.catsInPool, 3);
+  assert.equal(r.newState.board[3][0], null);
+  assert.equal(r.newState.board[3][2], null);
+  assert.equal(r.newState.currentTurn, 'orange');
+});
+
+test('R06: the booped opponent chooses when their line offers several groups', () => {
+  const st = setup(s => {
+    s.board[3][0] = K('orange'); s.board[3][1] = K('orange');
+    s.board[3][2] = K('orange'); s.board[3][4] = K('orange');
+    s.currentTurn = 'gray';
+  });
+  const r = executeMove(st, 3, 5, 'kitten', 'gray');
+  assert.equal(r.newState.phase, 'selecting_graduation');
+  assert.equal(r.newState.pendingGraduationPlayer, 'orange');
+  assert.equal(r.newState.pendingGraduationOptions!.length, 2);
+  assert.equal(r.newState.currentTurn, 'gray', 'turn held until the choice');
+
+  const sel = resolveGraduationChoice(r.newState, 0);
+  assert.equal(sel.valid, true);
+  assert.equal(sel.newState.players.orange!.catsInPool, 3);
+  assert.equal(sel.newState.phase, 'playing');
+  assert.equal(sel.newState.currentTurn, 'orange');
+});
+
+test('R07: one boop can graduate both players on the post-boop board', () => {
+  const st = setup(s => {
+    s.board[0][4] = K('orange'); s.board[1][4] = K('orange');
+    s.board[2][0] = K('gray'); s.board[2][1] = K('gray'); s.board[2][3] = K('gray');
+  });
+  const r = executeMove(st, 2, 4, 'kitten', 'orange');
+  assert.equal(r.valid, true);
+  assert.equal(r.newState.winner, null);
+  assert.equal(r.newState.graduatedPieces.length, 6);
+  assert.equal(r.newState.players.orange!.catsInPool, 3);
+  assert.equal(r.newState.players.gray!.catsInPool, 3);
+  assert.equal(r.newState.currentTurn, 'gray');
+});

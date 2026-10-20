@@ -134,3 +134,55 @@ test('own and opponent kittens both boop despite a distant piece', () => {
   assert.deepEqual(board[2][4], K('gray'));
   assert.deepEqual(board[2][5], K('gray'));
 });
+
+test('R05: a boop that lines up the opponent\'s kittens graduates them for their owner', () => {
+  const { g, board, orange } = freshGame();
+  (g as any).currentTurn = 'gray';
+  board[3][0] = K('orange'); board[3][1] = K('orange'); board[3][3] = K('orange');
+  // Gray plays (3,4): the kitten at (3,3) is pushed to (3,2) -> orange 3-line.
+  const res = (g as any).placePiece('g', 3, 4, 'kitten');
+  assert.equal(res.valid, true);
+  assert.equal(res.winner, null, 'graduation is not a win');
+  assert.equal(res.graduatedPieces.length, 3);
+  assert.equal(orange.kittensRetired, 3);
+  assert.equal(orange.catsInPool, 3);
+  assert.equal(board[3][0], null);
+  assert.equal(board[3][1], null);
+  assert.equal(board[3][2], null);
+  assert.equal((g as any).currentTurn, 'orange');
+});
+
+test('R06: the booped opponent chooses when their line offers several groups', () => {
+  const { g, board, orange } = freshGame();
+  (g as any).currentTurn = 'gray';
+  board[3][0] = K('orange'); board[3][1] = K('orange');
+  board[3][2] = K('orange'); board[3][4] = K('orange');
+  // Gray plays (3,5): the kitten at (3,4) is pushed to (3,3) -> orange line of 4.
+  const res = (g as any).placePiece('g', 3, 5, 'kitten');
+  assert.equal(res.valid, true);
+  assert.equal(res.requiresGraduationChoice, true);
+  assert.equal(res.pendingGraduationOptions.length, 2);
+  assert.equal((g as any).pendingGraduationPlayer, 'orange');
+  assert.equal((g as any).currentTurn, 'gray', 'turn is held until the choice');
+
+  const sel = (g as any).selectGraduation('o', 0);
+  assert.equal(sel.valid, true);
+  assert.equal(sel.newCatsEarned, 3);
+  assert.equal(orange.catsInPool, 3);
+  assert.equal((g as any).currentTurn, 'orange');
+});
+
+test('R07: one boop can graduate both players on the post-boop board', () => {
+  const { g, board, orange, gray } = freshGame();
+  board[0][4] = K('orange'); board[1][4] = K('orange');
+  board[2][0] = K('gray'); board[2][1] = K('gray'); board[2][3] = K('gray');
+  // Orange plays (2,4): completes an orange column AND pushes the gray
+  // kitten at (2,3) to (2,2), completing a gray line.
+  const res = (g as any).placePiece('o', 2, 4, 'kitten');
+  assert.equal(res.valid, true);
+  assert.equal(res.winner, null);
+  assert.equal(res.graduatedPieces.length, 6);
+  assert.equal(orange.catsInPool, 3);
+  assert.equal(gray.catsInPool, 3);
+  assert.equal((g as any).currentTurn, 'gray');
+});

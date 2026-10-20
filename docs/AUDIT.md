@@ -108,7 +108,7 @@ Severity: **Critical** = opponent impersonation or remotely triggerable server t
 
 ## Rule questions and non-bug risks
 
-- The supplied rule text specifies choice for overlapping/connected triples, but is not explicit enough here to certify the treatment of two **disjoint** triples or simultaneous wins. Current code resolves only one graduation group and checks only the mover. R02 is the ignored non-simultaneous opponent win; any new tie/disjoint-line policy should be verified against the publisher's complete FAQ rather than guessed.
+- The supplied rule text specifies choice for overlapping/connected triples, but is not explicit enough here to certify the treatment of two **disjoint** triples or simultaneous wins. Each player resolves at most one graduation group per move (the "choose which group of 3" rule), and both players are checked on the post-boop board (see the 2026-10-20 addendum). Any new tie/disjoint-line policy should be verified against the publisher's complete FAQ rather than guessed.
 - Missing rate limits, unbounded room creation, lack of durable server state, open room-code discovery space and lack of a comprehensive test suite are important hardening/operational risks, but not counted above as independently demonstrated game defects.
 - The eight-piece reserve condition double-counts retired kittens plus catsInPool. In a legal eight-on-board position catsInPool must be zero, so that predicate alone was **not** counted as a distinct reachable bug. Incorrect simulated retirement totals in B03 can make it consequential.
 - Both engines' radial boop loop passes the simple reasoning check: outgoing rays do not collide with each other's adjacent/destination cells, so sequential processing alone is not evidence of a boop-order defect. Cats' immunity to kittens, blocked pushes, off-board returns, and no chain reaction are implemented in the expected branches.
@@ -186,3 +186,32 @@ Regression tests: `server/tests/rules.test.ts` (10) and
 `client/tests/rules.test.ts` (8), run with `npm test` in each package. All
 pass; typecheck clean in both packages; appearance tests unchanged. The
 remaining S/M/U findings are untouched. Not deployed.
+
+## Repair addendum — graduation for the booped player (2026-10-20)
+
+Nick reported that the bot booped his kittens into a row of three and they did
+not graduate. Both engines only ran the graduation check for the player who
+moved, even though the same post-boop board was already checked for the
+opponent's winning cat line (R02). A boop that lines up the opponent's kittens
+therefore left them in a three-in-a-row with no graduation.
+
+Fixes, mirrored in `server/src/game/GameState.ts` and
+`client/src/bot/LocalGame.ts`:
+
+- After the boop, graduation is checked for BOTH players. Options are built on
+  the post-boop board; the mover is resolved first, then the opponent (a
+  graduation only removes that player's own pieces, so the order cannot change
+  the other player's options).
+- If the booped player has more than one group to choose from, the game
+  enters `selecting_graduation` for them and the turn stays with the mover
+  until the choice is made; the next turn always belongs to the player who did
+  not move.
+- The client bot game resolves a bot-side choice that a human move creates (and
+  vice versa) through the shared `resolveGraduationChoice`, so no new state can
+  deadlock. `simulateMove` models the opponent's auto-graduation so bot search
+  sees the board the engine produces.
+
+Regression tests: R05 (opponent line graduates for its owner), R06 (the booped
+player chooses among several groups, turn held), R07 (one boop graduates both
+players) in `server/tests/rules.test.ts` and `client/tests/rules.test.ts`.
+Both suites pass and both packages typecheck. Not deployed.

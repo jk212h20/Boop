@@ -561,9 +561,20 @@ export function simulateMove(
 
   // Check for graduation (only relevant when the move did not win)
   const gradResult = (moverWin || opponentWin)
-    ? { board: simBoard, graduatedPieces: [] as Cell[], catsEarned: 0 }
+    ? { board: simBoard, graduatedPieces: [] as Cell[], catsEarned: 0, pendingOptions: undefined as Cell[][] | undefined }
     : checkAndExecuteGraduation(simBoard, simPlayer, color);
   simBoard = gradResult.board;
+
+  // The same boop can graduate the opponent's kittens; model it (auto option
+  // only) so search sees the board the engine will actually produce.
+  if (!moverWin && !opponentWin && !gradResult.pendingOptions && simPlayers[opponentColor]) {
+    const opponentGraduation = checkAndExecuteGraduation(
+      simBoard,
+      simPlayers[opponentColor]!,
+      opponentColor
+    );
+    simBoard = opponentGraduation.board;
+  }
 
   return {
     valid: true,
@@ -668,8 +679,114 @@ export function executeMove(
     return { newState, valid: true };
   }
 
+  // Graduation after the boop applies to BOTH players: a boop can line up the
+  // opponent's kittens. Mirror of server/src/game/GameState.ts placePiece.
+  const opponentGraduation = checkAndExecuteGraduation(
+    newState.board,
+    newState.players[opponentColor]!,
+    opponentColor
+  );
+  newState.board = opponentGraduation.board;
+  newState.graduatedPieces = [
+    ...newState.graduatedPieces,
+    ...opponentGraduation.graduatedPieces,
+  ];
+
+  if (opponentGraduation.pendingOptions && opponentGraduation.pendingOptions.length > 1) {
+    newState.phase = 'selecting_graduation';
+    newState.pendingGraduationOptions = opponentGraduation.pendingOptions;
+    newState.pendingGraduationPlayer = opponentColor;
+    return { newState, valid: true };
+  }
+
   // Switch turns
   newState.currentTurn = color === 'orange' ? 'gray' : 'orange';
+
+  return { newState, valid: true };
+}
+
+// Resolve the pending graduation choice for whichever player owes one.
+// Mirrors server/src/game/GameState.ts selectGraduation: after the mover
+// resolves their own choice, the opponent's line (created by the same boop)
+// is still resolved; if the choice belongs to a player who was booped, the
+// mover's graduation was already handled in executeMove.
+export function resolveGraduationChoice(
+  state: GameState,
+  optionIndex: number
+): { newState: GameState; valid: boolean; error?: string } {
+  if (state.phase !== 'selecting_graduation' || !state.pendingGraduationPlayer) {
+    return { newState: state, valid: false, error: 'Not in graduation selection phase' };
+  }
+
+  const options = state.pendingGraduationOptions;
+  if (!options || !Number.isInteger(optionIndex) ||
+      optionIndex < 0 || optionIndex >= options.length) {
+    return { newState: state, valid: false, error: 'Invalid graduation option' };
+  }
+
+  const color = state.pendingGraduationPlayer;
+  const opponentColor: PlayerColor = color === 'orange' ? 'gray' : 'orange';
+  const newState = cloneGameState(state);
+  const player = newState.players[color];
+  if (!player) {
+    return { newState: state, valid: false, error: 'Player not found' };
+  }
+
+  const graduatedPieces: Cell[] = [];
+  for (const cell of options[optionIndex]) {
+    const piece = newState.board[cell.row][cell.col];
+    if (piece) {
+      newState.board[cell.row][cell.col] = null;
+      graduatedPieces.push(cell);
+
+      if (piece.type === 'kitten') {
+        player.kittensRetired++;
+        player.catsInPool++;
+      } else {
+        player.catsInPool++;
+      }
+    }
+  }
+
+  newState.graduatedPieces = graduatedPieces;
+  newState.pendingGraduationOptions = undefined;
+  newState.pendingGraduationPlayer = undefined;
+
+  // The player who moved may still owe their opponent's graduation.
+  if (color === state.currentTurn && newState.players[opponentColor]) {
+    const opponentGraduation = checkAndExecuteGraduation(
+      newState.board,
+      newState.players[opponentColor]!,
+      opponentColor
+    );
+    newState.board = opponentGraduation.board;
+    newState.graduatedPieces = [
+      ...newState.graduatedPieces,
+      ...opponentGraduation.graduatedPieces,
+    ];
+
+    if (opponentGraduation.pendingOptions && opponentGraduation.pendingOptions.length > 1) {
+      newState.phase = 'selecting_graduation';
+      newState.pendingGraduationOptions = opponentGraduation.pendingOptions;
+      newState.pendingGraduationPlayer = opponentColor;
+      return { newState, valid: true };
+    }
+  }
+
+  // Check for win AFTER graduation. A graduation can win the game by
+  // either promoting kittens into a 3-cats-in-a-row line OR by reaching
+  // all 8 cats on the board.
+  const winCondition = checkWinCondition(newState.board, color);
+  if (winCondition) {
+    newState.phase = 'finished';
+    newState.winner = color;
+    return { newState, valid: true };
+  }
+
+  newState.phase = 'playing';
+  // The next turn always belongs to the player who did not move: during a
+  // pending choice currentTurn is still held by the mover.
+  newState.currentTurn = state.currentTurn === 'orange' ? 'gray' : 'orange';
 
   return { newState, valid: true };
 }

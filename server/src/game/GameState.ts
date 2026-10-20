@@ -257,7 +257,12 @@ export class BoopGame {
       };
     }
 
-    // Check for graduation (3 in a row of current player's pieces)
+    // Graduation: after the boop, BOTH players are checked on the post-boop
+    // board. A boop can line up the opponent's kittens, and those graduate
+    // for their owner (the same way a boop can complete the opponent's cat
+    // line and win the game). Resolve the mover first; a graduation only
+    // removes that player's own pieces, so the opponent's options are
+    // unaffected by the order.
     const graduationResult = this.checkAndExecuteGraduation(player.color);
 
     // If we entered graduation selection phase, don't switch turns yet
@@ -265,8 +270,24 @@ export class BoopGame {
       return {
         valid: true,
         boopedPieces: [...this.boopedPieces],
-        graduatedPieces: [],
-        newCatsEarned: 0,
+        graduatedPieces: [...this.graduatedPieces],
+        newCatsEarned: graduationResult,
+        winner: null,
+        requiresGraduationChoice: true,
+        pendingGraduationOptions: this.pendingGraduationOptions
+      };
+    }
+
+    // The boop may also have graduated the pieces of the player who did not
+    // move. Their choice (if they have more than one option) is pending, so
+    // hold the turn with the mover until they resolve it.
+    this.checkAndExecuteGraduation(opponentColor);
+    if (this.pendingGraduationOptions && this.pendingGraduationOptions.length > 1) {
+      return {
+        valid: true,
+        boopedPieces: [...this.boopedPieces],
+        graduatedPieces: [...this.graduatedPieces],
+        newCatsEarned: graduationResult,
         winner: null,
         requiresGraduationChoice: true,
         pendingGraduationOptions: this.pendingGraduationOptions
@@ -494,6 +515,25 @@ export class BoopGame {
     // Clear pending state
     this.pendingGraduationOptions = null;
     this.pendingGraduationPlayer = null;
+
+    // If the player choosing was the one who moved, the boop that created
+    // their line may also have created one for their opponent, which has not
+    // been resolved yet. (When the choice belongs to the player who was
+    // booped, the mover's graduation was already resolved in placePiece.)
+    const otherColor: PlayerColor = player.color === 'orange' ? 'gray' : 'orange';
+    if (player.color === this.currentTurn) {
+      this.checkAndExecuteGraduation(otherColor);
+      // The assignment above narrows the field to null; the call may set it again.
+      const nextOptions = this.pendingGraduationOptions as Cell[][] | null;
+      if (nextOptions && nextOptions.length > 1) {
+        return {
+          valid: true,
+          graduatedPieces: [...this.graduatedPieces],
+          newCatsEarned: catsEarned,
+          winner: null
+        };
+      }
+    }
 
     // Check for win condition
     const winResult = this.checkWinCondition(player.color);

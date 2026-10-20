@@ -8,7 +8,7 @@ import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, Pl
 import { GraduatingPiece, FallenPiece } from './Board';
 import { ensurePortraits, portraitUrl, subscribePortraits } from '../rendering/portraits';
 import { createCatScene, createContactShadowTexture, createRadialAlphaTexture, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
-  QUILT_STORAGE_KEY, QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
+  QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
 import { BOOP_DELAY_MS, GRADUATION_HIGHLIGHT_MS, PLACEMENT_DROP_MS } from '../animationTiming';
 import { prefersReducedMotion } from '../rendering/motion';
 
@@ -172,12 +172,12 @@ const TROT_SPEED = 3.9; // world units per second
 const TROT_MIN_S = .9;
 const TROT_MAX_S = 3.6;
 // No sit-and-look-up at the end of the run: the trot flows into a crouch and
-// a leap that carries the kitten clear out of the frame, and it comes back
-// down into its box from above. A stop with no exit read as a pause near the
-// top of the screen.
+// a single short leap that carries the kitten up into its box. It used to leave
+// the frame and drop back in from above, which read as two separate journeys;
+// now the arrival is one direct hop.
 const LEAP_CROUCH_S = .16;
-const LEAP_RISE_S = .6;
-const LEAP_HEIGHT = 9;   // world units up; clears the canvas top from the carpet
+const LEAP_RISE_S = .42;
+const LEAP_HEIGHT = 2.1; // world units up: enough to reach the pool card
 // Safety clamp for layouts where a pool sits above the canvas and its floor
 // ray would otherwise run off the far end of the room.
 const MAX_RUN = 16;
@@ -213,6 +213,16 @@ function poolDestination(color: PlayerColor, type: PieceType, camera: THREE.Came
   const portrait = parent.worldToLocal(new THREE.Vector3(centre.x, centre.y, depth).unproject(camera));
   return { landing, portrait };
 }
+// A piece pushed off the top edge used to arc straight through the headboard
+// and the pillows, because its gutter cell sits at the headboard plane. Those
+// exits now jump higher and land beyond the headboard instead.
+const BED_HALF = 3.65;           // half the bedspread, as used by BedShell
+const HEADBOARD_BACK = 1.45;     // how far past the headboard the cat lands
+const HEADBOARD_PEAK = 2.15;     // extra arc height, world units above the cell
+// Sized and set back so the whole rug reads as a circle inside the canvas at
+// every allowed orbit; it used to be cut off by the bottom edge of the scene.
+const RUG_RADIUS = 5.15;
+const RUG_Z = -.75;
 const CROUCH_F = .19, AIR_F = .52; // remaining fraction of the boop is landing
 const SETTLE_HEADING = Math.atan2(9.2, 12); // face the default camera (~37°)
 
@@ -275,7 +285,11 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
       const t = elapsed - BOOP_DELAY_S;
       const crouchEnd = CROUCH_F * BOOP_S;
       const airEnd = (CROUCH_F + AIR_F) * BOOP_S;
-      const dx = target[0] - origin[0], dz = target[2] - origin[2];
+      // Exiting over the top means the headboard is in the way: jump higher
+      // and land on the carpet behind it rather than inside it.
+      const overHeadboard = offBoard && target[2] < -BED_HALF;
+      const landZ = overHeadboard ? target[2] - HEADBOARD_BACK : target[2];
+      const dx = target[0] - origin[0], dz = landZ - origin[2];
       if (t <= 0) {
         x = origin[0]; z = origin[2]; // still sitting where it was booped from
         nextClip = 'Sit';
@@ -290,7 +304,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
         const e = offBoard ? p : easeOut(p); // falls accelerate, boops glide
         x = origin[0] + dx * e;
         z = origin[2] + dz * e;
-        const peak = offBoard ? .65 : .85;
+        const peak = overHeadboard ? HEADBOARD_PEAK : offBoard ? .65 : .85;
         y += Math.sin(p * Math.PI) * peak;
         if (offBoard) y += (FLOOR_Y - target[1]) * p * p;
         nextClip = offBoard ? 'Fall' : 'Jump';
@@ -300,7 +314,9 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
       } else if (t < BOOP_S) {
         const l = (t - airEnd) / (BOOP_S - airEnd);
         nextClip = 'Land';
-        if (offBoard) y = FLOOR_Y;
+        // Hold the point the arc actually reached: a piece leaving over the
+        // headboard lands behind it, not back inside it.
+        if (offBoard) { x = target[0]; z = landZ; y = FLOOR_Y; }
         squash = Math.sin(l * Math.PI) * .18;
       }
       if (t >= BOOP_S) {
@@ -313,24 +329,24 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
           // screen-space travel from the middle of the room.
           const stopX = destination.landing.x;
           const stopZ = destination.landing.z;
-          const runDistance = Math.hypot(stopX - target[0], stopZ - target[2]);
+          const runDistance = Math.hypot(stopX - target[0], stopZ - landZ);
           const trotSeconds = Math.max(TROT_MIN_S, Math.min(TROT_MAX_S, runDistance / TROT_SPEED));
           const settle = Math.min(1, (t - BOOP_S) / CARPET_LAND_S);
           const trot = Math.min(1, Math.max(0, (t - BOOP_S - CARPET_LAND_S) / trotSeconds));
           if (trot === 0) {
             // Absorb the landing on the carpet in place.
-            x = target[0]; z = target[2]; y = FLOOR_Y;
+            x = target[0]; z = landZ; y = FLOOR_Y;
             nextClip = 'Land';
             squash = Math.sin(settle * Math.PI) * .17;
-            desiredHeading = Math.atan2(stopX - target[0], stopZ - target[2]);
+            desiredHeading = Math.atan2(stopX - target[0], stopZ - landZ);
           } else {
             // Trot: ease out into the stop, with a four-beat stride bob.
             const e = 1 - (1 - trot) * (1 - trot);
             x = target[0] + (stopX - target[0]) * e;
-            z = target[2] + (stopZ - target[2]) * e;
+            z = landZ + (stopZ - landZ) * e;
             const stride = t - BOOP_S - CARPET_LAND_S;
             y = FLOOR_Y + Math.abs(Math.sin(stride * Math.PI * 2 * 1.6)) * .05 * (1 - trot * .6);
-            desiredHeading = Math.atan2(stopX - target[0], stopZ - target[2]);
+            desiredHeading = Math.atan2(stopX - target[0], stopZ - landZ);
             nextClip = trot < 1 ? 'Walk' : 'Sit';
           }
           if (trot >= 1) {
@@ -429,28 +445,28 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
 }
 
 /** A screen-space arrival crosses canvas boundaries on stacked phone layouts,
- * and the pool card is opaque, so the last leg is DOM: the piece appears above
- * the top of the viewport over its own box and falls into the portrait. */
+ * and the pool card is opaque, so the last leg is DOM: the piece continues from
+ * the card's bottom edge straight up into the portrait. It is above the card in
+ * paint order, so the arrival lands visibly on top of the box. */
 function InventoryJump({piece}: {piece: PieceData}) {
   const element = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const icon = document.querySelector(`[data-pool-target="${piece.color}-${piece.type}"] .animated-piece-icon`);
-    if (!icon || !element.current) return;
+    const box = document.querySelector(`[data-pool-target="${piece.color}-${piece.type}"]`);
+    const icon = box?.querySelector('.animated-piece-icon');
+    if (!box || !icon || !element.current) return;
     const target = icon.getBoundingClientRect();
+    const card = box.getBoundingClientRect();
     const x = target.left;
-    // Start fully above the viewport so the piece re-enters from the top of
-    // the screen, then accelerate downwards under gravity into the box.
+    // One direct rise from the bottom edge of the card into the portrait.
     const animation = element.current.animate([
-      { transform: `translate(${x}px, ${-target.height * 1.4}px)`, opacity: 0 },
-      { transform: `translate(${x}px, ${-target.height * 1.4}px)`, opacity: 1, offset: .08 },
-      { transform: `translate(${x}px, ${target.top - 10}px)`, offset: .82 },
+      { transform: `translate(${x}px, ${card.bottom - target.height * .5}px)`, opacity: 1 },
       { transform: `translate(${x}px, ${target.top}px)`, opacity: 1 }
-    ], {duration: 620, easing: 'cubic-bezier(.42,0,.94,.55)', fill: 'forwards'});
+    ], {duration: 300, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards'});
     return () => animation.cancel();
   }, [piece.color, piece.type]);
   // Portal to <body> so viewport coordinates survive any transformed or
   // overflowing ancestor. Safe here: this runs in the react-dom tree.
-  return createPortal(<div ref={element} style={{position: 'fixed', left: 0, top: 0, zIndex: 40, pointerEvents: 'none'}}><AnimatedPieceIcon piece={piece} /></div>, document.body);
+  return createPortal(<div ref={element} style={{position: 'fixed', left: 0, top: 0, zIndex: 60, pointerEvents: 'none'}}><AnimatedPieceIcon piece={piece} /></div>, document.body);
 }
 
 /** Graduation payoff follows the ascent; arrivals are real animated cats,
@@ -481,69 +497,6 @@ function ReserveArrival({ color, index }: { color: PlayerColor; index: number })
     setClip(previous => previous === next ? previous : next);
   });
   return <group ref={group} visible={false} userData={{ catProbe: `arrival-${color}-${index}` }}><CatModel piece={{color, type: 'cat'}} clip={clip} seed={index * .37} /></group>;
-}
-
-const QUILT_PRESETS: { name: string; colors: QuiltColors }[] = [
-  { name: 'Sage linen', colors: ['#b7c4c7', '#5f7d88'] },
-  { name: 'Bedtime', colors: ['#dfe3ef', '#4f5a86'] },
-  { name: 'Peach tea', colors: ['#f6ded0', '#c0756a'] },
-  { name: 'Meadow', colors: ['#e4ecd9', '#6f8a5e'] },
-  { name: 'Overcast', colors: ['#cfd6dc', '#7a8794'] },
-];
-
-/** The quilt palette lives behind a button: a named preset reads better than
- * unnamed swatches, and it keeps the board area calm. */
-function BedroomPalette({ colors, onChange }: { colors: QuiltColors; onChange: (next: QuiltColors) => void }) {
-  const [open, setOpen] = useState(false);
-  const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      if (panel.current && !panel.current.contains(event.target as Node)) setOpen(false);
-    };
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', escape);
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', escape); };
-  }, [open]);
-  return (
-    <div className="bedroom-palette" ref={panel}>
-      <button type="button" className="bedroom-palette-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>
-        <span className="bedroom-swatch" style={{ background: colors[0] }} />
-        <span className="bedroom-swatch" style={{ background: colors[1] }} />
-        Bedroom
-      </button>
-      {open && (
-        <div className="bedroom-palette-panel" role="dialog" aria-label="Quilt palette">
-          <p className="bedroom-palette-title">Quilt colors</p>
-          <div className="bedroom-presets">
-            {QUILT_PRESETS.map(preset => {
-              const active = preset.colors[0] === colors[0] && preset.colors[1] === colors[1];
-              return <button key={preset.name} type="button" aria-pressed={active}
-                className={`bedroom-preset${active ? ' is-active' : ''}`}
-                onClick={() => onChange([...preset.colors] as QuiltColors)}>
-                <span className="bedroom-swatch" style={{ background: preset.colors[0] }} />
-                <span className="bedroom-swatch" style={{ background: preset.colors[1] }} />
-                {preset.name}
-              </button>;
-            })}
-          </div>
-          <div className="bedroom-custom">
-            {colors.map((color, index) => (
-              <label key={index} className="quilt-color-control">
-                <input type="color" aria-label={`Fabric ${index + 1}`} value={color}
-                  onChange={event => {
-                    const next = event.currentTarget.value;
-                    onChange(index === 0 ? [next, colors[1]] : [colors[0], next]);
-                  }} />
-                <span>Fabric {index + 1}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 /** A 3D crash must never take the whole page down. A lost WebGL context or an
@@ -1051,19 +1004,21 @@ function Room({ fabric, quiltColors }: { fabric: QuiltResources; quiltColors: Qu
   useEffect(() => () => shadow.dispose(), [shadow]);
   const wood = '#6d4527';
   const woodLight = '#96633c';
-  const slate = new THREE.Color('#33464f');
+  // Graphite pile with a silver cast: the page carpet is a silver weave now, so
+  // the rug is the dark element on it rather than a green-grey floor.
+  const slate = new THREE.Color('#5d6469');
 
   return (
     <group>
       {/* Rug. Its top is exactly the floor the cats land on. */}
-      <mesh position={[0, FLOOR_Y - .012, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[6.6, 64]} />
+      <mesh position={[0, FLOOR_Y - .012, RUG_Z]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[RUG_RADIUS, 64]} />
         <meshStandardMaterial color={slate} map={fabric.map} bumpMap={fabric.bumpMap}
           bumpScale={.02} roughness={.99} />
       </mesh>
-      <mesh position={[0, FLOOR_Y - .006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[6.35, 6.6, 64]} />
-        <meshStandardMaterial color="#20313a" roughness={.98} />
+      <mesh position={[0, FLOOR_Y - .006, RUG_Z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[RUG_RADIUS - .22, RUG_RADIUS, 64]} />
+        <meshStandardMaterial color="#20282c" roughness={.98} />
       </mesh>
       <mesh position={[0, FLOOR_Y - .001, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>
         <planeGeometry args={[10.4, 10.4]} />
@@ -1239,11 +1194,10 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
       shellRef.current?.classList.remove('board-shake');
     };
   }, [props.animationKey, props.boopedPieces.length]);
-  const [quiltColors, setQuiltColors] = useState<QuiltColors>(readQuiltColors);
-  useEffect(() => {
-    try { localStorage.setItem(QUILT_STORAGE_KEY, JSON.stringify(quiltColors)); }
-    catch { /* Preferences still work in memory when storage is unavailable. */ }
-  }, [quiltColors]);
+  // One quilt, chosen for the room. There is no colour picker any more, so the
+  // fabric no longer has a preference to read or write; a previously stored
+  // palette is honoured so nobody's board changes under them.
+  const quiltColors = useMemo<QuiltColors>(() => readQuiltColors(), []);
   // Inventory hops live here, in the DOM tree, and expire once the hop lands.
   const [flights, setFlights] = useState<InventoryFlight[]>([]);
   const flightId = useRef(0);
@@ -1271,13 +1225,11 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
       </Canvas>
       </BoardErrorBoundary>
       {flights.map(flight => <InventoryJump key={flight.id} piece={flight.piece} />)}
-      <div className="board-hint">Drag to look around</div>
       <div className="board-cell-anchors" aria-hidden="true">
         {Array.from({ length: 36 }, (_, i) => <span key={i} data-cell={`${Math.floor(i / 6)}-${i % 6}`} />)}
       </div>
       {props.isViewingHistory && <div className="history-3d-badge">Viewing game history · click a square to return</div>}
     </div>
-    <BedroomPalette colors={quiltColors} onChange={setQuiltColors} />
     </div>
   );
 }

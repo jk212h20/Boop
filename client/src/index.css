@@ -160,7 +160,6 @@ body {
 .pool-piece-button:focus-visible { outline: 3px solid #a8d9ed; outline-offset: 3px; }
 .pool-piece-label { font-size: .75rem; font-weight: 700; }
 .pool-piece-count { font-size: 2.25rem; line-height: 1.15; font-weight: 900; font-variant-numeric: tabular-nums; color: #182a38; }
-.pool-piece-availability { font-size: .6rem; font-weight: 600; letter-spacing: .03em; }
 @keyframes pool-breathe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1.025); } }
 
 .turn-active { animation: glow 2s ease-in-out infinite; }
@@ -194,15 +193,13 @@ body {
   .player-pool-name h3 { font-size: 1rem; }
   .player-pool-selectors { gap: 12px; max-width: none; }
   .pool-piece-button {
-    display: grid; grid-template-columns: 48px minmax(0, 1fr);
-    grid-template-areas: 'icon label' 'icon count' 'icon availability';
-    justify-items: center; padding: .65rem .5rem;
+    display: grid; grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'label' 'icon' 'count';
+    justify-items: center; row-gap: .2rem; padding: .65rem .5rem;
   }
   .pool-piece-button .animated-piece-icon { grid-area: icon; width: 56px; height: 64px; }
   .pool-piece-label { grid-area: label; }
-  .pool-piece-count { grid-area: count; }
-  .pool-piece-availability { grid-area: availability; }
-  .pool-piece-count { font-size: 2rem; }
+  .pool-piece-count { grid-area: count; font-size: 2rem; }
   .bedroom-palette { margin-top: 0; margin-bottom: .25rem; }
   .board-hint { display: none; }
 }
@@ -227,32 +224,46 @@ body {
 }
 
 /* One continuous woven carpet reaches every screen edge during a game.
-   Keep it outside the max-width layout and behind the transparent 3D scene. */
+   Keep it outside the max-width layout and behind the transparent 3D scene.
+   Silver and graphite: a cool, low-contrast weave that lets the quilt and the
+   two team colors own the room. */
 body:has(.game-page) {
-  background-color: #9aaa91;
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0 2px, rgba(70,89,63,.035) 2px 3px),
-    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,237,.09) 2px 3px),
-    repeating-linear-gradient(45deg, transparent 0 23px, rgba(83,110,76,.065) 23px 26px, transparent 26px 49px, rgba(248,240,211,.12) 49px 52px),
-    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(83,110,76,.065) 23px 26px, transparent 26px 49px, rgba(248,240,211,.12) 49px 52px);
+  background-image: linear-gradient(155deg, #1b2733, #121b26);
   background-attachment: fixed;
-  color: #26382d;
+  color: #26313a;
 }
-body:has(.game-page) .game-instructions { color: #344837; }
+body:has(.game-page) .game-instructions { color: #333d46; }
 body:has(.game-page) .floating-board-shell { background: transparent; border: 0; box-shadow: none; }
-
-/* Carpet starts below the header, continuing sideways and to the page bottom. */
-body:has(.game-page) { background-image: linear-gradient(155deg, #1b2733, #121b26); }
-body:has(.game-page)::before {
-  content: ''; position: fixed; inset: var(--carpet-top, 360px) 0 0; z-index: -1;
-  background-color: #9aaa91;
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0 2px, rgba(70,89,63,.035) 2px 3px),
-    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,237,.09) 2px 3px),
-    repeating-linear-gradient(45deg, transparent 0 23px, rgba(83,110,76,.065) 23px 26px, transparent 26px 49px, rgba(248,240,211,.12) 49px 52px),
-    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(83,110,76,.065) 23px 26px, transparent 26px 49px, rgba(248,240,211,.12) 49px 52px);
-  pointer-events: none;
-}
 body:has(.game-page) { isolation: isolate; }
 
-body:has(.game-page)::before { position: absolute; min-height: 100vh; }
+/* The carpet itself starts below the header and runs to the page bottom. */
+body:has(.game-page)::before {
+  content: ''; position: absolute; min-height: 100vh;
+  inset: var(--carpet-top, 360px) 0 0; z-index: -1;
+  background-color: #b3b9bd;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(58,65,70,.07) 2px 3px),
+    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,255,.12) 2px 3px),
+    repeating-linear-gradient(45deg, transparent 0 23px, rgba(70,78,84,.11) 23px 26px, transparent 26px 49px, rgba(233,237,239,.17) 49px 52px),
+    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(70,78,84,.11) 23px 26px, transparent 26px 49px, rgba(233,237,239,.17) 49px 52px);
+  pointer-events: none;
+}
+
+/* A wooden moulding caps the top edge so the carpet reads as a laid floor
+   covering rather than a flat green wash bleeding out of the header. */
+body:has(.game-page)::after {
+  content: ''; position: absolute; left: 0; right: 0; z-index: -1;
+  top: calc(var(--carpet-top, 360px) - 14px); height: 14px;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 3px, rgba(0,0,0,.05) 3px 7px),
+    linear-gradient(180deg,
+      #dcc0a0 0 2px,
+      #b98f61 2px 5px,
+      #96633c 5px 8px,
+      #7a4f2d 8px 11px,
+      #5a3a20 11px 12px,
+      #33200f 12px 14px);
+  box-shadow: 0 5px 12px -4px rgba(12,16,20,.55);
+  pointer-events: none;
+}
+

@@ -39,43 +39,43 @@ const TEAM = {
  * (R = cream belly/muzzle/paws, G = tabby stripes); team colors are mixed in
  * the shader so cached geometry stays shared between pieces.
  *
- * Ghosts are a dark, translucent silhouette whose stripes and glow carry the
- * player's own color — clearly "yours", clearly not solid. They used to be a
- * near-white wash, which disappeared against the pale quilt. */
-const GHOST_BODY = new THREE.Color('#1b2025');
+ * Ghosts are a desaturated grey silhouette with a rim in the player's color:
+ * no team tint in the fur at all, so the preview reads as "a cat would go
+ * here", and the outline alone says whose. They used to be a near-white wash
+ * (invisible on the pale quilt) and then a dark cat with a colored belly
+ * (readable as a solid piece). */
+const GHOST_BODY = new THREE.Color('#8f9498');
+const GHOST_LIGHT = new THREE.Color('#c3c8cb');
+const GHOST_STRIPE = new THREE.Color('#6a7075');
+const GHOST_EYE = new THREE.Color('#b9bec2');
 
 export interface GhostPalette {
-  /** main fur: dark and near-neutral, so the cat reads as a shadow */
+  /** main fur: neutral grey, so the cat reads as an absence of a piece */
   body: THREE.Color;
-  /** belly, muzzle and paws: the player's accent */
+  /** belly, muzzle and paws: greyer still, never a team tint */
   belly: THREE.Color;
-  /** tabby stripes: kept dark, so the silhouette stays the dominant read */
+  /** tabby stripes: a darker grey, so the silhouette keeps its markings */
   stripe: THREE.Color;
-  /** eye color, kept saturated so the face still reads at a glance */
+  /** eye color, neutral too: the outline is the only color on the ghost */
   eye: THREE.Color;
+  /** the rim drawn around the silhouette, in the player's team color */
+  outline: THREE.Color;
 }
 
-/** The preview palette for a player. Everything that marks the cat as theirs
- * (stripes, eye, glow) comes from their team color; the body stays dark so the
- * silhouette is legible on any quilt. */
+/** The preview palette for a player: a grey cat outlined in their color. */
 export function ghostPalette(color: PlayerColor): GhostPalette {
   const colors = TEAM[color];
-  // The accent keeps the team hue but is pushed brighter than the solid fur: a
-  // stripe has to read as a thin line on a dark body, and the slate team would
-  // otherwise land almost neutral.
   const hsl = { h: 0, s: 0, l: 0 };
-  const fur = new THREE.Color(colors.fur);
-  fur.getHSL(hsl, THREE.SRGBColorSpace);
-  // The accent is the team hue pushed bright: the preview is dark and
-  // translucent, so a straight copy of the solid fur reads as brown mud.
-  const accent = new THREE.Color().setHSL(hsl.h, Math.max(hsl.s, .85), .66, THREE.SRGBColorSpace);
+  new THREE.Color(colors.fur).getHSL(hsl, THREE.SRGBColorSpace);
+  // The rim keeps the team hue but is pushed bright and saturated: a one-pixel
+  // edge has to survive against both the pale cell and the dark bed frame.
+  const outline = new THREE.Color().setHSL(hsl.h, Math.max(hsl.s, .9), .62, THREE.SRGBColorSpace);
   return {
     body: GHOST_BODY.clone(),
-    // Belly, muzzle and paws are the largest colour area on the model, so they
-    // carry the team accent; the stripes stay dark.
-    belly: accent.clone(),
-    stripe: GHOST_BODY.clone().multiplyScalar(.6),
-    eye: new THREE.Color(colors.eye),
+    belly: GHOST_LIGHT.clone(),
+    stripe: GHOST_STRIPE.clone(),
+    eye: GHOST_EYE.clone(),
+    outline,
   };
 }
 
@@ -97,43 +97,57 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
       if (source.name === 'Eyes' || source.name === 'Iris') {
         material.color.set(ghost ? ghostColors.eye : colors.eye);
       }
-      if (source.name === 'Fur' && hasMask) {
-        // Team coloring happens in the shader; the base stays white.
-        material.color.set('#ffffff');
-        material.vertexColors = true;
+      if (source.name === 'Fur') {
+        // Team coloring happens in the shader; the base stays white when the
+        // model carries a mask, and is the flat fur color when it does not.
         const fur = ghost ? ghostFur : colors.fur;
         const light = ghost ? ghostLight : colors.light;
         const stripe = ghost ? ghostStripe : colors.stripe;
+        if (hasMask) {
+          material.color.set('#ffffff');
+          material.vertexColors = true;
+        } else {
+          material.color.set(fur);
+        }
         material.onBeforeCompile = shader => {
           shader.uniforms.furColor = { value: new THREE.Color(fur) };
           shader.uniforms.lightColor = { value: new THREE.Color(light) };
           shader.uniforms.stripeColor = { value: new THREE.Color(stripe) };
+          shader.uniforms.outlineColor = { value: ghostColors.outline.clone() };
+          shader.uniforms.outlineWidth = { value: ghost ? 2.4 : 0 };
           shader.fragmentShader = shader.fragmentShader
-            .replace('#include <common>', '#include <common>\nuniform vec3 furColor;\nuniform vec3 lightColor;\nuniform vec3 stripeColor;')
+            .replace('#include <common>', '#include <common>\nuniform vec3 furColor;\nuniform vec3 lightColor;\nuniform vec3 stripeColor;\nuniform vec3 outlineColor;\nuniform float outlineWidth;')
             .replace('#include <color_fragment>', [
               '#ifdef USE_COLOR',
               '  vec3 catFur = mix(furColor, lightColor, vColor.r);',
               '  catFur = mix(catFur, stripeColor, vColor.g);',
               '  diffuseColor.rgb = catFur;',
               '#endif',
+            ].join('\n'))
+            // The player's color lives on the edge of the silhouette only:
+            // a fresnel rim, so the body itself stays grey.
+            .replace('#include <dithering_fragment>', [
+              '#include <dithering_fragment>',
+              'if (outlineWidth > 0.0) {',
+              '  float rim = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);',
+              '  float edge = pow(rim, outlineWidth);',
+              '  gl_FragColor.rgb = mix(gl_FragColor.rgb, outlineColor, edge);',
+              '  gl_FragColor.a = max(gl_FragColor.a, edge);',
+              '}',
             ].join('\n'));
         };
-        material.customProgramCacheKey = () => `boop-fur-${color}-${ghost ? 'ghost' : 'solid'}`;
-      } else if (source.name === 'Fur') {
-        material.color.set(ghost ? ghostFur : colors.fur);
+        material.customProgramCacheKey = () => `boop-fur-${color}-${ghost ? 'ghost' : 'solid'}-${hasMask ? 'mask' : 'flat'}`;
       }
       if (ghost) {
-        // A dark, translucent silhouette, not an opaque cat inside a bubble.
-        // The accent glow keeps the player's color visible at the edges.
+        // A grey ghost, not an opaque cat inside a bubble. The team color is
+        // only in the rim shader above; there is no emissive wash.
         material.transparent = true;
-        material.opacity = .55;
+        material.opacity = .42;
         material.depthWrite = false;
         material.roughness = 1;
         material.metalness = 0;
-        // A faint accent bounce, not a wash: a strong emissive turns the whole
-        // dark body the team color and the preview stops reading as a shadow.
-        material.emissive.copy(ghostColors.stripe);
-        material.emissiveIntensity = .05;
+        material.emissive.set('#000000');
+        material.emissiveIntensity = 0;
       }
       return material;
     };

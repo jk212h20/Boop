@@ -20,19 +20,15 @@ const path = require('node:path');
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(new URL('?preview3d&demo', url).href);
-    // The palette lives behind the "Bedroom" button; its controls are labelled
-    // Fabric 1 / Fabric 2. Defaults come from DEFAULT_QUILT_COLORS.
-    const palette = page.getByRole('button', { name: 'Bedroom' });
-    const openPalette = async () => {
-      if (await page.getByLabel('Fabric 1').count() === 0) await palette.click();
-      await page.getByLabel('Fabric 1').waitFor();
-    };
-    await openPalette();
     // Wait for the deterministic preview move and bot response, not page load.
     await page.getByText('Move 2/2', { exact: false }).waitFor({ timeout: 30000 });
     await page.waitForTimeout(2200); // Allow the actual WebGL asset upload/idle handoff.
-    assert.equal(await page.getByLabel('Fabric 1').inputValue(), '#b7c4c7');
-    assert.equal(await page.getByLabel('Fabric 2').inputValue(), '#5f7d88');
+    // There is no colour picker or palette control any more: the room's quilt
+    // is fixed, so nothing in the page can restyle it.
+    assert.equal(await page.locator('.bedroom-palette').count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'Bedroom' }).count(), 0);
+    // The look-around hint was clutter on a board you rotate by dragging.
+    assert.equal(await page.locator('.board-hint').count(), 0);
     // Passive opponent stock must remain bright; only genuinely empty pools dim.
     const pools = await page.locator('.player-pool').evaluateAll(elements => elements.map(pool => ({
       nameBackground: getComputedStyle(pool.querySelector('.player-pool-name')).backgroundColor,
@@ -85,30 +81,23 @@ const path = require('node:path');
     await page.waitForTimeout(150);
     assert.equal(await page.locator('.kitten-preview-label').count(), 0);
 
-    await openPalette();
-    await page.getByLabel('Fabric 1').fill('#727e92');
-    await page.getByLabel('Fabric 2').fill('#ad909d');
-    await page.waitForFunction(() => localStorage.getItem('boop.quilt-colors.v1') === '["#727e92","#ad909d"]');
-    await page.screenshot({ path: path.join(out, 'custom-colors.png') });
-    await page.reload();
-    await openPalette();
-    assert.equal(await page.getByLabel('Fabric 1').inputValue(), '#727e92');
-    assert.equal(await page.getByLabel('Fabric 2').inputValue(), '#ad909d');
-    // A named preset is the reset path now, not an unnamed "reset" button.
-    await page.getByRole('button', { name: 'Sage linen' }).click();
-    await page.waitForFunction(() => localStorage.getItem('boop.quilt-colors.v1') === '["#b7c4c7","#5f7d88"]');
-    assert.equal(await page.getByLabel('Fabric 1').inputValue(), '#b7c4c7');
-    assert.equal(await page.getByLabel('Fabric 2').inputValue(), '#5f7d88');
-    console.log('PASS: both color controls update, persist after reload, and reset via a preset');
-
     await page.setViewportSize({ width: 390, height: 844 });
-    await openPalette();
-    await page.getByLabel('Fabric 1').scrollIntoViewIfNeeded();
     await page.waitForTimeout(1000);
-    for (const label of ['Fabric 1', 'Fabric 2']) {
-      const bounds = await page.getByLabel(label).boundingBox();
-      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390, `${label} should fit on mobile`);
-    }
+    // The carpet keeps its wooden capping strip on every layout.
+    const carpet = await page.evaluate(() => {
+      const strip = getComputedStyle(document.body, '::after');
+      const pile = getComputedStyle(document.body, '::before');
+      return { stripZIndex: strip.zIndex, stripHeight: parseFloat(strip.height), stripImage: strip.backgroundImage,
+        stripTop: strip.top, pileColour: pile.backgroundColor, pileImage: pile.backgroundImage };
+    });
+    assert.ok(carpet.stripHeight >= 8, 'The carpet needs a raised moulding strip');
+    // The moulding is part of the room, so it must paint behind the board:
+    // an unpositioned strip laid itself across the mattress.
+    assert.equal(carpet.stripZIndex, '-1', 'The moulding must sit behind the board');
+    assert.match(carpet.stripImage, /linear-gradient/, 'The moulding needs its profile');
+    // Silver and graphite, not the old light green.
+    assert.doesNotMatch(carpet.pileColour, /154, 170, 145/, 'The carpet must not be the old green');
+    assert.match(carpet.pileColour, /^rgb\(1[0-9]{2}, 1[0-9]{2}, 1[0-9]{2}\)$/, 'The carpet is a mid grey');
     await page.screenshot({ path: path.join(out, 'mobile-controls.png') });
     for (const pool of await page.locator('.player-pool').all()) {
       await pool.scrollIntoViewIfNeeded();

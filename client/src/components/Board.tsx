@@ -489,7 +489,7 @@ export function PlayerPool({
             <motion.button key={type} type="button"
               // Keep the independent selector as the fly-to-pool destination.
               data-pool-target={`${color}-${type}`}
-              aria-label={`${count} ${type}${count === 1 ? '' : 's'} available`}
+              aria-label={`${type === 'kitten' ? 'Kittens' : 'Cats'}, ${count} in the pool`}
               aria-pressed={selected}
               whileHover={selectable ? { scale: 1.05 } : undefined}
               whileTap={selectable ? { scale: .95 } : undefined}
@@ -499,10 +499,12 @@ export function PlayerPool({
                 ${empty ? 'pool-piece-empty' : 'pool-piece-available'}
                 ${selected ? 'pool-piece-selected' : ''}
                 ${selectable ? 'pool-piece-selectable' : ''}`}>
-              <AnimatedPieceIcon piece={{ color, type }} />
+              {/* Name, then the animal, then how many are left: the piece is
+                  the thing you pick, so it sits in the middle and the count
+                  reads as a footnote rather than a headline. */}
               <span className="pool-piece-label">{type === 'kitten' ? 'Kittens' : 'Cats'}</span>
+              <AnimatedPieceIcon piece={{ color, type }} />
               <span className="pool-piece-count">{count}</span>
-              <span className="pool-piece-availability">available</span>
             </motion.button>
           );
         })}

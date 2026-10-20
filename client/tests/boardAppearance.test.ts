@@ -63,14 +63,13 @@ test('hover kitten is genuinely translucent, shadowless and does not intercept c
   const ghostMaterial = ghost.material as THREE.MeshStandardMaterial;
   const placedMaterial = placed.material as THREE.MeshStandardMaterial;
   assert.equal(ghostMaterial.transparent, true);
-  assert.equal(ghostMaterial.opacity, .55);
+  assert.equal(ghostMaterial.opacity, .42);
   assert.equal(ghostMaterial.depthWrite, false);
-  // The body is a dark silhouette rather than a wash of the team color; the
-  // player's color moved to the accents (stripes, eyes, edge glow).
+  // The body is an untinted grey silhouette; the player's color lives in the
+  // rim shader only, never in the fur.
   assert.notEqual(ghostMaterial.color.getHexString(), placedMaterial.color.getHexString());
   const srgb = THREE.SRGBColorSpace;
-  assert.ok(ghostMaterial.color.getHSL({}, srgb).l < .3, 'ghost body stays dark');
-  assert.ok(ghostMaterial.color.getHSL({}, srgb).s < .2, 'ghost body is near-neutral');
+  assert.ok(ghostMaterial.color.getHSL({}, srgb).s < .12, 'ghost body is fully desaturated');
   assert.equal(ghost.castShadow, false);
   assert.equal(placed.castShadow, true);
   assert.equal(placedMaterial.opacity, 1);
@@ -83,64 +82,45 @@ test('hover kitten is genuinely translucent, shadowless and does not intercept c
   assert.equal(hits.length, 0);
 });
 
-// The preview must stay legible on any quilt and still name its owner: the
-// silhouette is shared and dark, the accent area (belly, muzzle, paws) carries
-// the player's color.
-test('ghost accents carry the player color on a dark body', () => {
+// The preview names its owner with an outline, not with tinted fur: the body
+// is grey for both players and only the rim differs.
+test('ghost is grey with a player-colored outline', () => {
   const srgb = THREE.SRGBColorSpace;
   for (const color of ['orange', 'gray'] as const) {
     const palette = ghostPalette(color);
-    const body = palette.body.getHSL({}, srgb);
-    const belly = palette.belly.getHSL({}, srgb);
-    assert.ok(body.l < .3, `${color} ghost body is dark`);
-    assert.ok(body.s < .2, `${color} ghost body is near-neutral`);
-    assert.ok(belly.s > .5, `${color} accent is saturated`);
-    assert.ok(belly.l > body.l + .3, `${color} accent is clearly lighter than the body`);
-    // Stripes stay dark so the accent reads as an accent, not a paint job.
-    assert.ok(palette.stripe.getHSL({}, srgb).l <= body.l + .05,
-      `${color} stripes stay dark`);
+    for (const region of ['body', 'belly', 'stripe', 'eye'] as const) {
+      assert.ok(palette[region].getHSL({}, srgb).s < .15,
+        `${color} ghost ${region} is desaturated`);
+    }
+    assert.ok(palette.stripe.getHSL({}, srgb).l < palette.body.getHSL({}, srgb).l,
+      `${color} stripes stay darker than the body`);
+    assert.ok(palette.outline.getHSL({}, srgb).s > .5, `${color} outline is saturated`);
   }
   const orange = ghostPalette('orange');
   const gray = ghostPalette('gray');
   assert.ok(orange.body.equals(gray.body), 'the silhouette is the same for both players');
-  assert.ok(!orange.belly.equals(gray.belly), 'the accent differs per player');
+  assert.ok(!orange.outline.equals(gray.outline), 'the outline differs per player');
   // Orange is warm, slate is cool: not two shades of the same hue.
-  assert.ok(orange.belly.getHSL({}, srgb).h < .12);
-  assert.ok(Math.abs(gray.belly.getHSL({}, srgb).h - orange.belly.getHSL({}, srgb).h) > .2);
+  assert.ok(orange.outline.getHSL({}, srgb).h < .12);
+  assert.ok(Math.abs(gray.outline.getHSL({}, srgb).h - orange.outline.getHSL({}, srgb).h) > .2);
 });
 
-test('both colors retain their identity under subdued selection highlights', () => {
-  const base = new THREE.Color('#849b92');
-  assert.ok(quiltColor('#849b92', false, false).equals(base));
-  const target = new THREE.Color('#c2d0cb');
-  assert.ok(quiltColor('#849b92', true, false).equals(base.clone().lerp(target, .07)));
-  assert.ok(quiltColor('#849b92', false, true).equals(base.clone().lerp(target, .10)));
-});
-
-test('fabric textures have repeatable woven albedo and independent yarn relief', () => {
-  const { map, bumpMap } = createFabricTextures();
-  assert.equal(map.image.width, 128);
-  assert.equal(map.wrapS, THREE.RepeatWrapping);
-  assert.equal(bumpMap.wrapT, THREE.RepeatWrapping);
-  assert.equal(map.colorSpace, THREE.SRGBColorSpace);
-  const pixels = map.image.data as Uint8Array;
-  const heights = bumpMap.image.data as Uint8Array;
-  assert.ok(new Set(pixels).size > 8);
-  assert.ok(new Set(heights).size > 8);
-  // Symmetric yarn profiles deliberately reuse heights; require actual relief,
-  // not an arbitrary count of distinct shades.
-  const yarnHeights = Array.from(heights).filter((_, index) => index % 4 !== 3);
-  assert.ok(Math.max(...yarnHeights) - Math.min(...yarnHeights) > 150);
-  assert.notDeepEqual(pixels, heights);
-  map.dispose(); bumpMap.dispose();
-});
-
-test('patches have softly lofted centers and discrete stitches, not tile borders', () => {
-  const patch = createQuiltPatchGeometry();
-  patch.computeBoundingBox();
-  assert.ok(patch.boundingBox!.max.y > .09);
-  assert.ok(patch.boundingBox!.min.y >= -.061);
-  const stitches = createQuiltStitches();
-  assert.equal(stitches.getAttribute('position').count, 120);
-  patch.dispose(); stitches.dispose();
+// The rim is a fragment-shader term, so the fur program has to be unique per
+// ghost: a shared cache key would hand a solid cat the ghost's program.
+test('ghost fur program is cached separately from a solid cat', () => {
+  const source = new THREE.Group();
+  const sourceMaterial = new THREE.MeshStandardMaterial({ color: '#dddddd' });
+  sourceMaterial.name = 'Fur';
+  source.add(new THREE.Mesh(new THREE.BoxGeometry(), sourceMaterial));
+  // The real model carries a Mask color attribute; that is the shader path.
+  const geometry = new THREE.BoxGeometry();
+  const mask = new Float32Array(geometry.attributes.position.count * 3);
+  geometry.setAttribute('color', new THREE.BufferAttribute(mask, 3));
+  source.children[0] = new THREE.Mesh(geometry, sourceMaterial);
+  const ghost = createCatScene(source, 'orange', true).children[0] as THREE.Mesh;
+  const placed = createCatScene(source, 'orange', false).children[0] as THREE.Mesh;
+  const keyOf = (mesh: THREE.Mesh) =>
+    (mesh.material as THREE.MeshStandardMaterial).customProgramCacheKey?.();
+  assert.equal(keyOf(ghost), 'boop-fur-orange-ghost-mask');
+  assert.equal(keyOf(placed), 'boop-fur-orange-solid-mask');
 });

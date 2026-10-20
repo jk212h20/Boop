@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
@@ -104,7 +105,23 @@ const WALK_IN_S = WALK_IN_MS / 1000;
 const BOOP_DELAY_S = BOOP_DELAY_MS / 1000;
 const BOOP_S = .8; // hop, then floor landing and scamper within the shared timing budget
 const FLOOR_Y = -1.03;
-const boxAt = (color: PlayerColor): [number, number, number] => [color === 'orange' ? -4.2 : 4.2, FLOOR_Y, 3.4];
+// Project the actual inventory portrait into this scene; no invented boxes.
+function poolDestination(color: PlayerColor, type: PieceType, camera: THREE.Camera, gl: THREE.WebGLRenderer, parent: THREE.Object3D | null) {
+  const icon = document.querySelector(`[data-pool-target="${color}-${type}"] .animated-piece-icon`);
+  if (!icon || !parent) return null;
+  const rect = icon.getBoundingClientRect(), canvas = gl.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2((rect.left + rect.width / 2 - canvas.left) / canvas.width * 2 - 1, 1 - (rect.top + rect.height / 2 - canvas.top) / canvas.height * 2);
+  const ray = new THREE.Raycaster(); ray.setFromCamera(ndc, camera);
+  const floor = new THREE.Vector3();
+  if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -FLOOR_Y), floor)) return null;
+  parent.worldToLocal(floor);
+  const landing = floor.clone();
+  // Jump ends precisely at the portrait's screen center, at board-depth.
+  const depth = new THREE.Vector3(0, 0, 0).project(camera).z;
+  const portrait = parent.worldToLocal(new THREE.Vector3(ndc.x, ndc.y, depth).unproject(camera));
+  landing.z += 1.4;
+  return { landing, portrait };
+}
 const CROUCH_F = .19, AIR_F = .52; // remaining fraction of the boop is landing
 const SETTLE_HEADING = Math.atan2(9.2, 12); // face the default camera (~37°)
 
@@ -114,6 +131,7 @@ const shortestTurn = (from: number, to: number) =>
 
 function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removing, animationKey }: CatActorProps) {
   const group = useRef<THREE.Group>(null);
+  const { camera, gl } = useThree();
   const born = useRef(performance.now());
   const removalStarted = useRef<number | null>(null);
   const heading = useRef(SETTLE_HEADING);
@@ -149,6 +167,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   }, [removing, animationKey]);
 
   const [clip, setClip] = useState('Sit');
+  const [flight, setFlight] = useState<{x: number; y: number} | null>(null);
   const settleHeading = SETTLE_HEADING + (seed - .5) * .7;
   const scaleBase = piece.type === 'cat' ? .65 : .55;
 
@@ -199,14 +218,28 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
       if (t >= BOOP_S) {
         g.rotation.x = 0;
         if (offBoard) {
-          const destination = boxAt(piece.color);
+          const destination = poolDestination(piece.color, piece.type, camera, gl, g.parent);
+          if (!destination) return;
           const run = Math.min(1, (t - BOOP_S) / 1.3);
-          x = target[0] + (destination[0] - target[0]) * run;
-          z = target[2] + (destination[2] - target[2]) * run;
+          const jump = Math.max(0, Math.min(1, (t - BOOP_S - 1.3) / .65));
+          const base = destination.landing;
+          x = target[0] + (base.x - target[0]) * run;
+          z = target[2] + (base.z - target[2]) * run;
           y = FLOOR_Y + Math.abs(Math.sin((t - BOOP_S) * 22)) * .045 * (1 - run);
-          desiredHeading = Math.atan2(destination[0] - target[0], destination[2] - target[2]);
-          nextClip = run < 1 ? 'Walk' : 'Sit';
-          if (run > .88) y -= (run - .88) / .12 * .35;
+          desiredHeading = Math.atan2(base.x - target[0], base.z - target[2]);
+          nextClip = run < 1 ? 'Walk' : 'Jump';
+          if (run >= 1 && !flight) {
+            const screen = g.parent!.localToWorld(new THREE.Vector3(base.x, FLOOR_Y, base.z)).project(camera);
+            const rect = gl.domElement.getBoundingClientRect();
+            setFlight({x: rect.left + (screen.x + 1) / 2 * rect.width, y: rect.top + (1 - screen.y) / 2 * rect.height});
+          }
+          if (run >= 1) {
+            x = THREE.MathUtils.lerp(base.x, destination.portrait.x, jump);
+            z = THREE.MathUtils.lerp(base.z, destination.portrait.z, jump);
+            y = THREE.MathUtils.lerp(FLOOR_Y, destination.portrait.y, jump) + Math.sin(jump * Math.PI) * .65;
+            desiredHeading = SETTLE_HEADING;
+          }
+          g.visible = run < 1;
         }
       }
     } else if (isNew && elapsed < WALK_IN_S) {
@@ -245,7 +278,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   });
 
   return (
-    <group ref={group} position={target} renderOrder={isGhost ? -1 : 1}
+    <><group ref={group} position={target} renderOrder={isGhost ? -1 : 1}
       userData={{ catProbe: isGhost ? 'ghost' : `${piece.color}-${piece.type}-${row}-${col}` }}>
       <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} />
       {isGraduating && (
@@ -255,13 +288,34 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
         <span className="kitten-preview-label">Preview</span>
       </Html>}
     </group>
+    {flight && <InventoryJump piece={piece} from={flight} />}
+    </>
   );
+}
+
+/** A screen-space final hop crosses canvas boundaries on stacked phone layouts.
+ * It uses the same animated model and lands exactly over the inventory portrait. */
+function InventoryJump({piece, from}: {piece: PieceData; from: {x: number; y: number}}) {
+  const element = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const icon = document.querySelector(`[data-pool-target="${piece.color}-${piece.type}"] .animated-piece-icon`);
+    if (!icon || !element.current) return;
+    const target = icon.getBoundingClientRect();
+    const animation = element.current.animate([
+      { transform: `translate(${from.x - target.width / 2}px, ${from.y - target.height / 2}px)`, width: `${target.width}px`, height: `${target.height}px` },
+      { transform: `translate(${(from.x + target.left + target.width / 2) / 2 - target.width / 2}px, ${Math.min(from.y, target.top) - 80}px)`, offset: .5 },
+      { transform: `translate(${target.left}px, ${target.top}px)`, width: `${target.width}px`, height: `${target.height}px` }
+    ], {duration: 650, easing: 'ease-in-out', fill: 'forwards'});
+    return () => animation.cancel();
+  }, [piece.color, piece.type, from]);
+  return createPortal(<div ref={element} style={{position: 'fixed', left: 0, top: 0, zIndex: 40, pointerEvents: 'none'}}><AnimatedPieceIcon piece={piece} /></div>, document.body);
 }
 
 /** Graduation payoff follows the ascent; arrivals are real animated cats,
  * not screen-space icons. A single-piece graduation receives one cat. */
 function ReserveArrival({ color, index }: { color: PlayerColor; index: number }) {
   const group = useRef<THREE.Group>(null);
+  const { camera, gl } = useThree();
   const started = useRef(performance.now());
   const [clip, setClip] = useState('Jump');
   useFrame(() => {
@@ -270,7 +324,9 @@ function ReserveArrival({ color, index }: { color: PlayerColor; index: number })
     const t = (performance.now() - started.current) / 1000 - .7 - index * .12;
     g.visible = t >= 0 && t < 1.15;
     if (t < 0) return;
-    const [bx, by, bz] = boxAt(color);
+    const destination = poolDestination(color, 'cat', camera, gl, g.parent);
+    if (!destination) return;
+    const { x: bx, y: by, z: bz } = destination.portrait;
     const fall = Math.min(1, t / .65);
     const offset = (index - 1) * .34;
     const landed = t >= .65;
@@ -385,15 +441,6 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
           {[-3.2, 3.2].flatMap(x => [-3.2, 3.2].map(z => <RoundedBox key={`${x}-${z}`} args={[.3, .68, .3]} radius={.06} position={[x, -.67, z]} castShadow><meshStandardMaterial color="#805332" roughness={.8} /></RoundedBox>))}
           <RoundedBox args={[7.15, 1.25, .22]} radius={.1} position={[0, .30, -3.65]} castShadow><meshStandardMaterial color="#b78557" roughness={.7} /></RoundedBox>
           <RoundedBox args={[6.7, .64, .12]} radius={.08} position={[0, .47, -3.49]}><meshStandardMaterial color="#e6d7bf" roughness={1} /></RoundedBox>
-          {(['orange', 'gray'] as PlayerColor[]).map(color => {
-            const [x, y, z] = boxAt(color);
-            return <group key={color} position={[x, y, z]}>
-              <RoundedBox args={[1.35, .12, 1.25]} radius={.05} position={[0, -.06, 0]} receiveShadow><meshStandardMaterial color="#c99b68" /></RoundedBox>
-              {[-.66, .66].map(side => <RoundedBox key={side} args={[.10, .48, 1.25]} radius={.025} position={[side, .18, 0]}><meshStandardMaterial color="#c99b68" /></RoundedBox>)}
-              <RoundedBox args={[1.35, .48, .1]} radius={.025} position={[0, .18, .6]}><meshStandardMaterial color="#bd8c59" /></RoundedBox>
-              <Html center position={[0, .25, .68]} style={{pointerEvents: 'none'}}><span className={`reserve-box-label reserve-box-${color}`}>{color === 'orange' ? 'Orange' : 'Gray'} box</span></Html>
-            </group>;
-          })}
           {Array.from({ length: 6 }, (_, row) => Array.from({ length: 6 }, (_, col) => {
             const piece = props.board[row][col];
             const enabled = !piece && props.isMyTurn && !!props.selectedPieceType && !props.isViewingHistory;
@@ -435,6 +482,18 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
 }
 
 export function FloatingBoard3D(props: FloatingBoard3DProps) {
+  useEffect(() => {
+    const update = () => {
+      const pools = [...document.querySelectorAll('[data-pool-target]')];
+      const opponent = document.querySelector('.game-pool-opponent');
+      const relevant = window.innerWidth >= 1280 ? pools : [...(opponent?.querySelectorAll('[data-pool-target]') ?? [])];
+      const bottom = Math.max(...relevant.map(el => el.getBoundingClientRect().bottom));
+      if (Number.isFinite(bottom)) document.body.style.setProperty('--carpet-top', `${Math.max(0, bottom + window.scrollY + 8)}px`);
+    };
+    update(); window.addEventListener('resize', update);
+    const observer = new ResizeObserver(update); document.querySelectorAll('.player-pool').forEach(el => observer.observe(el));
+    return () => { observer.disconnect(); window.removeEventListener('resize', update); document.body.style.removeProperty('--carpet-top'); };
+  }, []);
   const [quiltColors, setQuiltColors] = useState<QuiltColors>(readQuiltColors);
   useEffect(() => {
     try { localStorage.setItem(QUILT_STORAGE_KEY, JSON.stringify(quiltColors)); }

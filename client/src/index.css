@@ -186,7 +186,7 @@ body {
 /* One continuous woven carpet reaches every screen edge during a game.
    Keep it outside the max-width layout and behind the transparent 3D scene. */
 body:has(.game-page) {
-  background-color: #c9d3c1;
+  background-color: #9aaa91;
   background-image:
     repeating-linear-gradient(0deg, transparent 0 2px, rgba(70,89,63,.035) 2px 3px),
     repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,237,.09) 2px 3px),
@@ -201,8 +201,8 @@ body:has(.game-page) .floating-board-shell { background: transparent; border: 0;
 /* Carpet starts below the header, continuing sideways and to the page bottom. */
 body:has(.game-page) { background-image: linear-gradient(155deg, #1b2733, #121b26); }
 body:has(.game-page)::before {
-  content: ''; position: fixed; inset: 150px 0 0; z-index: -1;
-  background-color: #c9d3c1;
+  content: ''; position: fixed; inset: var(--carpet-top, 360px) 0 0; z-index: -1;
+  background-color: #9aaa91;
   background-image:
     repeating-linear-gradient(0deg, transparent 0 2px, rgba(70,89,63,.035) 2px 3px),
     repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,237,.09) 2px 3px),
@@ -211,3 +211,5 @@ body:has(.game-page)::before {
   pointer-events: none;
 }
 body:has(.game-page) { isolation: isolate; }
+
+body:has(.game-page)::before { position: absolute; min-height: 100vh; }

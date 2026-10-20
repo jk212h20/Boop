@@ -119,11 +119,17 @@ export function Game({
     if (gameHistory.isViewingHistory && gameHistory.viewingMove) {
       return gameHistory.viewingMove.playersAfter;
     }
-    return {
+    const pools = {
       orange: { kittensInPool: gameState.players.orange?.kittensInPool ?? 0, catsInPool: gameState.players.orange?.catsInPool ?? 0 },
       gray: { kittensInPool: gameState.players.gray?.kittensInPool ?? 0, catsInPool: gameState.players.gray?.catsInPool ?? 0 }
     };
-  }, [gameHistory.isViewingHistory, gameHistory.viewingMove, gameState.players]);
+    // Returned stock appears only after the actor joins its inventory portrait.
+    fallenPieces.forEach(({piece}) => {
+      const key = piece.type === 'kitten' ? 'kittensInPool' : 'catsInPool';
+      pools[piece.color][key] = Math.max(0, pools[piece.color][key] - 1);
+    });
+    return pools;
+  }, [gameHistory.isViewingHistory, gameHistory.viewingMove, gameState.players, fallenPieces]);
 
   // Get highlighted cell (the placed piece) when viewing history
   const historyHighlightedCell = useMemo(() => {

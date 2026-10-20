@@ -93,8 +93,10 @@ framing. The kitten and grown-cat GLBs are authored locally in Blender and
 recolored for each team at runtime. Kittens have enlarged baby heads; adults are visibly larger. The bed has an
 upholstered headboard, side rails, legs, and a floor beneath it. Booped pieces
 hop off the edge, land on a woven sage carpet, and scamper into their team’s
-open reserve box. A subtle sage diamond-and-weave carpet begins below the header and extends
-to the left, right, and bottom screen edges, not the top. The transparent
+existing animated inventory selector. No separate 3D reserve boxes are used. A darker, subtle sage diamond-and-weave carpet begins just below the inventory selectors and extends
+to the left, right, and bottom screen edges, not the top. Booped pieces
+walk below their matching selector, then jump to its projected portrait center;
+returned stock is held back until the return animation finishes. The transparent
 canvas has no separate floor rectangle. On desktop the
 scene spans beneath both inventories instead of being clipped to the board
 column; soft white fill lighting replaces heavy cast/contact shadows. After a removed row ascends, three animated cats

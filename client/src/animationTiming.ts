@@ -4,7 +4,7 @@
 export const WALK_IN_MS = 1100;
 export const DROP_DURATION_MS = 400;
 export const BOOP_DELAY_MS = DROP_DURATION_MS + 100;
-export const BOOP_DURATION_MS = 2200;
+export const BOOP_DURATION_MS = 2900;
 export const GRADUATION_DELAY_MS = BOOP_DELAY_MS + BOOP_DURATION_MS + 100;
 export const GRADUATION_HIGHLIGHT_MS = 800;
 // 700ms ascent followed by staggered cats jumping down into the reserve.

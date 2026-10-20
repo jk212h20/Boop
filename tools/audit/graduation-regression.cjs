@@ -26,7 +26,8 @@ function Harness(){
 ReactDOM.createRoot(document.getElementById('root')).render(<Harness/>);
 `;
 const boardStub = `import React from '/node_modules/.vite/deps/react.js';
-export function FloatingBoard3D(props){window.__board=props;return React.createElement('div',{'data-testid':'board'},props.board.flat().filter(Boolean).length+' pieces')}`;
+export function FloatingBoard3D(props){window.__board=props;return React.createElement('div',{'data-testid':'board'},props.board.flat().filter(Boolean).length+' pieces')}
+export function AnimatedPieceIcon(){return null}`;
 const html = `<html><head><script type="module">import RefreshRuntime from '/@react-refresh';RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>(type)=>type;window.__vite_plugin_react_preamble_installed__=true;</script></head><body><div id="root"></div><script type="module" src="/__graduation-test.tsx"></script></body></html>`;
 async function main(){
  const browser = await chromium.launch({executablePath:process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
@@ -38,10 +39,13 @@ async function main(){
   await page.goto(url+'/graduation-test');await page.waitForFunction(()=>window.__game&&window.__board);
   const timings=await page.evaluate(()=>[
    window.__animationDuration({}),
-   window.__animationDuration({boopedPieces:[{}]}),
+   window.__animationDuration({boopedPieces:[{to:{row:1,col:1}}]}),
+   window.__animationDuration({boopedPieces:[{to:null}]}),
    window.__animationDuration({graduatedPieces:[{}]}),
   ]);
-  assert.deepEqual(timings,[500,1200,2700]);
+  // Returned-to-box boops get an extra tail for the trot and the hop into the
+  // inventory portrait; on-board boops keep the plain boop budget.
+  assert.deepEqual(timings,[1200,3600,4200,6500]);
   console.log('PASS: shared handoff timing covers the complete graduation and fly-to-pool sequence');
   async function graduate(){
    await page.evaluate(()=>window.__game.setState(window.__fixture()));await page.waitForTimeout(30);
@@ -61,7 +65,10 @@ async function main(){
   assert.deepEqual(interrupted.display,interrupted.logical,'next move must not leave graduated kittens restored as phantom pieces');
   assert.equal(interrupted.graduating,0);assert.equal(interrupted.phase,null);
   console.log('PASS: next placement interrupts graduation without leaving phantom kittens');
-  await graduate();await page.waitForTimeout(2800);
+  // Wait the shared animation budget rather than a hard-coded guess, so a
+  // pacing change cannot silently make this check race the overlay cleanup.
+  const graduationMs=await page.evaluate(()=>window.__animationDuration({graduatedPieces:[{}]}));
+  await graduate();await page.waitForTimeout(graduationMs+300);
   assert.equal(await page.evaluate(()=>window.__board.board.flat().filter(Boolean).length),0);
   console.log('PASS: uninterrupted graduation removes all three kittens and awards three cats');
   await graduate();

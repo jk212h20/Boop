@@ -1,6 +1,6 @@
 # 3D characters, motion, and bed — plan
 
-Status: Phases 1–2 done (2026-10-15). Phase 3 (bed restyle) is next.
+Status: Phases 1–3 done (2026-10-20). Bed restyle shipped; see the addendum.
 Owner: `tools/blender/` (assets) and
 `client/src/components/FloatingBoard3D.tsx` (runtime behavior).
 
@@ -95,3 +95,30 @@ blends them.
 The pools layout from the previous thread is finished and verified by the
 breakpoint browser test (`client/tests/boardAppearance.browser.cjs`). Every
 breakpoint must be checked visually before committing.
+
+## Phase 3 shipped (2026-10-20)
+
+- Turned legs, a rail box, a piped rail edge, a soft mattress, a quilt that
+  overhangs the mattress and hangs over the rails on all four sides with a
+  darker hem band, an upholstered headboard between two posts, and a low
+  footboard.
+- The camera no longer zooms: `FrameBoard` derives one distance per aspect ratio
+  so the bed always fills its shell (about 85–90% at desktop), and the fog that
+  dimmed the far corners is gone. Scrolling cannot make the board small and dim.
+- The return-to-inventory trip is no longer a single 1.3 s blur to the far
+  corner: land, trot (1.55 s, stride bob), look up, then hand off to the
+  screen-space hop. The trot stops ~4.7 units from the bed centre and pulls
+  toward the camera, so the cat measures ~50 px/unit against ~55 px/unit at rest
+  instead of shrinking to a speck. `FALLEN_RETURN_EXTRA_MS` extends only the
+  off-board animation budget.
+
+## Bug: the page went blank when a booped cat reached the box (2026-10-20)
+
+`InventoryJump` was rendered inside `CatActor`, which lives in the
+react-three-fiber tree. Its `createPortal` therefore reconciled through R3F,
+which threw `R3F: Canvas is not part of the THREE namespace` as soon as the hop
+mounted. React unmounted the whole root: a blank page. The hop is now requested
+through `InventoryFlightContext` and rendered by `FloatingBoard3D`, which owns
+the DOM `<Canvas>`. A `BoardErrorBoundary` keeps any future 3D failure contained
+to the board. `tools/audit/boop-return-regression.cjs` runs the real board and
+asserts the page survives, the hop appears, and the cat does not shrink away.

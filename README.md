@@ -88,12 +88,12 @@ The server will serve the built client from `client/dist`.
 ## 🎨 Real-time 3D presentation
 
 The game board is rendered with React Three Fiber as a grounded oak-framed quilted
-bed, with orbit/zoom controls, studio lighting, contact shadows, and responsive
-framing. The kitten and grown-cat GLBs are authored locally in Blender and
+bed, with drag-to-orbit (zoom is deliberately off: the bed is framed to fill its
+shell), studio lighting, contact shadows, and responsive framing. The kitten and grown-cat GLBs are authored locally in Blender and
 recolored for each team at runtime. Kittens have enlarged baby heads; adults are visibly larger. The bed has an
 upholstered headboard, side rails, legs, and a floor beneath it. Booped pieces
-hop off the edge, land on a woven sage carpet, and scamper into their team’s
-existing animated inventory selector. No separate 3D reserve boxes are used. A darker, subtle sage diamond-and-weave carpet begins just below the inventory selectors and extends
+hop off the edge, land on a woven sage carpet, trot to their team’s existing
+animated inventory selector at close to full size, then hop into its portrait. No separate 3D reserve boxes are used. A darker, subtle sage diamond-and-weave carpet begins just below the inventory selectors and extends
 to the left, right, and bottom screen edges, not the top. Booped pieces
 walk below their matching selector, then jump to its projected portrait center;
 returned stock is held back until the return animation finishes. The transparent

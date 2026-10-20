@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Html, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -27,6 +28,15 @@ interface FloatingBoard3DProps {
 
 const CELL = 1.06;
 const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) * CELL] as [number, number, number];
+
+// The last hop into an inventory portrait is a DOM overlay. It must be
+// rendered from the DOM component that owns the <Canvas>, never from inside
+// the react-three-fiber tree: a portal created there is reconciled by R3F,
+// which throws "Canvas is not part of the THREE namespace" the moment a
+// booped cat reaches the box and unmounts the whole game.
+interface InventoryFlight { id: number; piece: PieceData; from: { x: number; y: number } }
+type RequestInventoryFlight = (piece: PieceData, from: { x: number; y: number }) => void;
+const InventoryFlightContext = createContext<RequestInventoryFlight>(() => {});
 
 function CatModel({ piece, ghost = false, clip = 'Sit' }: { piece: PieceData; ghost?: boolean; clip?: string }) {
   const { scene, animations } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
@@ -103,8 +113,17 @@ interface CatActorProps {
 // never restarts a performance.
 const WALK_IN_S = WALK_IN_MS / 1000;
 const BOOP_DELAY_S = BOOP_DELAY_MS / 1000;
-const BOOP_S = .8; // hop, then floor landing and scamper within the shared timing budget
+const BOOP_S = .8; // crouch, airborne arc, and the fall onto the carpet
 const FLOOR_Y = -1.03;
+// Return trip to the inventory portrait: absorb the landing, trot over, look
+// up, and only then hand off to the screen-space hop. Paced so the cat stays
+// near the bed (and therefore keeps its size) instead of shrinking into the
+// far corner in one fast blur.
+const CARPET_LAND_S = .24;
+const TROT_S = 1.55;
+const LOOK_UP_S = .35;
+const TROT_DISTANCE = 4.7; // max distance from the bed centre; keeps the cat large
+const TROT_NEAR = .95; // pull the finish toward the camera so it reads bigger
 // Project the actual inventory portrait into this scene; no invented boxes.
 function poolDestination(color: PlayerColor, type: PieceType, camera: THREE.Camera, gl: THREE.WebGLRenderer, parent: THREE.Object3D | null) {
   const icon = document.querySelector(`[data-pool-target="${color}-${type}"] .animated-piece-icon`);
@@ -167,7 +186,8 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   }, [removing, animationKey]);
 
   const [clip, setClip] = useState('Sit');
-  const [flight, setFlight] = useState<{x: number; y: number} | null>(null);
+  const requestFlight = useContext(InventoryFlightContext);
+  const flightSent = useRef(false);
   const settleHeading = SETTLE_HEADING + (seed - .5) * .7;
   const scaleBase = piece.type === 'cat' ? .65 : .55;
 
@@ -220,26 +240,44 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
         if (offBoard) {
           const destination = poolDestination(piece.color, piece.type, camera, gl, g.parent);
           if (!destination) return;
-          const run = Math.min(1, (t - BOOP_S) / 1.3);
-          const jump = Math.max(0, Math.min(1, (t - BOOP_S - 1.3) / .65));
           const base = destination.landing;
-          x = target[0] + (base.x - target[0]) * run;
-          z = target[2] + (base.z - target[2]) * run;
-          y = FLOOR_Y + Math.abs(Math.sin((t - BOOP_S) * 22)) * .045 * (1 - run);
-          desiredHeading = Math.atan2(base.x - target[0], base.z - target[2]);
-          nextClip = run < 1 ? 'Walk' : 'Jump';
-          if (run >= 1 && !flight) {
-            const screen = g.parent!.localToWorld(new THREE.Vector3(base.x, FLOOR_Y, base.z)).project(camera);
-            const rect = gl.domElement.getBoundingClientRect();
-            setFlight({x: rect.left + (screen.x + 1) / 2 * rect.width, y: rect.top + (1 - screen.y) / 2 * rect.height});
+          // Aim at the inventory column but stop at a friendly distance: a run
+          // to the true floor point under the portrait shrinks the cat until it
+          // is a speck. The DOM hop covers the last stretch at full size.
+          const length = Math.hypot(base.x, base.z) || 1;
+          const stopX = (base.x / length) * Math.min(length, TROT_DISTANCE);
+          const stopZ = (base.z / length) * Math.min(length, TROT_DISTANCE) + TROT_NEAR * .7;
+          const settle = Math.min(1, (t - BOOP_S) / CARPET_LAND_S);
+          const trot = Math.min(1, Math.max(0, (t - BOOP_S - CARPET_LAND_S) / TROT_S));
+          if (trot === 0) {
+            // Absorb the landing on the carpet in place.
+            x = target[0]; z = target[2]; y = FLOOR_Y;
+            nextClip = 'Land';
+            squash = Math.sin(settle * Math.PI) * .17;
+            desiredHeading = Math.atan2(stopX - target[0], stopZ - target[2]);
+          } else {
+            // Trot: ease out into the stop, with a four-beat stride bob.
+            const e = 1 - (1 - trot) * (1 - trot);
+            x = target[0] + (stopX - target[0]) * e;
+            z = target[2] + (stopZ - target[2]) * e;
+            const stride = t - BOOP_S - CARPET_LAND_S;
+            y = FLOOR_Y + Math.abs(Math.sin(stride * Math.PI * 2 * 1.6)) * .05 * (1 - trot * .6);
+            desiredHeading = Math.atan2(stopX - target[0], stopZ - target[2]);
+            nextClip = trot < 1 ? 'Walk' : 'Sit';
           }
-          if (run >= 1) {
-            x = THREE.MathUtils.lerp(base.x, destination.portrait.x, jump);
-            z = THREE.MathUtils.lerp(base.z, destination.portrait.z, jump);
-            y = THREE.MathUtils.lerp(FLOOR_Y, destination.portrait.y, jump) + Math.sin(jump * Math.PI) * .65;
+          if (trot >= 1) {
+            // A short look up at the box before the hop, so the trip reads.
+            nextClip = 'Sit';
             desiredHeading = SETTLE_HEADING;
+            const handoffAt = BOOP_S + CARPET_LAND_S + TROT_S + LOOK_UP_S;
+            if (t >= handoffAt && !flightSent.current && g.parent) {
+              flightSent.current = true;
+              const screen = g.parent.localToWorld(new THREE.Vector3(stopX, FLOOR_Y + .35, stopZ)).project(camera);
+              const rect = gl.domElement.getBoundingClientRect();
+              requestFlight(piece, {x: rect.left + (screen.x + 1) / 2 * rect.width, y: rect.top + (1 - screen.y) / 2 * rect.height});
+            }
+            g.visible = !flightSent.current;
           }
-          g.visible = run < 1;
         }
       }
     } else if (isNew && elapsed < WALK_IN_S) {
@@ -288,7 +326,6 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
         <span className="kitten-preview-label">Preview</span>
       </Html>}
     </group>
-    {flight && <InventoryJump piece={piece} from={flight} />}
     </>
   );
 }
@@ -302,12 +339,14 @@ function InventoryJump({piece, from}: {piece: PieceData; from: {x: number; y: nu
     if (!icon || !element.current) return;
     const target = icon.getBoundingClientRect();
     const animation = element.current.animate([
-      { transform: `translate(${from.x - target.width / 2}px, ${from.y - target.height / 2}px)`, width: `${target.width}px`, height: `${target.height}px` },
-      { transform: `translate(${(from.x + target.left + target.width / 2) / 2 - target.width / 2}px, ${Math.min(from.y, target.top) - 80}px)`, offset: .5 },
-      { transform: `translate(${target.left}px, ${target.top}px)`, width: `${target.width}px`, height: `${target.height}px` }
+      { transform: `translate(${from.x - target.width / 2}px, ${from.y - target.height / 2}px)`, width: `${target.width}px`, height: `${target.height}px`, opacity: 1 },
+      { transform: `translate(${(from.x + target.left + target.width / 2) / 2 - target.width / 2}px, ${Math.min(from.y, target.top) - 80}px)`, offset: .55 },
+      { transform: `translate(${target.left}px, ${target.top}px)`, width: `${target.width}px`, height: `${target.height}px`, opacity: 0 }
     ], {duration: 650, easing: 'ease-in-out', fill: 'forwards'});
     return () => animation.cancel();
   }, [piece.color, piece.type, from]);
+  // Portal to <body> so viewport coordinates survive any transformed or
+  // overflowing ancestor. Safe here: this runs in the react-dom tree.
   return createPortal(<div ref={element} style={{position: 'fixed', left: 0, top: 0, zIndex: 40, pointerEvents: 'none'}}><AnimatedPieceIcon piece={piece} /></div>, document.body);
 }
 
@@ -339,6 +378,19 @@ function ReserveArrival({ color, index }: { color: PlayerColor; index: number })
     setClip(previous => previous === next ? previous : next);
   });
   return <group ref={group} visible={false} userData={{ catProbe: `arrival-${color}-${index}` }}><CatModel piece={{color, type: 'cat'}} clip={clip} /></group>;
+}
+
+/** A 3D crash must never take the whole page down. A lost WebGL context or an
+ * unreachable environment map degrades to an empty board instead of a blank
+ * screen, and the game UI around it keeps working. */
+class BoardErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: unknown) { console.error('3D board failed to render', error); }
+  render() {
+    if (this.state.failed) return <div className="board-fallback" role="alert">3D board unavailable — reload to try again.</div>;
+    return this.props.children;
+  }
 }
 
 type QuiltResources = ReturnType<typeof createFabricTextures> & {
@@ -386,13 +438,21 @@ function CatProbe() {
   const size = useThree(state => state.size);
   const gl = useThree(state => state.gl);
   useEffect(() => {
-    (window as unknown as { __catProbe?: () => { cat: string; x: number; y: number; z: number; ry: number }[] }).__catProbe = () => {
-      const out: { cat: string; x: number; y: number; z: number; ry: number }[] = [];
+    (window as unknown as { __catProbe?: () => { cat: string; x: number; y: number; z: number; ry: number; pxPerUnit: number; visible: boolean }[] }).__catProbe = () => {
+      const out: { cat: string; x: number; y: number; z: number; ry: number; pxPerUnit: number; visible: boolean }[] = [];
+      const rect = gl.domElement.getBoundingClientRect();
       scene.traverse(o => {
         const tag = o.userData?.catProbe;
         if (typeof tag === 'string' && o.parent) {
+          // pxPerUnit makes "how big does the cat look" measurable instead of
+          // a matter of opinion: one world unit at the cat's own position.
+          const world = o.parent.localToWorld(new THREE.Vector3(o.position.x, o.position.y, o.position.z));
+          const top = world.clone().setY(world.y + 1).project(camera);
+          const bottom = world.clone().project(camera);
+          const pxPerUnit = Math.abs((top.y - bottom.y)) * rect.height / 2;
           out.push({ cat: tag, x: +o.position.x.toFixed(3), y: +o.position.y.toFixed(3),
-            z: +o.position.z.toFixed(3), ry: +o.rotation.y.toFixed(3) });
+            z: +o.position.z.toFixed(3), ry: +o.rotation.y.toFixed(3),
+            pxPerUnit: +pxPerUnit.toFixed(1), visible: o.visible });
         }
       });
       return out;
@@ -410,6 +470,130 @@ function CatProbe() {
   return null;
 }
 
+/** The bed itself: turned legs, a wooden rail box, a soft mattress, a quilt
+ * with a draped hem on all four sides, and a low headboard behind row 0.
+ * Playable cells stay on the quilt top (y .36) exactly where they were. */
+function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: QuiltResources }) {
+  const quilt = new THREE.Color(quiltColors[0]);
+  const quiltShade = quilt.clone().multiplyScalar(.82);
+  const trim = new THREE.Color(quiltColors[1]).multiplyScalar(.58);
+  const cushion = new THREE.Color(quiltColors[1]).lerp(new THREE.Color('#f3e9da'), .55);
+  const wood = '#75492a';
+  const woodLight = '#9a6a41';
+  const woodDark = '#553218';
+
+  // A drape hangs from the quilt edge (y .30) and flares outward slightly.
+  const drapes: { key: string; at: [number, number, number]; rot: [number, number, number]; box: [number, number, number] }[] = [
+    { key: 'near', at: [0, .36, 3.58], rot: [.1, 0, 0], box: [7.06, .66, .13] },
+    { key: 'far', at: [0, .36, -3.58], rot: [-.1, 0, 0], box: [7.06, .66, .13] },
+    { key: 'right', at: [3.58, .36, 0], rot: [0, 0, -.1], box: [.13, .66, 7.06] },
+    { key: 'left', at: [-3.58, .36, 0], rot: [0, 0, .1], box: [.13, .66, 7.06] },
+  ];
+
+  return (
+    <group>
+      {/* Four turned legs with a small brass-free foot. */}
+      {[-3.24, 3.24].flatMap(x => [-3.24, 3.24].map(z => (
+        <group key={`leg-${x}-${z}`} position={[x, 0, z]}>
+          <mesh position={[0, -.85, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[.11, .15, .48, 16]} />
+            <meshStandardMaterial color={wood} roughness={.62} metalness={.02} />
+          </mesh>
+          <mesh position={[0, -1.08, 0]} castShadow>
+            <cylinderGeometry args={[.16, .14, .1, 16]} />
+            <meshStandardMaterial color={woodDark} roughness={.7} />
+          </mesh>
+        </group>
+      )))}
+
+      {/* Rail box the mattress sits in; its top sits just under the quilt hem. */}
+      <RoundedBox args={[7.0, .3, 7.0]} radius={.13} smoothness={4} position={[0, -.47, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={wood} roughness={.6} metalness={.03} />
+      </RoundedBox>
+      <RoundedBox args={[7.04, .07, 7.04]} radius={.06} smoothness={3} position={[0, -.35, 0]} castShadow>
+        <meshStandardMaterial color={woodLight} roughness={.55} />
+      </RoundedBox>
+
+      {/* Mattress: soft, pillowy, and just inside the quilt edge. */}
+      <RoundedBox args={[6.62, .62, 6.62]} radius={.22} smoothness={5} position={[0, .0, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#f2e9da" roughness={.97} />
+      </RoundedBox>
+
+      {/* Quilt top: the playable surface. */}
+      <RoundedBox args={[7.04, .16, 7.04]} radius={.09} smoothness={4} position={[0, .28, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={quilt} map={fabric.map} bumpMap={fabric.bumpMap}
+          bumpScale={.014} roughness={.98} />
+      </RoundedBox>
+      {/* Drapes and their darker hems. */}
+      {drapes.map(drape => (
+        <group key={drape.key} position={drape.at} rotation={drape.rot}>
+          <mesh position={[0, -.33, 0]} castShadow receiveShadow>
+            <boxGeometry args={drape.box} />
+            <meshStandardMaterial color={quiltShade} map={fabric.map} bumpMap={fabric.bumpMap}
+              bumpScale={.012} roughness={.99} />
+          </mesh>
+          <mesh position={[0, -.70, 0]} castShadow>
+            <boxGeometry args={[drape.box[0] + .04, .1, drape.box[2] + .05]} />
+            <meshStandardMaterial color={trim} roughness={.95} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Headboard behind the far row: posts, rail, and an upholstered panel. */}
+      {[-3.3, 3.3].map(x => (
+        <group key={`post-${x}`} position={[x, 0, -3.92]}>
+          <mesh position={[0, .34, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[.13, .16, 1.5, 18]} />
+            <meshStandardMaterial color={wood} roughness={.58} />
+          </mesh>
+          <mesh position={[0, 1.16, 0]} castShadow>
+            <sphereGeometry args={[.14, 18, 14]} />
+            <meshStandardMaterial color={woodLight} roughness={.5} />
+          </mesh>
+        </group>
+      ))}
+      <RoundedBox args={[6.72, .28, .2]} radius={.09} position={[0, 1.0, -3.92]} castShadow>
+        <meshStandardMaterial color={woodLight} roughness={.55} />
+      </RoundedBox>
+      <RoundedBox args={[6.5, .62, .16]} radius={.12} position={[0, .56, -3.9]} castShadow receiveShadow>
+        <meshStandardMaterial color={cushion} map={fabric.map} bumpMap={fabric.bumpMap}
+          bumpScale={.02} roughness={.95} />
+      </RoundedBox>
+      <RoundedBox args={[6.86, .2, .2]} radius={.08} position={[0, .18, -3.88]} castShadow>
+        <meshStandardMaterial color={wood} roughness={.6} />
+      </RoundedBox>
+
+      {/* Low footboard: below quilt level, so it never hides the near row. */}
+      <RoundedBox args={[7.5, .5, .2]} radius={.1} position={[0, -.02, 3.9]} castShadow receiveShadow>
+        <meshStandardMaterial color={woodLight} roughness={.6} />
+      </RoundedBox>
+    </group>
+  );
+}
+
+// Fixed viewing direction and a distance that fills the shell. The board is a
+// fixed-size object in a fixed shell; letting the camera drift made it look
+// small and dim, so zoom is gone and framing is derived from the aspect ratio.
+const BOARD_VIEW_DIR = new THREE.Vector3(9.2, 10.8, 12).normalize();
+const BOARD_DISTANCE = 12.6;
+
+function FrameBoard() {
+  const camera = useThree(state => state.camera);
+  const size = useThree(state => state.size);
+  const controls = useThree(state => state.controls) as { update?: () => void } | null;
+  useEffect(() => {
+    const aspect = size.width / Math.max(1, size.height);
+    // Stacked/portrait shells have less width, so stand further back to keep
+    // the whole bed (headboard included) inside the frame.
+    const distance = BOARD_DISTANCE * (aspect < 1.3 ? 1.3 / aspect : 1);
+    camera.position.copy(BOARD_VIEW_DIR).multiplyScalar(distance);
+    camera.lookAt(0, .18, 0);
+    camera.updateProjectionMatrix();
+    controls?.update?.();
+  }, [camera, size.width, size.height, controls]);
+  return null;
+}
+
 function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
   const [hover, setHover] = useState<Cell | null>(null);
   const fabric = useMemo(() => ({ ...createFabricTextures(), patch: createQuiltPatchGeometry(), stitches: createQuiltStitches() }), []);
@@ -423,24 +607,13 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
   };
   return (
     <>
-      <fog attach="fog" args={['#17222d', 15, 25]} />
-      <ambientLight intensity={2.4} />
+      <FrameBoard />
+      <ambientLight intensity={2.55} />
       <directionalLight position={[-5, 9, 4]} intensity={2.0} color="#ffffff" />
       <directionalLight position={[6, 4, -5]} intensity={1.8} color="#ffffff" />
       <group>
         <group rotation={[0, -.08, 0]}>
-          <RoundedBox args={[7.15, .32, 7.15]} radius={.35} smoothness={5} position={[0, -.17, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color="#714020" roughness={.66} metalness={.03} />
-          </RoundedBox>
-          <RoundedBox args={[6.75, .24, 6.75]} radius={.10} smoothness={5} position={[0, .17, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color={new THREE.Color(props.quiltColors[0]).multiplyScalar(.78)}
-              map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.012} roughness={.98} />
-          </RoundedBox>
-          {/* Upholstered mattress, oak rails and four grounded legs. */}
-          {[-3.42, 3.42].map(x => <RoundedBox key={`rail-${x}`} args={[.18, .46, 7.1]} radius={.07} position={[x, -.10, 0]} castShadow><meshStandardMaterial color="#b78557" roughness={.7} /></RoundedBox>)}
-          {[-3.2, 3.2].flatMap(x => [-3.2, 3.2].map(z => <RoundedBox key={`${x}-${z}`} args={[.3, .68, .3]} radius={.06} position={[x, -.67, z]} castShadow><meshStandardMaterial color="#805332" roughness={.8} /></RoundedBox>))}
-          <RoundedBox args={[7.15, 1.25, .22]} radius={.1} position={[0, .30, -3.65]} castShadow><meshStandardMaterial color="#b78557" roughness={.7} /></RoundedBox>
-          <RoundedBox args={[6.7, .64, .12]} radius={.08} position={[0, .47, -3.49]}><meshStandardMaterial color="#e6d7bf" roughness={1} /></RoundedBox>
+          <BedShell quiltColors={props.quiltColors} fabric={fabric} />
           {Array.from({ length: 6 }, (_, row) => Array.from({ length: 6 }, (_, col) => {
             const piece = props.board[row][col];
             const enabled = !piece && props.isMyTurn && !!props.selectedPieceType && !props.isViewingHistory;
@@ -474,9 +647,11 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
       {/* The page-wide carpet is behind the transparent canvas, without a
           second floor surface creating a rectangular visual division. */}
       <Environment preset="apartment" environmentIntensity={.7} />
-      <OrbitControls makeDefault enablePan={false} minDistance={10} maxDistance={26}
+      {/* Zoom stays off: the board is framed to its shell, so there is nothing
+          to discover by scrolling and no way to end up small and fogged out. */}
+      <OrbitControls makeDefault enablePan={false} enableZoom={false}
         minPolarAngle={.52} maxPolarAngle={1.16} minAzimuthAngle={-.75} maxAzimuthAngle={.75}
-        target={[0, .2, 0]} />
+        target={[0, .18, 0]} />
     </>
   );
 }
@@ -499,13 +674,33 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
     try { localStorage.setItem(QUILT_STORAGE_KEY, JSON.stringify(quiltColors)); }
     catch { /* Preferences still work in memory when storage is unavailable. */ }
   }, [quiltColors]);
+  // Inventory hops live here, in the DOM tree, and expire once the hop lands.
+  const [flights, setFlights] = useState<InventoryFlight[]>([]);
+  const flightId = useRef(0);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const requestFlight = useCallback<RequestInventoryFlight>((piece, from) => {
+    const id = ++flightId.current;
+    setFlights(previous => [...previous, { id, piece, from }]);
+    timers.current.push(setTimeout(() => {
+      setFlights(previous => previous.filter(flight => flight.id !== id));
+    }, 800));
+  }, []);
+  useEffect(() => () => { timers.current.forEach(clearTimeout); timers.current = []; }, []);
   return (
     <div className="floating-board-area">
     <div className="floating-board-shell">
+      <BoardErrorBoundary>
       <Canvas shadows dpr={[1, 1.7]} camera={{ position: [9.2, 10.8, 12], fov: 46 }} gl={{ antialias: true, alpha: true }}>
-        <Suspense fallback={null}><CatProbe /><Scene {...props} quiltColors={quiltColors} /></Suspense>
+        <Suspense fallback={null}>
+          <CatProbe />
+          <InventoryFlightContext.Provider value={requestFlight}>
+            <Scene {...props} quiltColors={quiltColors} />
+          </InventoryFlightContext.Provider>
+        </Suspense>
       </Canvas>
-      <div className="board-hint">Drag to look around · scroll to zoom</div>
+      </BoardErrorBoundary>
+      {flights.map(flight => <InventoryJump key={flight.id} piece={flight.piece} from={flight.from} />)}
+      <div className="board-hint">Drag to look around</div>
       <div className="board-cell-anchors" aria-hidden="true">
         {Array.from({ length: 36 }, (_, i) => <span key={i} data-cell={`${Math.floor(i / 6)}-${i % 6}`} />)}
       </div>

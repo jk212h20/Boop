@@ -1,7 +1,8 @@
 // One timing contract for the live board, network queue, and local bot handoff.
-// A newly placed kitten WALKS onto the quilt (no more teleport-drop), and a
+// A newly placed piece drops straight down onto its square and settles, and a
 // booped cat performs a full crouch→air→land jump.
-export const WALK_IN_MS = 1100;
+export const PLACEMENT_DROP_MS = 700;
+// How long the board waits before a boop starts: the drop has landed by then.
 export const DROP_DURATION_MS = 400;
 export const BOOP_DELAY_MS = DROP_DURATION_MS + 100;
 export const BOOP_DURATION_MS = 2900;
@@ -23,5 +24,5 @@ export function animationDurationMs(effects: {
   }
   // A returned-to-box trip deliberately adds nothing here.
   if (effects.boopedPieces?.length) return BOOP_DELAY_MS + BOOP_DURATION_MS + 200;
-  return WALK_IN_MS + 100;
+  return PLACEMENT_DROP_MS + 100;
 }

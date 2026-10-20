@@ -164,6 +164,22 @@ export function createContactShadowTexture(size = 256) {
   return texture;
 }
 
+/** Soft round mask (white centre, transparent rim) for the landing ripple. */
+export function createRadialAlphaTexture(size = 128) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext('2d')!;
+  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, '#ffffff');
+  gradient.addColorStop(.55, '#f2f2f2');
+  gradient.addColorStop(1, '#000000');
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
 export function quiltColor(base: string, hovered: boolean, active: boolean) {
   // Preserve the selected fabric color, including during hover/last-move states.
   return new THREE.Color(base).lerp(new THREE.Color('#c2d0cb'), hovered ? .07 : active ? .10 : 0);

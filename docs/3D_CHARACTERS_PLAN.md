@@ -149,3 +149,14 @@ asserts the page survives, the hop appears, and the cat does not shrink away.
   hides return trips, and disables shake, sparkles and idle motion.
 - **Palette UI:** named presets behind a "Bedroom" popover replace two unnamed
   swatches.
+
+## Placement: straight drop plus sheet ripple (2026-10-20)
+
+- A placed piece no longer walks in from outside the quilt. It drops vertically
+  onto the clicked square over `DROP_FALL_S` (0.42s), stretches slightly, lands
+  with a squash and a small rebound, then sits. `PLACEMENT_DROP_MS = 700` is the
+  whole placement budget; the boop delay (500ms) still starts after the landing.
+- `SheetRipple` renders once per placement: a 40×40 plane over the landing cell,
+  displaced by two damped outward wave crests and faded with a radial alpha map.
+  It runs 0.85s from the moment of impact. Its base sits above the lofted patch
+  top (y .468), otherwise the quilt hides it.

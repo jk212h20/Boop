@@ -45,7 +45,7 @@ async function main(){
   ]);
   // A returned-to-box trip is cosmetic and must NOT add to the move budget:
   // the game may advance while the cat is still walking home.
-  assert.deepEqual(timings,[1200,3600,3600,6500]);
+  assert.deepEqual(timings,[800,3600,3600,6500]);
   console.log('PASS: shared handoff timing covers the complete graduation and fly-to-pool sequence');
   async function graduate(){
    await page.evaluate(()=>window.__game.setState(window.__fixture()));await page.waitForTimeout(30);

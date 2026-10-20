@@ -7,9 +7,9 @@ import * as THREE from 'three';
 import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, PlayerColor } from '../types';
 import { GraduatingPiece, FallenPiece } from './Board';
 import { ensurePortraits, portraitUrl, subscribePortraits } from '../rendering/portraits';
-import { createCatScene, createContactShadowTexture, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
+import { createCatScene, createContactShadowTexture, createRadialAlphaTexture, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
   QUILT_STORAGE_KEY, QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
-import { BOOP_DELAY_MS, GRADUATION_HIGHLIGHT_MS, WALK_IN_MS } from '../animationTiming';
+import { BOOP_DELAY_MS, GRADUATION_HIGHLIGHT_MS, PLACEMENT_DROP_MS } from '../animationTiming';
 import { prefersReducedMotion } from '../rendering/motion';
 
 interface FloatingBoard3DProps {
@@ -150,7 +150,10 @@ interface CatActorProps {
 
 // Cat-like motion. Everything below is elapsed-time driven so a re-render
 // never restarts a performance.
-const WALK_IN_S = WALK_IN_MS / 1000;
+// A placed piece is dropped straight down onto its square, never walked in.
+const DROP_S = PLACEMENT_DROP_MS / 1000;
+const DROP_FALL_S = .42;   // everything above this is the fall itself
+const DROP_FROM_Y = 2.7;   // how high the piece starts above its cell
 const BOOP_DELAY_S = BOOP_DELAY_MS / 1000;
 const BOOP_S = .8; // crouch, airborne arc, and the fall onto the carpet
 const FLOOR_Y = -1.03;
@@ -197,27 +200,6 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   const offBoard = row < 0 || row > 5 || col < 0 || col > 5;
   const target = at(row, col);
   const origin = boop ? at(boop.fromRow, boop.fromCol) : target;
-  // Walk-in entry: approach from just outside the quilt, along a gentle arc,
-  // like a cat strolling up to a spot it has decided on.
-  const walkFrom = useMemo(() => {
-    const [x, , z] = target;
-    const len = Math.hypot(x, z) || 1;
-    const jitter = (seed - .5) * .5;
-    // Stay on the bed: edge cells must not start beyond the wooden rim.
-    const reach = Math.min(1.05 + jitter, Math.max(.4, 3.35 - Math.max(Math.abs(x), Math.abs(z))));
-    const sx = x + (x / len) * reach - (z / len) * jitter * .5;
-    const sz = z + (z / len) * reach + (x / len) * jitter * .5;
-    return [sx, target[1], sz] as [number, number, number];
-  }, [target, seed]);
-  const walkCtrl = useMemo(() => {
-    const mx = (walkFrom[0] + target[0]) / 2, mz = (walkFrom[2] + target[2]) / 2;
-    const dx = target[0] - walkFrom[0], dz = target[2] - walkFrom[2];
-    const bend = (seed - .5) * .9;
-    return [mx - dz * bend, target[1], mz + dx * bend] as [number, number, number];
-  }, [walkFrom, target, seed]);
-  const qbez = (a: number, c: number, b: number, t: number) =>
-    (1 - t) * (1 - t) * a + 2 * (1 - t) * t * c + t * t * b;
-
   // Coordinate values, not freshly allocated boop prop objects, own the clock.
   useEffect(() => { born.current = performance.now(); }, [animationKey, boop?.fromRow, boop?.fromCol, isNew]);
   useEffect(() => {
@@ -328,22 +310,25 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
           }
         }
       }
-    } else if (isNew && elapsed < WALK_IN_S) {
-      // Stroll in along the arc, then settle and sit.
-      const t = elapsed / WALK_IN_S;
-      const e = easeOut(t < .85 ? t : .85 + (t - .85) * 2); // decelerate into the seat
-      x = qbez(walkFrom[0], walkCtrl[0], target[0], Math.min(1, e));
-      z = qbez(walkFrom[2], walkCtrl[2], target[2], Math.min(1, e));
-      // Lock the bob to the path so the stride matches the distance covered,
-      // and roll the body a touch into each step.
-      const stridePhase = Math.min(1, e) * Math.PI * 5;
-      y += Math.abs(Math.sin(stridePhase)) * .05 * (1 - Math.max(0, e - .85) * 6);
-      roll = Math.sin(stridePhase) * .045;
-      const tx = qbez(walkFrom[0], walkCtrl[0], target[0], Math.min(1, e + .02));
-      const tz = qbez(walkFrom[2], walkCtrl[2], target[2], Math.min(1, e + .02));
-      // The tangent degenerates once the path is complete; keep the settle heading.
-      if (Math.hypot(tx - x, tz - z) > 1e-4) desiredHeading = Math.atan2(tx - x, tz - z);
-      nextClip = 'Walk';
+    } else if (isNew && elapsed < DROP_S) {
+      // Straight down onto the square: gravity on the way, a soft absorb on
+      // landing, then it sits. No lateral travel, so it always lands where the
+      // player clicked.
+      x = target[0];
+      z = target[2];
+      if (elapsed < DROP_FALL_S) {
+        const p = elapsed / DROP_FALL_S;
+        y = target[1] + DROP_FROM_Y * (1 - p * p);
+        nextClip = 'Fall';
+        stretch = Math.sin(p * Math.PI) * .5; // slight stretch as it drops
+        // A hair of spin so it does not look like a rigid prop on a rail.
+        desiredHeading = settleHeading - .35 + .7 * p;
+      } else {
+        const p = Math.min(1, (elapsed - DROP_FALL_S) / (DROP_S - DROP_FALL_S));
+        squash = Math.sin(p * Math.PI) * .2;
+        y = target[1] + Math.sin(p * Math.PI) * .045; // small rebound
+        nextClip = 'Land';
+      }
     } else if (isGraduating) {
       nextClip = 'Celebrate';
     }
@@ -513,6 +498,44 @@ type QuiltResources = ReturnType<typeof createFabricTextures> & {
   patch: THREE.BufferGeometry;
   stitches: THREE.BufferGeometry;
 };
+
+/** The quilt gives a little under a freshly dropped piece: a short, soft radial
+ * wave that lifts the fabric and dies away. Purely visual. */
+const RIPPLE_S = .85;
+function SheetRipple({ row, col, colors }: { row: number; col: number; colors: QuiltColors }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const geometry = useMemo(() => new THREE.PlaneGeometry(1.72, 1.72, 40, 40).rotateX(-Math.PI / 2), []);
+  const rest = useMemo(() => Float32Array.from(geometry.attributes.position.array as Float32Array), [geometry]);
+  const alpha = useMemo(() => createRadialAlphaTexture(), []);
+  const born = useRef(performance.now());
+  useEffect(() => () => { geometry.dispose(); alpha.dispose(); }, [geometry, alpha]);
+  useFrame(() => {
+    const m = mesh.current;
+    if (!m) return;
+    const t = (performance.now() - born.current) / 1000 - DROP_FALL_S;
+    if (t < 0 || t > RIPPLE_S) { m.visible = false; return; }
+    m.visible = true;
+    const p = t / RIPPLE_S;
+    const position = geometry.attributes.position;
+    for (let i = 0; i < position.count; i++) {
+      const x = rest[i * 3], z = rest[i * 3 + 2];
+      const d = Math.hypot(x, z);
+      const falloff = Math.exp(-d * d * 1.7);
+      // Two crests travelling outward, damped as they go.
+      const wave = Math.sin(d * 13 - p * 15) * falloff * .05 * (1 - p * .85);
+      position.setY(i, wave);
+    }
+    position.needsUpdate = true;
+    (m.material as THREE.MeshStandardMaterial).opacity = Math.min(1, (1 - p) * 2.2) * .92;
+  });
+  const [x, , z] = at(row, col);
+  return (
+    <mesh ref={mesh} geometry={geometry} position={[x, .468, z]} visible={false} raycast={() => {}}>
+      <meshStandardMaterial color={colors[(row + col) % 2]} alphaMap={alpha} transparent opacity={0}
+        depthWrite={false} roughness={.98} />
+    </mesh>
+  );
+}
 
 function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, onClick, onHover }: {
   row: number; col: number; enabled: boolean; active: boolean; hovered: boolean;
@@ -972,6 +995,10 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
           {hover && props.isMyTurn && !props.isViewingHistory && props.myColor && props.selectedPieceType && !props.board[hover.row][hover.col] && (
             <CatActor piece={{ color: props.myColor, type: props.selectedPieceType }} row={hover.row} col={hover.col}
               isGhost animationKey={props.animationKey} />
+          )}
+          {props.lastMove && !props.isViewingHistory && (
+            <SheetRipple key={`ripple-${props.animationKey}`} row={props.lastMove.row} col={props.lastMove.col}
+              colors={props.quiltColors} />
           )}
           {props.animationKey > 0 && props.boopedPieces.map((boop, index) => (
             <BoopPuff key={`puff-${props.animationKey}-${index}`} row={boop.from.row} col={boop.from.col} />

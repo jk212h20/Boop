@@ -39,16 +39,53 @@ const TEAM = {
  * (R = cream belly/muzzle/paws, G = tabby stripes); team colors are mixed in
  * the shader so cached geometry stays shared between pieces.
  *
- * Ghosts are a pale, translucent wash of the player's own color — clearly
- * "yours", but clearly not solid. */
-const WHITE = new THREE.Color('#ffffff');
+ * Ghosts are a dark, translucent silhouette whose stripes and glow carry the
+ * player's own color — clearly "yours", clearly not solid. They used to be a
+ * near-white wash, which disappeared against the pale quilt. */
+const GHOST_BODY = new THREE.Color('#1b2025');
+
+export interface GhostPalette {
+  /** main fur: dark and near-neutral, so the cat reads as a shadow */
+  body: THREE.Color;
+  /** belly, muzzle and paws: the player's accent */
+  belly: THREE.Color;
+  /** tabby stripes: kept dark, so the silhouette stays the dominant read */
+  stripe: THREE.Color;
+  /** eye color, kept saturated so the face still reads at a glance */
+  eye: THREE.Color;
+}
+
+/** The preview palette for a player. Everything that marks the cat as theirs
+ * (stripes, eye, glow) comes from their team color; the body stays dark so the
+ * silhouette is legible on any quilt. */
+export function ghostPalette(color: PlayerColor): GhostPalette {
+  const colors = TEAM[color];
+  // The accent keeps the team hue but is pushed brighter than the solid fur: a
+  // stripe has to read as a thin line on a dark body, and the slate team would
+  // otherwise land almost neutral.
+  const hsl = { h: 0, s: 0, l: 0 };
+  const fur = new THREE.Color(colors.fur);
+  fur.getHSL(hsl, THREE.SRGBColorSpace);
+  // The accent is the team hue pushed bright: the preview is dark and
+  // translucent, so a straight copy of the solid fur reads as brown mud.
+  const accent = new THREE.Color().setHSL(hsl.h, Math.max(hsl.s, .85), .66, THREE.SRGBColorSpace);
+  return {
+    body: GHOST_BODY.clone(),
+    // Belly, muzzle and paws are the largest colour area on the model, so they
+    // carry the team accent; the stripes stay dark.
+    belly: accent.clone(),
+    stripe: GHOST_BODY.clone().multiplyScalar(.6),
+    eye: new THREE.Color(colors.eye),
+  };
+}
+
 export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, ghost: boolean) {
   const copy = cloneSkinned(sourceScene);
   const colors = TEAM[color];
-  // Pale wash of the team palette for the placement preview.
-  const ghostFur = new THREE.Color(colors.fur).lerp(WHITE, .68);
-  const ghostLight = new THREE.Color(colors.light).lerp(WHITE, .45);
-  const ghostStripe = new THREE.Color(colors.stripe).lerp(WHITE, .88);
+  const ghostColors = ghostPalette(color);
+  const ghostFur = ghostColors.body;
+  const ghostLight = ghostColors.belly;
+  const ghostStripe = ghostColors.stripe;
   copy.traverse(child => {
     if (!(child instanceof THREE.Mesh)) return;
     child.castShadow = !ghost;
@@ -58,7 +95,7 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
     const prepare = (source: THREE.MeshStandardMaterial) => {
       const material = source.clone();
       if (source.name === 'Eyes' || source.name === 'Iris') {
-        material.color.set(ghost ? new THREE.Color(colors.eye).lerp(WHITE, .55) : colors.eye);
+        material.color.set(ghost ? ghostColors.eye : colors.eye);
       }
       if (source.name === 'Fur' && hasMask) {
         // Team coloring happens in the shader; the base stays white.
@@ -86,14 +123,17 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
         material.color.set(ghost ? ghostFur : colors.fur);
       }
       if (ghost) {
-        // A pale, translucent silhouette, not an opaque cat inside a bubble.
+        // A dark, translucent silhouette, not an opaque cat inside a bubble.
+        // The accent glow keeps the player's color visible at the edges.
         material.transparent = true;
-        material.opacity = .34;
+        material.opacity = .55;
         material.depthWrite = false;
         material.roughness = 1;
         material.metalness = 0;
-        material.emissive.set(new THREE.Color(colors.light).lerp(WHITE, .3));
-        material.emissiveIntensity = .14;
+        // A faint accent bounce, not a wash: a strong emissive turns the whole
+        // dark body the team color and the preview stops reading as a shadow.
+        material.emissive.copy(ghostColors.stripe);
+        material.emissiveIntensity = .05;
       }
       return material;
     };

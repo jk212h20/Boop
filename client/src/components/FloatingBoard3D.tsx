@@ -801,9 +801,11 @@ function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: Q
   const quiltShade = quilt.clone().multiplyScalar(.82);
   const trim = new THREE.Color(quiltColors[1]).multiplyScalar(.58);
   const cushion = new THREE.Color(quiltColors[1]).lerp(new THREE.Color('#f3e9da'), .55);
-  const wood = '#75492a';
-  const woodLight = '#9a6a41';
-  const woodDark = '#553218';
+  // A neutral medium grey frame: it separates the bed from the room without
+  // competing with the quilt or the team colors the pieces are read by.
+  const wood = '#565b5e';
+  const woodLight = '#6a7074';
+  const woodDark = '#3f4447';
 
   // A drape hangs straight down from the quilt edge. These used to be rotated
   // a few degrees outward, which leaned the left and right panels and opened a

@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as THREE from 'three';
 import { createCatScene, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
-  DEFAULT_QUILT_COLORS, parseQuiltColors, quiltColor } from '../src/rendering/boardAppearance';
+  DEFAULT_QUILT_COLORS, ghostPalette, parseQuiltColors, quiltColor } from '../src/rendering/boardAppearance';
 
 test('quilt preferences accept two hex colors and recover from invalid storage', () => {
   assert.deepEqual(parseQuiltColors('["#556677","#778899"]'), ['#556677', '#778899']);
@@ -63,14 +63,14 @@ test('hover kitten is genuinely translucent, shadowless and does not intercept c
   const ghostMaterial = ghost.material as THREE.MeshStandardMaterial;
   const placedMaterial = placed.material as THREE.MeshStandardMaterial;
   assert.equal(ghostMaterial.transparent, true);
-  assert.equal(ghostMaterial.opacity, .34);
+  assert.equal(ghostMaterial.opacity, .55);
   assert.equal(ghostMaterial.depthWrite, false);
-  // The ghost is a pale wash of the PLAYER'S color, not a neutral gray.
+  // The body is a dark silhouette rather than a wash of the team color; the
+  // player's color moved to the accents (stripes, eyes, edge glow).
   assert.notEqual(ghostMaterial.color.getHexString(), placedMaterial.color.getHexString());
   const srgb = THREE.SRGBColorSpace;
-  assert.ok(ghostMaterial.color.getHSL({}, srgb).l > .82, 'ghost stays pale');
-  assert.ok(Math.abs(ghostMaterial.color.getHSL({}, srgb).h - placedMaterial.color.getHSL({}, srgb).h) < .04,
-    'ghost keeps the team hue');
+  assert.ok(ghostMaterial.color.getHSL({}, srgb).l < .3, 'ghost body stays dark');
+  assert.ok(ghostMaterial.color.getHSL({}, srgb).s < .2, 'ghost body is near-neutral');
   assert.equal(ghost.castShadow, false);
   assert.equal(placed.castShadow, true);
   assert.equal(placedMaterial.opacity, 1);
@@ -81,6 +81,32 @@ test('hover kitten is genuinely translucent, shadowless and does not intercept c
   const hits: THREE.Intersection[] = [];
   ghost.raycast(new THREE.Raycaster(), hits);
   assert.equal(hits.length, 0);
+});
+
+// The preview must stay legible on any quilt and still name its owner: the
+// silhouette is shared and dark, the accent area (belly, muzzle, paws) carries
+// the player's color.
+test('ghost accents carry the player color on a dark body', () => {
+  const srgb = THREE.SRGBColorSpace;
+  for (const color of ['orange', 'gray'] as const) {
+    const palette = ghostPalette(color);
+    const body = palette.body.getHSL({}, srgb);
+    const belly = palette.belly.getHSL({}, srgb);
+    assert.ok(body.l < .3, `${color} ghost body is dark`);
+    assert.ok(body.s < .2, `${color} ghost body is near-neutral`);
+    assert.ok(belly.s > .5, `${color} accent is saturated`);
+    assert.ok(belly.l > body.l + .3, `${color} accent is clearly lighter than the body`);
+    // Stripes stay dark so the accent reads as an accent, not a paint job.
+    assert.ok(palette.stripe.getHSL({}, srgb).l <= body.l + .05,
+      `${color} stripes stay dark`);
+  }
+  const orange = ghostPalette('orange');
+  const gray = ghostPalette('gray');
+  assert.ok(orange.body.equals(gray.body), 'the silhouette is the same for both players');
+  assert.ok(!orange.belly.equals(gray.belly), 'the accent differs per player');
+  // Orange is warm, slate is cool: not two shades of the same hue.
+  assert.ok(orange.belly.getHSL({}, srgb).h < .12);
+  assert.ok(Math.abs(gray.belly.getHSL({}, srgb).h - orange.belly.getHSL({}, srgb).h) > .2);
 });
 
 test('both colors retain their identity under subdued selection highlights', () => {

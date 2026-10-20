@@ -20,12 +20,19 @@ const path = require('node:path');
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(new URL('?preview3d&demo', url).href);
-    await page.getByLabel('Quilt color 1').waitFor();
+    // The palette lives behind the "Bedroom" button; its controls are labelled
+    // Fabric 1 / Fabric 2. Defaults come from DEFAULT_QUILT_COLORS.
+    const palette = page.getByRole('button', { name: 'Bedroom' });
+    const openPalette = async () => {
+      if (await page.getByLabel('Fabric 1').count() === 0) await palette.click();
+      await page.getByLabel('Fabric 1').waitFor();
+    };
+    await openPalette();
     // Wait for the deterministic preview move and bot response, not page load.
     await page.getByText('Move 2/2', { exact: false }).waitFor({ timeout: 30000 });
     await page.waitForTimeout(2200); // Allow the actual WebGL asset upload/idle handoff.
-    assert.equal(await page.getByLabel('Quilt color 1').inputValue(), '#8c9199');
-    assert.equal(await page.getByLabel('Quilt color 2').inputValue(), '#849b92');
+    assert.equal(await page.getByLabel('Fabric 1').inputValue(), '#b7c4c7');
+    assert.equal(await page.getByLabel('Fabric 2').inputValue(), '#5f7d88');
     // Passive opponent stock must remain bright; only genuinely empty pools dim.
     const pools = await page.locator('.player-pool').evaluateAll(elements => elements.map(pool => ({
       nameBackground: getComputedStyle(pool.querySelector('.player-pool-name')).backgroundColor,
@@ -78,23 +85,27 @@ const path = require('node:path');
     await page.waitForTimeout(150);
     assert.equal(await page.locator('.kitten-preview-label').count(), 0);
 
-    await page.getByLabel('Quilt color 1').fill('#727e92');
-    await page.getByLabel('Quilt color 2').fill('#ad909d');
+    await openPalette();
+    await page.getByLabel('Fabric 1').fill('#727e92');
+    await page.getByLabel('Fabric 2').fill('#ad909d');
     await page.waitForFunction(() => localStorage.getItem('boop.quilt-colors.v1') === '["#727e92","#ad909d"]');
     await page.screenshot({ path: path.join(out, 'custom-colors.png') });
     await page.reload();
-    await page.getByLabel('Quilt color 1').waitFor();
-    assert.equal(await page.getByLabel('Quilt color 1').inputValue(), '#727e92');
-    assert.equal(await page.getByLabel('Quilt color 2').inputValue(), '#ad909d');
-    await page.getByRole('button', { name: 'Reset colors' }).click();
-    assert.equal(await page.getByLabel('Quilt color 1').inputValue(), '#8c9199');
-    assert.equal(await page.getByLabel('Quilt color 2').inputValue(), '#849b92');
-    console.log('PASS: both color controls update, persist after reload, and reset');
+    await openPalette();
+    assert.equal(await page.getByLabel('Fabric 1').inputValue(), '#727e92');
+    assert.equal(await page.getByLabel('Fabric 2').inputValue(), '#ad909d');
+    // A named preset is the reset path now, not an unnamed "reset" button.
+    await page.getByRole('button', { name: 'Sage linen' }).click();
+    await page.waitForFunction(() => localStorage.getItem('boop.quilt-colors.v1') === '["#b7c4c7","#5f7d88"]');
+    assert.equal(await page.getByLabel('Fabric 1').inputValue(), '#b7c4c7');
+    assert.equal(await page.getByLabel('Fabric 2').inputValue(), '#5f7d88');
+    console.log('PASS: both color controls update, persist after reload, and reset via a preset');
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByLabel('Quilt color 1').scrollIntoViewIfNeeded();
+    await openPalette();
+    await page.getByLabel('Fabric 1').scrollIntoViewIfNeeded();
     await page.waitForTimeout(1000);
-    for (const label of ['Quilt color 1', 'Quilt color 2']) {
+    for (const label of ['Fabric 1', 'Fabric 2']) {
       const bounds = await page.getByLabel(label).boundingBox();
       assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390, `${label} should fit on mobile`);
     }
@@ -126,7 +137,11 @@ const path = require('node:path');
             nameLine: parseFloat(getComputedStyle(pool.querySelector('h3')).lineHeight),
             selectors: Array.from(pool.querySelectorAll('[data-pool-target]')).map(button => ({
               bounds: bounds(button),
-              labelsFit: Array.from(button.querySelectorAll('span')).every(label => label.scrollWidth <= label.clientWidth),
+              // Only real text labels: the piece icon is a decorative span and
+              // its 1px scroll overflow is not clipped text.
+              labelsFit: Array.from(button.querySelectorAll('span'))
+                .filter(label => label.textContent.trim().length > 0)
+                .every(label => label.scrollWidth <= label.clientWidth),
             })),
           })),
         };

@@ -215,3 +215,77 @@ Regression tests: R05 (opponent line graduates for its owner), R06 (the booped
 player chooses among several groups, turn held), R07 (one boop graduates both
 players) in `server/tests/rules.test.ts` and `client/tests/rules.test.ts`.
 Both suites pass and both packages typecheck. Not deployed.
+
+## Repair addendum — presentation defects reported in play (2026-10-20)
+
+All five were reported by Nick from playtesting after the graduation repair.
+
+### 1. Three kittens of mixed colours were promoted
+
+The graduation event carried only `{row, col}`. The client filled the removal
+animation from `prevBoardRef` (the board *before* the move) and, when that cell
+was empty, guessed the owner from a turn flip
+(`currentTurn === 'orange' ? 'gray' : 'orange'`). A line made by a boop sits on
+cells that were empty — or held the other player's piece — before the move, so
+the promoted group could render in the wrong colour, and a single boop that
+graduates both players stamped both groups with one player.
+
+Fix: `graduatedPieces` is now `GraduatedCell[]` = `{row, col, piece}`, filled
+where the piece leaves the board in both engines (`GraduatedCell` in
+`server/src/game/types.ts`, `client/src/types.ts`). `Game.tsx` uses
+`cell.piece` and does not consult a previous board. `useGameHistory` groups the
+event by `piece.color`, so history attributes each group to its own player.
+`resolveGraduationChoice` now calls the same `executeGraduationOption` as the
+engine instead of duplicating the removal loop.
+
+Regressions: R08 (a boop-formed line graduates only its owner and names the
+piece; the cell it filled started empty) and R09 (one boop, both players, each
+group keeps its own colour) in both suites, plus R06b for a resolved choice.
+
+### 2. The glow started late and popped on
+
+`GRADUATION_DELAY_MS` was a fixed 3.5 s (the whole boop budget), and the glow's
+scale pulse and point light started at full amplitude on their first frame.
+`graduationDelayMs(effects)` now starts the highlight when the last graduating
+piece actually lands (boop landing, or the placement drop) plus a 120 ms settle,
+and `CatActor` ramps the glow in over 220 ms and keeps it lit through the rise,
+fading it as the piece ascends. A rise-time unit bug (milliseconds divided by
+0.7 instead of 700) made the ascent a teleport; corrected.
+
+### 3. Booped-off pieces stopped near the top of the screen
+
+The trip ended in a 0.35 s look-up and a screen-space icon hop that hovered
+above the box. The run now flows into a crouch and a leap that carries the
+piece out of the frame (`LEAP_CROUCH_S`, `LEAP_RISE_S`, `LEAP_HEIGHT`), and the
+DOM arrival starts above the top of the viewport and falls into the portrait
+(`InventoryJump`), so nothing waits in view. `FALLEN_TRIP_MS` is 7.5 s to cover
+the longer trip; it still does not extend the move budget.
+
+### 4. The bed's side panels were tilted and the corners had gaps
+
+The four hanging drapes were rotated 5.7° outward, which leaned the left and
+right panels and opened a seam at every corner. They are now square, the end
+panels run the full width and the side panels tuck into them
+(`fabricHalf`/`fabricWidth` in `BedShell`). The same shared extent drives the
+footboard and the headboard, which previously floated outside the bed and were
+narrower than it, leaving an angled wedge of floor at each corner when the bed
+was viewed from above; the rails that must meet the bedspread at a right angle
+are plain boxes, because a rounded box curves away from the corner.
+
+### 5. Three in a row reset the viewing angle
+
+`FrameBoard` framed the camera from whatever position it found, so a rebuilt
+canvas (a model finishing loading, a re-mount) came back at the default angle.
+The chosen orbit is now remembered (`boop-board-view` in localStorage, read
+through a module cache so a re-mount is instant) and restored on mount; only a
+first-ever visit uses the default view.
+
+### Audit detectors
+
+`tools/audit/reproduce.ts` and `tools/audit/browser.cjs` still asserted the
+pre-repair behaviour for defects fixed since the audit. R01–R04, V01–V03, B06
+(engine) and H01, C02, C03, B01, U01 (browser) are now positive regressions for
+the repaired behaviour; the remaining detectors still confirm the defects they
+document (28 engine/static + 12 browser). `tools/sol-vision.mjs` is the screenshot describer used for these
+visual checks (hosted Sol 6.1 via `PPQ_API_KEY`); the local vision model was
+misreading the board.

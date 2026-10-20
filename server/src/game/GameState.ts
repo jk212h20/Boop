@@ -7,6 +7,7 @@ import {
   GameState,
   MoveResult,
   GraduationResult,
+  GraduatedCell,
   Cell,
   DIRECTIONS,
   LINE_DIRECTIONS
@@ -24,7 +25,7 @@ export class BoopGame {
   private winner: PlayerColor | null;
   private lastMove: Cell | null;
   private boopedPieces: { from: Cell; to: Cell | null; piece: Piece }[];
-  private graduatedPieces: Cell[];
+  private graduatedPieces: GraduatedCell[];
   private pendingGraduationOptions: Cell[][] | null;
   private pendingGraduationPlayer: PlayerColor | null;
 
@@ -469,7 +470,7 @@ export class BoopGame {
       const piece = this.board[cell.row][cell.col];
       if (piece) {
         this.board[cell.row][cell.col] = null;
-        this.graduatedPieces.push(cell);
+        this.graduatedPieces.push({ row: cell.row, col: cell.col, piece });
 
         if (piece.type === 'kitten') {
           player.kittensRetired++;

@@ -192,3 +192,47 @@ test('R07: one boop can graduate both players on the post-boop board', () => {
   assert.equal(r.newState.players.gray!.catsInPool, 3);
   assert.equal(r.newState.currentTurn, 'gray');
 });
+
+test('R08: a boop-formed line graduates only its owner, with the piece that left', () => {
+  const st = setup(s => {
+    s.board[3][0] = K('orange'); s.board[3][1] = K('orange'); s.board[3][3] = K('orange');
+    s.currentTurn = 'gray';
+  });
+  // Gray plays (3,4): the orange kitten at (3,3) is pushed into the EMPTY cell
+  // (3,2). The client used to fill the animation from the pre-move board, so
+  // that cell showed a guessed colour (the promoted group looked mixed).
+  const r = executeMove(st, 3, 4, 'kitten', 'gray');
+  assert.equal(r.valid, true);
+  assert.equal(st.board[3][2], null, 'the cell the boop filled started empty');
+  assert.equal(r.newState.graduatedPieces.length, 3);
+  for (const cell of r.newState.graduatedPieces) {
+    assert.deepEqual(cell.piece, K('orange'));
+  }
+});
+
+test('R09: both players\' graduations on one move keep their own piece data', () => {
+  const st = setup(s => {
+    s.board[0][4] = K('orange'); s.board[1][4] = K('orange');
+    s.board[2][0] = K('gray'); s.board[2][1] = K('gray'); s.board[2][3] = K('gray');
+  });
+  const r = executeMove(st, 2, 4, 'kitten', 'orange');
+  assert.equal(r.newState.graduatedPieces.length, 6);
+  assert.equal(r.newState.graduatedPieces.filter(c => c.piece.color === 'orange').length, 3);
+  assert.equal(r.newState.graduatedPieces.filter(c => c.piece.color === 'gray').length, 3);
+});
+
+test('R06b: a resolved graduation choice carries its piece data', () => {
+  const st = setup(s => {
+    s.board[3][0] = K('orange'); s.board[3][1] = K('orange');
+    s.board[3][2] = K('orange'); s.board[3][4] = K('orange');
+    s.currentTurn = 'gray';
+  });
+  const r = executeMove(st, 3, 5, 'kitten', 'gray');
+  assert.equal(r.newState.phase, 'selecting_graduation');
+  const sel = resolveGraduationChoice(r.newState, 0);
+  assert.equal(sel.valid, true);
+  assert.equal(sel.newState.graduatedPieces.length, 3);
+  for (const cell of sel.newState.graduatedPieces) {
+    assert.deepEqual(cell.piece, K('orange'));
+  }
+});

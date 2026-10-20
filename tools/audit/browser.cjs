@@ -80,7 +80,9 @@ async function main(){
    a.setState({...a.state,board:after});await new Promise(r=>setTimeout(r,50));window.__audit.history.goToStart();
    await new Promise(r=>setTimeout(r,50));return window.__audit.history.viewingBoard[2][2];
   });
-  assert.ok(start);console.log('CONFIRMED H01 Go to start returns current board rather than initial board');
+  // Repaired: the opening position is kept once a move is recorded, so "go to
+  // start" shows the empty opening board instead of the live one.
+  assert.equal(start,null);console.log('CONFIRMED H01 go to start shows the initial board');
   // A fast finishing opponent queues behind our placement, but game_over
   // timer ignores that queue and applies the final state after only 500ms.
   const early=await page.evaluate(async()=>{
@@ -91,7 +93,9 @@ async function main(){
    window.__server('game_over',{winner:'gray',winCondition:'three_cats_in_row',gameState:final});
    await new Promise(r=>setTimeout(r,650));return Boolean(window.__audit.socket.gameOver);
   });
-  assert.equal(early,true);console.log('CONFIRMED C02 game_over bypasses queued winning move animation window');
+  // Repaired: game_over waits behind the queued animation window, so it is not
+  // applied 650 ms after a move that is still animating.
+  assert.equal(early,false);console.log('CONFIRMED C02 game_over waits for the queued animation window');
   // Clear leftover event; then leave with an update still queued.
   await page.waitForTimeout(1400);
   const resurrected=await page.evaluate(async()=>{
@@ -101,7 +105,8 @@ async function main(){
    window.__audit.socket.leaveRoom();await new Promise(r=>setTimeout(r,650));
    return window.__audit.socket.gameState?.lastMove;
   });
-  assert.deepEqual(resurrected,{row:3,col:3});console.log('CONFIRMED C03 queued updates resurrect gameState after leave');
+  // Repaired: leaving cancels the queued update, so it cannot resurrect state.
+  assert.equal(resurrected,undefined);console.log('CONFIRMED C03 leaving cancels queued updates');
   // Reset starts a new game but leaves the old delayed bot action alive.
   const reset=await page.evaluate(async()=>{
    window.__scriptBot([{row:5,col:5,pieceType:'kitten'}]);
@@ -121,8 +126,11 @@ async function main(){
    await window.__audit.bot.placePiece(0,0,'kitten');await new Promise(r=>setTimeout(r,2200));
    return {phase:window.__audit.bot.gameState.phase,player:window.__audit.bot.gameState.pendingGraduationPlayer,thinking:window.__audit.bot.botThinking};
   });
-  assert.deepEqual(stuck,{phase:'selecting_graduation',player:'gray',thinking:false});
-  console.log('CONFIRMED B01 local bot leaves its graduation choice unresolved and deadlocks');
+  // Repaired: the bot resolves its own pending choice, so the game moves on
+  // instead of deadlocking on a dialog the bot can never answer.
+  assert.notEqual(stuck.phase,'selecting_graduation');
+  assert.equal(stuck.player,undefined);
+  console.log('CONFIRMED B01 the local bot resolves its own graduation choice');
   await page.evaluate(()=>{window.__audit.setState(window.__initial());window.__audit.setShowGame(true)});
   await page.waitForTimeout(100);
   // Pending selection keeps currentTurn on orange. Game assumes a turn flip
@@ -143,15 +151,16 @@ async function main(){
   await page.evaluate(()=>window.__audit.setState(window.__initial()));await page.waitForTimeout(100);
   assert.ok((await page.locator('.history-slider').innerText()).includes('Move 1/1'));
   console.log('CONFIRMED H04 rematch/new empty game keeps previous move history');
-  // Force the remote HDR asset to fail: entire scene lies inside the same
-  // suspense boundary and there is no error boundary or 2D fallback.
+  // Repaired: the environment is built in memory from lightformers, so a
+  // blocked third-party asset cannot take the board down.
   await page.unroute('**/src/components/FloatingBoard3D.tsx');
   await page.route('https://raw.githack.com/**',r=>r.abort());
   await page.reload();await page.waitForFunction(()=>window.__audit);
   await page.evaluate(()=>window.__audit.setShowGame(true));
   await page.waitForTimeout(1800);
-  assert.ok(errors.some(e=>e.includes('Could not load')||e.includes('Failed to fetch')));
-  console.log('CONFIRMED U01 third-party environment failure crashes game board with no fallback');
+  assert.equal(await page.locator('.board-fallback').count(),0);
+  assert.ok(await page.locator('canvas').count() > 0);
+  console.log('CONFIRMED U01 the board renders without a third-party environment fetch');
   const appPage=await context.newPage();
   await appPage.route('**/node_modules/.vite/deps/socket__io-client.js*',r=>r.fulfill({contentType:'application/javascript',body:mockSocket}));
   await appPage.addInitScript(()=>{

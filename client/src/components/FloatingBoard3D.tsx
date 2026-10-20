@@ -41,8 +41,8 @@ const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) *
 const BOARD_CAMERA = { position: [9.2, 10.8, 12] as [number, number, number], fov: 46 };
 const BOARD_GL = { antialias: true, alpha: true };
 
-interface InventoryFlight { id: number; piece: PieceData; from: { x: number; y: number } }
-type RequestInventoryFlight = (piece: PieceData, from: { x: number; y: number }) => void;
+interface InventoryFlight { id: number; piece: PieceData }
+type RequestInventoryFlight = (piece: PieceData) => void;
 const InventoryFlightContext = createContext<RequestInventoryFlight>(() => {});
 
 function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: PieceData; ghost?: boolean; clip?: string; seed?: number }) {
@@ -163,29 +163,54 @@ const BOOP_DELAY_S = BOOP_DELAY_MS / 1000;
 const BOOP_S = .8; // crouch, airborne arc, and the fall onto the carpet
 const FLOOR_Y = -1.03;
 // Return trip to the inventory portrait: absorb the landing, trot over, look
-// up, and only then hand off to the screen-space hop. Paced so the cat stays
-// near the bed (and therefore keeps its size) instead of shrinking into the
-// far corner in one fast blur.
+// up, and only then hand off to the short screen-space hop into the box.
 const CARPET_LAND_S = .24;
-const TROT_S = 1.55;
-const LOOK_UP_S = .35;
-const TROT_DISTANCE = 4.7; // max distance from the bed centre; keeps the cat large
-const TROT_NEAR = .95; // pull the finish toward the camera so it reads bigger
+// A trot on the carpet, paced by distance so a long run does not become a
+// sprint. The cat keeps going until it is on the carpet directly under the
+// box it belongs in, then hops in from there.
+const TROT_SPEED = 3.9; // world units per second
+const TROT_MIN_S = .9;
+const TROT_MAX_S = 3.6;
+// No sit-and-look-up at the end of the run: the trot flows into a crouch and
+// a leap that carries the kitten clear out of the frame, and it comes back
+// down into its box from above. A stop with no exit read as a pause near the
+// top of the screen.
+const LEAP_CROUCH_S = .16;
+const LEAP_RISE_S = .6;
+const LEAP_HEIGHT = 9;   // world units up; clears the canvas top from the carpet
+// Safety clamp for layouts where a pool sits above the canvas and its floor
+// ray would otherwise run off the far end of the room.
+const MAX_RUN = 16;
 // Project the actual inventory portrait into this scene; no invented boxes.
 function poolDestination(color: PlayerColor, type: PieceType, camera: THREE.Camera, gl: THREE.WebGLRenderer, parent: THREE.Object3D | null) {
-  const icon = document.querySelector(`[data-pool-target="${color}-${type}"] .animated-piece-icon`);
-  if (!icon || !parent) return null;
-  const rect = icon.getBoundingClientRect(), canvas = gl.domElement.getBoundingClientRect();
-  const ndc = new THREE.Vector2((rect.left + rect.width / 2 - canvas.left) / canvas.width * 2 - 1, 1 - (rect.top + rect.height / 2 - canvas.top) / canvas.height * 2);
-  const ray = new THREE.Raycaster(); ray.setFromCamera(ndc, camera);
+  const box = document.querySelector(`[data-pool-target="${color}-${type}"]`);
+  const icon = box?.querySelector('.animated-piece-icon');
+  if (!box || !icon || !parent) return null;
+  const boxRect = box.getBoundingClientRect(), iconRect = icon.getBoundingClientRect();
+  const canvas = gl.domElement.getBoundingClientRect();
+  const toNdc = (clientX: number, clientY: number) => new THREE.Vector2(
+    (clientX - canvas.left) / canvas.width * 2 - 1,
+    1 - (clientY - canvas.top) / canvas.height * 2
+  );
+  const centre = toNdc(iconRect.left + iconRect.width / 2, iconRect.top + iconRect.height / 2);
+  // The run finishes on the carpet just below the whole pool panel, not below
+  // its icon: the floor point under the icon is still behind the panel's own
+  // background, so the kitten would be swallowed by the panel. The gap leaves
+  // room for the whole standing cat under the panel, on the visible carpet.
+  const foot = toNdc(boxRect.left + boxRect.width / 2, boxRect.bottom + 44);
+  const ray = new THREE.Raycaster(); ray.setFromCamera(foot, camera);
   const floor = new THREE.Vector3();
   if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -FLOOR_Y), floor)) return null;
   parent.worldToLocal(floor);
   const landing = floor.clone();
+  const radial = Math.hypot(landing.x, landing.z);
+  if (radial > MAX_RUN) {
+    landing.x *= MAX_RUN / radial;
+    landing.z *= MAX_RUN / radial;
+  }
   // Jump ends precisely at the portrait's screen center, at board-depth.
   const depth = new THREE.Vector3(0, 0, 0).project(camera).z;
-  const portrait = parent.worldToLocal(new THREE.Vector3(ndc.x, ndc.y, depth).unproject(camera));
-  landing.z += 1.4;
+  const portrait = parent.worldToLocal(new THREE.Vector3(centre.x, centre.y, depth).unproject(camera));
   return { landing, portrait };
 }
 const CROUCH_F = .19, AIR_F = .52; // remaining fraction of the boop is landing
@@ -197,9 +222,11 @@ const shortestTurn = (from: number, to: number) =>
 
 function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removing, animationKey }: CatActorProps) {
   const group = useRef<THREE.Group>(null);
+  const glow = useRef<THREE.PointLight>(null);
   const { camera, gl } = useThree();
   const born = useRef(performance.now());
   const removalStarted = useRef<number | null>(null);
+  const graduationStarted = useRef<number | null>(null);
   const heading = useRef(SETTLE_HEADING);
   const seed = useMemo(() => (((row + 2) * 17 + (col + 3) * 31 + piece.color.length * 7) % 23) / 23, [row, col, piece.color]);
   const offBoard = row < 0 || row > 5 || col < 0 || col > 5;
@@ -210,6 +237,12 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   useEffect(() => {
     removalStarted.current = removing ? performance.now() : null;
   }, [removing, animationKey]);
+  // The glow and the rise are one performance: the glow eases in with the
+  // highlight (no scale or light pop on its first frame) and stays lit while
+  // the kitten ascends, fading only as it leaves.
+  useEffect(() => {
+    graduationStarted.current = isGraduating ? performance.now() : null;
+  }, [isGraduating, animationKey]);
 
   const [clip, setClip] = useState('Sit');
   const requestFlight = useContext(InventoryFlightContext);
@@ -275,15 +308,15 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
         if (offBoard) {
           const destination = poolDestination(piece.color, piece.type, camera, gl, g.parent);
           if (!destination) return;
-          const base = destination.landing;
-          // Aim at the inventory column but stop at a friendly distance: a run
-          // to the true floor point under the portrait shrinks the cat until it
-          // is a speck. The DOM hop covers the last stretch at full size.
-          const length = Math.hypot(base.x, base.z) || 1;
-          const stopX = (base.x / length) * Math.min(length, TROT_DISTANCE);
-          const stopZ = (base.z / length) * Math.min(length, TROT_DISTANCE) + TROT_NEAR * .7;
+          // The run ends on the carpet directly under this piece's own box, so
+          // the final hop is a short jump into the box rather than a long
+          // screen-space travel from the middle of the room.
+          const stopX = destination.landing.x;
+          const stopZ = destination.landing.z;
+          const runDistance = Math.hypot(stopX - target[0], stopZ - target[2]);
+          const trotSeconds = Math.max(TROT_MIN_S, Math.min(TROT_MAX_S, runDistance / TROT_SPEED));
           const settle = Math.min(1, (t - BOOP_S) / CARPET_LAND_S);
-          const trot = Math.min(1, Math.max(0, (t - BOOP_S - CARPET_LAND_S) / TROT_S));
+          const trot = Math.min(1, Math.max(0, (t - BOOP_S - CARPET_LAND_S) / trotSeconds));
           if (trot === 0) {
             // Absorb the landing on the carpet in place.
             x = target[0]; z = target[2]; y = FLOOR_Y;
@@ -301,17 +334,27 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
             nextClip = trot < 1 ? 'Walk' : 'Sit';
           }
           if (trot >= 1) {
-            // A short look up at the box before the hop, so the trip reads.
-            nextClip = 'Sit';
+            x = stopX; z = stopZ;
             desiredHeading = SETTLE_HEADING;
-            const handoffAt = BOOP_S + CARPET_LAND_S + TROT_S + LOOK_UP_S;
-            if (t >= handoffAt && !flightSent.current && g.parent) {
-              flightSent.current = true;
-              const screen = g.parent.localToWorld(new THREE.Vector3(stopX, FLOOR_Y + .35, stopZ)).project(camera);
-              const rect = gl.domElement.getBoundingClientRect();
-              requestFlight(piece, {x: rect.left + (screen.x + 1) / 2 * rect.width, y: rect.top + (1 - screen.y) / 2 * rect.height});
+            const sinceStop = t - (BOOP_S + CARPET_LAND_S + trotSeconds);
+            if (sinceStop < LEAP_CROUCH_S) {
+              // Gather itself on the carpet — a beat, not a pause: the leap
+              // starts on the next frame.
+              y = FLOOR_Y;
+              nextClip = 'Land';
+              squash = Math.sin((sinceStop / LEAP_CROUCH_S) * Math.PI) * .2;
+            } else {
+              const p = Math.min(1, (sinceStop - LEAP_CROUCH_S) / LEAP_RISE_S);
+              y = FLOOR_Y + LEAP_HEIGHT * p * p;
+              nextClip = 'Jump';
+              // Hand off only once the leap has actually left the frame, so the
+              // piece is never frozen in view waiting for the next step.
+              if (p >= 1 && !flightSent.current && g.parent) {
+                flightSent.current = true;
+                requestFlight(piece);
+              }
+              g.visible = !flightSent.current;
             }
-            g.visible = !flightSent.current;
           }
         }
       }
@@ -346,15 +389,27 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
     g.rotation.y = heading.current;
     g.rotation.z = roll;
 
-    const breathe = 1 + Math.sin(performance.now() / 900 + seed * 20) * .006;
+    const now = performance.now();
+    const glowStart = graduationStarted.current;
+    const glowIn = glowStart === null ? 0 : Math.min(1, (now - glowStart) / 220);
+    // Milliseconds (performance.now) over a 700ms ascent.
+    const rise = removing && removalStarted.current !== null
+      ? Math.min(1, (now - removalStarted.current) / 700)
+      : 0;
+    const breathe = 1 + Math.sin(now / 900 + seed * 20) * .006;
     const squashY = 1 - squash + stretch * .18;
     const squashXZ = 1 + squash - stretch * .12;
     let scale = scaleBase;
-    if (isGraduating) scale *= 1 + Math.sin(performance.now() / 90) * .05;
-    if (removing && removalStarted.current !== null) {
-      const removalElapsed = (performance.now() - removalStarted.current) / 1000;
-      g.position.y = target[1] + 6 * Math.pow(Math.min(1, removalElapsed / .7), 1.3);
+    if (isGraduating) {
+      // Amplitude ramps in and then eases out with the ascent, so the pulse
+      // never jumps on or fights the rise.
+      const pulse = Math.sin(now / 90) * .05 * glowIn * (1 - rise * .75);
+      scale *= 1 + pulse;
     }
+    if (removing && removalStarted.current !== null) {
+      g.position.y = target[1] + 6 * Math.pow(rise, 1.3);
+    }
+    if (glow.current) glow.current.intensity = isGraduating ? 2.2 * glowIn * (1 - rise) : 0;
     g.scale.set(scale * breathe * squashXZ, scale / breathe * squashY, scale * breathe * squashXZ);
   });
 
@@ -363,7 +418,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
       userData={{ catProbe: isGhost ? 'ghost' : `${piece.color}-${piece.type}-${row}-${col}` }}>
       <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} seed={seed} />
       {isGraduating && (
-        <pointLight color="#ffd76a" intensity={2.2} distance={2.4} position={[0, 1.25, 0]} />
+        <pointLight ref={glow} color="#ffd76a" intensity={0} distance={2.4} position={[0, 1.25, 0]} />
       )}
       {isGhost && <Html center position={[0, 2.15, 0]} style={{ pointerEvents: 'none' }}>
         <span className="kitten-preview-label">Preview</span>
@@ -373,21 +428,26 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
   );
 }
 
-/** A screen-space final hop crosses canvas boundaries on stacked phone layouts.
- * It uses the same animated model and lands exactly over the inventory portrait. */
-function InventoryJump({piece, from}: {piece: PieceData; from: {x: number; y: number}}) {
+/** A screen-space arrival crosses canvas boundaries on stacked phone layouts,
+ * and the pool card is opaque, so the last leg is DOM: the piece appears above
+ * the top of the viewport over its own box and falls into the portrait. */
+function InventoryJump({piece}: {piece: PieceData}) {
   const element = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const icon = document.querySelector(`[data-pool-target="${piece.color}-${piece.type}"] .animated-piece-icon`);
     if (!icon || !element.current) return;
     const target = icon.getBoundingClientRect();
+    const x = target.left;
+    // Start fully above the viewport so the piece re-enters from the top of
+    // the screen, then accelerate downwards under gravity into the box.
     const animation = element.current.animate([
-      { transform: `translate(${from.x - target.width / 2}px, ${from.y - target.height / 2}px)`, width: `${target.width}px`, height: `${target.height}px`, opacity: 1 },
-      { transform: `translate(${(from.x + target.left + target.width / 2) / 2 - target.width / 2}px, ${Math.min(from.y, target.top) - 80}px)`, offset: .55 },
-      { transform: `translate(${target.left}px, ${target.top}px)`, width: `${target.width}px`, height: `${target.height}px`, opacity: 0 }
-    ], {duration: 650, easing: 'ease-in-out', fill: 'forwards'});
+      { transform: `translate(${x}px, ${-target.height * 1.4}px)`, opacity: 0 },
+      { transform: `translate(${x}px, ${-target.height * 1.4}px)`, opacity: 1, offset: .08 },
+      { transform: `translate(${x}px, ${target.top - 10}px)`, offset: .82 },
+      { transform: `translate(${x}px, ${target.top}px)`, opacity: 1 }
+    ], {duration: 620, easing: 'cubic-bezier(.42,0,.94,.55)', fill: 'forwards'});
     return () => animation.cancel();
-  }, [piece.color, piece.type, from]);
+  }, [piece.color, piece.type]);
   // Portal to <body> so viewport coordinates survive any transformed or
   // overflowing ancestor. Safe here: this runs in the react-dom tree.
   return createPortal(<div ref={element} style={{position: 'fixed', left: 0, top: 0, zIndex: 40, pointerEvents: 'none'}}><AnimatedPieceIcon piece={piece} /></div>, document.body);
@@ -564,14 +624,8 @@ function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, onClick
       <lineSegments geometry={fabric.stitches} raycast={() => {}}>
         <lineBasicMaterial color={threadColor} transparent opacity={.36} depthWrite={false} />
       </lineSegments>
-      {/* Playable cells advertise themselves; the last move keeps a warm,
-          persistent marker so you can always see what just happened. */}
-      {enabled && (
-        <mesh position={[0, .10, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => {}}>
-          <ringGeometry args={[.30, .325, 40]} />
-          <meshBasicMaterial color="#f6e3b4" transparent opacity={hovered ? .55 : .24} depthWrite={false} />
-        </mesh>
-      )}
+      {/* Only an actual last move / history highlight gets a marker. Empty
+          playable squares stay calm: no ring on every possible square. */}
       {active && (
         <>
           <mesh position={[0, .105, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => {}}>
@@ -751,12 +805,23 @@ function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: Q
   const woodLight = '#9a6a41';
   const woodDark = '#553218';
 
-  // A drape hangs from the quilt edge (y .30) and flares outward slightly.
-  const drapes: { key: string; at: [number, number, number]; rot: [number, number, number]; box: [number, number, number] }[] = [
-    { key: 'near', at: [0, .36, 3.58], rot: [.1, 0, 0], box: [7.06, .66, .13] },
-    { key: 'far', at: [0, .36, -3.58], rot: [-.1, 0, 0], box: [7.06, .66, .13] },
-    { key: 'right', at: [3.58, .36, 0], rot: [0, 0, -.1], box: [.13, .66, 7.06] },
-    { key: 'left', at: [-3.58, .36, 0], rot: [0, 0, .1], box: [.13, .66, 7.06] },
+  // A drape hangs straight down from the quilt edge. These used to be rotated
+  // a few degrees outward, which leaned the left and right panels and opened a
+  // visible seam at all four corners. The end panels now run the full width and
+  // the side panels tuck into them, so every edge is flush and square.
+  const half = 3.585;              // panel centre, just outside the quilt edge
+  const thickness = .13;
+  const endLength = half * 2 + thickness;         // reaches the side's outer face
+  const sideLength = half * 2 - thickness + .04;  // tucks into the end panels
+  // Outer face of the bedspread: the shared edge the rails and end boards meet
+  // so every corner of the bed is snug when seen from above.
+  const fabricHalf = half + thickness / 2;        // 3.65
+  const fabricWidth = fabricHalf * 2;             // 7.30
+  const drapes: { key: string; at: [number, number, number]; box: [number, number, number]; hem: [number, number, number] }[] = [
+    { key: 'near', at: [0, .36, half], box: [endLength, .66, thickness], hem: [endLength, .1, thickness + .04] },
+    { key: 'far', at: [0, .36, -half], box: [endLength, .66, thickness], hem: [endLength, .1, thickness + .04] },
+    { key: 'right', at: [half, .36, 0], box: [thickness, .66, sideLength], hem: [thickness + .04, .1, sideLength] },
+    { key: 'left', at: [-half, .36, 0], box: [thickness, .66, sideLength], hem: [thickness + .04, .1, sideLength] },
   ];
 
   return (
@@ -795,22 +860,24 @@ function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: Q
       </RoundedBox>
       {/* Drapes and their darker hems. */}
       {drapes.map(drape => (
-        <group key={drape.key} position={drape.at} rotation={drape.rot}>
+        <group key={drape.key} position={drape.at}>
           <mesh position={[0, -.33, 0]} castShadow receiveShadow>
             <boxGeometry args={drape.box} />
             <meshStandardMaterial color={quiltShade} map={fabric.map} bumpMap={fabric.bumpMap}
               bumpScale={.012} roughness={.99} />
           </mesh>
           <mesh position={[0, -.70, 0]} castShadow>
-            <boxGeometry args={[drape.box[0] + .04, .1, drape.box[2] + .05]} />
+            <boxGeometry args={drape.hem} />
             <meshStandardMaterial color={trim} roughness={.95} />
           </mesh>
         </group>
       ))}
 
-      {/* Headboard behind the far row: posts, rail, and an upholstered panel. */}
-      {[-3.3, 3.3].map(x => (
-        <group key={`post-${x}`} position={[x, 0, -3.92]}>
+      {/* Headboard: flush against the bedspread's back face and as wide as the
+          bed. Narrower, set-back rails left a wedge of background in each far
+          corner when the bed was viewed from above. */}
+      {[-1, 1].map(side => (
+        <group key={`post-${side}`} position={[side * (fabricHalf - .16), 0, -(fabricHalf + .16)]}>
           <mesh position={[0, .34, 0]} castShadow receiveShadow>
             <cylinderGeometry args={[.13, .16, 1.5, 18]} />
             <meshStandardMaterial color={wood} roughness={.58} />
@@ -821,19 +888,23 @@ function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: Q
           </mesh>
         </group>
       ))}
-      <RoundedBox args={[6.72, .28, .2]} radius={.09} position={[0, 1.0, -3.92]} castShadow>
+      <RoundedBox args={[fabricWidth, .28, .2]} radius={.09} position={[0, 1.0, -(fabricHalf + .09)]} castShadow>
         <meshStandardMaterial color={woodLight} roughness={.55} />
       </RoundedBox>
-      <RoundedBox args={[6.5, .62, .16]} radius={.12} position={[0, .56, -3.9]} castShadow receiveShadow>
+      <RoundedBox args={[fabricWidth - .3, .62, .16]} radius={.12} position={[0, .56, -(fabricHalf + .08)]} castShadow receiveShadow>
         <meshStandardMaterial color={cushion} map={fabric.map} bumpMap={fabric.bumpMap}
           bumpScale={.02} roughness={.95} />
       </RoundedBox>
-      <RoundedBox args={[6.86, .2, .2]} radius={.08} position={[0, .18, -3.88]} castShadow>
+      {/* Square ends on the rails that have to meet the bedspread at a right
+          angle: a rounded box curves away from the fabric corner and leaves a
+          wedge of background when the bed is seen from above. */}
+      <mesh position={[0, .18, -(fabricHalf + .09)]} castShadow>
+        <boxGeometry args={[fabricWidth, .2, .2]} />
         <meshStandardMaterial color={wood} roughness={.6} />
-      </RoundedBox>
+      </mesh>
       {/* Two pillows propped against the headboard, behind the playable row. */}
       {[-1.62, 1.62].map(x => (
-        <group key={`pillow-${x}`} position={[x, .58, -3.6]} rotation={[-.28, x > 0 ? -.06 : .06, 0]}>
+        <group key={`pillow-${x}`} position={[x, .58, -(fabricHalf - .19)]} rotation={[-.28, x > 0 ? -.06 : .06, 0]}>
           <RoundedBox args={[2.6, .78, .52]} radius={.34} smoothness={5} castShadow receiveShadow>
             <meshStandardMaterial color={new THREE.Color(quiltColors[0]).lerp(new THREE.Color('#ffffff'), .55)}
               map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.02} roughness={.97} />
@@ -841,10 +912,13 @@ function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: Q
         </group>
       ))}
 
-      {/* Low footboard: below quilt level, so it never hides the near row. */}
-      <RoundedBox args={[7.5, .5, .2]} radius={.1} position={[0, -.02, 3.9]} castShadow receiveShadow>
+      {/* Low footboard: below quilt level, so it never hides the near row. Its
+          width and depth match the bedspread exactly, so its ends are flush
+          right angles against the fabric instead of stepping past it. */}
+      <mesh position={[0, -.02, fabricHalf + .09]} castShadow receiveShadow>
+        <boxGeometry args={[fabricWidth, .5, .2]} />
         <meshStandardMaterial color={woodLight} roughness={.6} />
-      </RoundedBox>
+      </mesh>
     </group>
   );
 }
@@ -854,6 +928,35 @@ function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: Q
 // small and dim, so zoom is gone and framing is derived from the aspect ratio.
 const BOARD_VIEW_DIR = new THREE.Vector3(9.2, 10.8, 12).normalize();
 const BOARD_DISTANCE = 12.6;
+
+/** The orbit the player chose, kept in the module and in storage so a re-mounted
+ * canvas (a new model loading, a resize, a remount of the board) comes back to
+ * the same angle. Without this the view snapped back to the default whenever
+ * the 3D scene was rebuilt — most visibly when a three-in-a-row started the
+ * graduation animation. Only the very first visit uses the default view. */
+const BOARD_VIEW_STORAGE_KEY = 'boop-board-view';
+interface BoardView { azimuth: number; polar: number; distance: number }
+let savedBoardView: BoardView | null = null;
+
+function readBoardView(): BoardView | null {
+  if (savedBoardView) return savedBoardView;
+  try {
+    const raw = localStorage.getItem(BOARD_VIEW_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<BoardView>;
+    if (typeof parsed.azimuth !== 'number' || typeof parsed.polar !== 'number' || typeof parsed.distance !== 'number') return null;
+    if (!Number.isFinite(parsed.azimuth) || !Number.isFinite(parsed.polar) || !Number.isFinite(parsed.distance)) return null;
+    savedBoardView = { azimuth: parsed.azimuth, polar: parsed.polar, distance: parsed.distance };
+    return savedBoardView;
+  } catch {
+    return null;
+  }
+}
+
+function writeBoardView(view: BoardView) {
+  savedBoardView = view;
+  try { localStorage.setItem(BOARD_VIEW_STORAGE_KEY, JSON.stringify(view)); } catch { /* keep it in memory */ }
+}
 
 /** Warm the shader cache before the first piece is placed, so the first
  * placement does not hitch while materials compile. */
@@ -871,13 +974,44 @@ function Precompile() {
 function FrameBoard() {
   const camera = useThree(state => state.camera);
   const size = useThree(state => state.size);
-  const controls = useThree(state => state.controls) as { update?: () => void; target?: THREE.Vector3 } | null;
+  const controls = useThree(state => state.controls) as
+    | { update?: () => void; target?: THREE.Vector3; addEventListener?: (t: string, f: () => void) => void; removeEventListener?: (t: string, f: () => void) => void }
+    | null;
   // Read through a ref: a re-created controls instance (Suspense re-entry when
   // a new model loads mid-game) must not re-run the framing effect and snap the
   // view back.
   const controlsRef = useRef(controls);
   controlsRef.current = controls;
   const applied = useRef(0);
+
+  // Remember the orbit the player settles on. Orbit controls keep easing after
+  // the pointer is released, so the settled value is read from 'change' (and the
+  // storage write is debounced past the damping tail) rather than at 'end'.
+  useEffect(() => {
+    const active = controlsRef.current;
+    if (!active?.addEventListener) return;
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    const remember = () => {
+      const target = active.target ?? new THREE.Vector3(0, .18, 0);
+      const offset = camera.position.clone().sub(target);
+      const distance = offset.length();
+      if (distance < 1e-3) return;
+      const view: BoardView = {
+        azimuth: Math.atan2(offset.x, offset.z),
+        polar: Math.acos(THREE.MathUtils.clamp(offset.y / distance, -1, 1)),
+        distance,
+      };
+      savedBoardView = view; // in-memory immediately: a remount is instant
+      if (settle) clearTimeout(settle);
+      settle = setTimeout(() => writeBoardView(view), 250);
+    };
+    active.addEventListener('change', remember);
+    return () => {
+      active.removeEventListener?.('change', remember);
+      if (settle) clearTimeout(settle);
+    };
+  }, [controls, camera]);
+
   useEffect(() => {
     const aspect = size.width / Math.max(1, size.height);
     // The shell is square or wider, and the vertical field of view is fixed, so
@@ -891,7 +1025,12 @@ function FrameBoard() {
     applied.current = distance;
     const active = controlsRef.current;
     const target = active?.target ?? new THREE.Vector3(0, .18, 0);
-    const direction = camera.position.clone().sub(target);
+    // A rebuilt canvas starts from the default camera position, so restore the
+    // player's orbit explicitly instead of trusting whatever it was given.
+    const saved = readBoardView();
+    const direction = saved
+      ? new THREE.Vector3().setFromSphericalCoords(1, saved.polar, saved.azimuth)
+      : camera.position.clone().sub(target);
     // Keep whatever orbit the player has chosen; only the radius is ours.
     if (direction.lengthSq() < 1e-6) direction.copy(BOARD_VIEW_DIR);
     camera.position.copy(target).addScaledVector(direction.normalize(), distance);
@@ -1012,13 +1151,17 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
               onHover={value => setHover(previous => value ? { row, col } : previous?.row === row && previous?.col === col ? null : previous)}
               onClick={() => props.onCellClick(row, col)} />;
           }))}
-          {props.board.map((line, row) => line.map((piece, col) => piece && (
-            <CatActor key={`${row}-${col}-${piece.color}-${piece.type}`} piece={piece} row={row} col={col}
+          {props.board.map((line, row) => line.map((piece, col) => {
+            if (!piece) return null;
+            // The glow begins with the highlight and stays lit through the
+            // ascent; only the removal phase adds the rise.
+            const graduating = props.graduatingPieces.some(g => g.row === row && g.col === col);
+            return <CatActor key={`${row}-${col}-${piece.color}-${piece.type}`} piece={piece} row={row} col={col}
               boop={boopTo(row, col)} isNew={props.lastMove?.row === row && props.lastMove?.col === col && !boopTo(row, col)}
-              isGraduating={props.graduatingPieces.some(g => g.row === row && g.col === col) && props.graduationPhase === 'highlighting'}
-              removing={props.graduatingPieces.some(g => g.row === row && g.col === col) && props.graduationPhase === 'removing'}
-              animationKey={props.animationKey} />
-          )))}
+              isGraduating={graduating && (props.graduationPhase === 'highlighting' || props.graduationPhase === 'removing')}
+              removing={graduating && props.graduationPhase === 'removing'}
+              animationKey={props.animationKey} />;
+          }))}
           {hover && props.isMyTurn && !props.isViewingHistory && props.myColor && props.selectedPieceType && !props.board[hover.row][hover.col] && (
             <CatActor piece={{ color: props.myColor, type: props.selectedPieceType }} row={hover.row} col={hover.col}
               isGhost animationKey={props.animationKey} />
@@ -1103,9 +1246,9 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   const [flights, setFlights] = useState<InventoryFlight[]>([]);
   const flightId = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const requestFlight = useCallback<RequestInventoryFlight>((piece, from) => {
+  const requestFlight = useCallback<RequestInventoryFlight>((piece) => {
     const id = ++flightId.current;
-    setFlights(previous => [...previous, { id, piece, from }]);
+    setFlights(previous => [...previous, { id, piece }]);
     timers.current.push(setTimeout(() => {
       setFlights(previous => previous.filter(flight => flight.id !== id));
     }, 800));
@@ -1125,7 +1268,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
         </Suspense>
       </Canvas>
       </BoardErrorBoundary>
-      {flights.map(flight => <InventoryJump key={flight.id} piece={flight.piece} from={flight.from} />)}
+      {flights.map(flight => <InventoryJump key={flight.id} piece={flight.piece} />)}
       <div className="board-hint">Drag to look around</div>
       <div className="board-cell-anchors" aria-hidden="true">
         {Array.from({ length: 36 }, (_, i) => <span key={i} data-cell={`${Math.floor(i / 6)}-${i % 6}`} />)}

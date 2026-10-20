@@ -1,7 +1,7 @@
 // Local Game Simulator for Bot AI
 // This is a client-side port of the server's GameState logic for move simulation
 
-import { Board, Piece, PlayerColor, PieceType, PlayerState, GameState, Cell, BoopEffect } from '../types';
+import { Board, Piece, PlayerColor, PieceType, PlayerState, GameState, Cell, GraduatedCell, BoopEffect } from '../types';
 import { Move, SimulationResult } from './types';
 
 const BOARD_SIZE = 6;
@@ -381,16 +381,16 @@ function executeGraduationOption(
   board: Board,
   option: Cell[],
   player: PlayerState
-): { board: Board; graduatedPieces: Cell[]; catsEarned: number } {
+): { board: Board; graduatedPieces: GraduatedCell[]; catsEarned: number } {
   const newBoard = cloneBoard(board);
-  const graduatedPieces: Cell[] = [];
+  const graduatedPieces: GraduatedCell[] = [];
   let catsEarned = 0;
 
   for (const cell of option) {
     const piece = newBoard[cell.row][cell.col];
     if (piece) {
       newBoard[cell.row][cell.col] = null;
-      graduatedPieces.push(cell);
+      graduatedPieces.push({ row: cell.row, col: cell.col, piece });
 
       if (piece.type === 'kitten') {
         player.kittensRetired++;
@@ -410,7 +410,7 @@ function checkAndExecuteGraduation(
   board: Board,
   player: PlayerState,
   playerColor: PlayerColor
-): { board: Board; graduatedPieces: Cell[]; catsEarned: number; pendingOptions?: Cell[][] } {
+): { board: Board; graduatedPieces: GraduatedCell[]; catsEarned: number; pendingOptions?: Cell[][] } {
   const newBoard = cloneBoard(board);
 
   // Find all unique graduation options
@@ -732,23 +732,11 @@ export function resolveGraduationChoice(
     return { newState: state, valid: false, error: 'Player not found' };
   }
 
-  const graduatedPieces: Cell[] = [];
-  for (const cell of options[optionIndex]) {
-    const piece = newState.board[cell.row][cell.col];
-    if (piece) {
-      newState.board[cell.row][cell.col] = null;
-      graduatedPieces.push(cell);
-
-      if (piece.type === 'kitten') {
-        player.kittensRetired++;
-        player.catsInPool++;
-      } else {
-        player.catsInPool++;
-      }
-    }
-  }
-
-  newState.graduatedPieces = graduatedPieces;
+  // One implementation for both the human and bot paths, so the graduated
+  // piece data (colour + type, used by the removal animation) cannot diverge.
+  const resolved = executeGraduationOption(newState.board, options[optionIndex], player);
+  newState.board = resolved.board;
+  newState.graduatedPieces = resolved.graduatedPieces;
   newState.pendingGraduationOptions = undefined;
   newState.pendingGraduationPlayer = undefined;
 

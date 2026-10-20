@@ -186,3 +186,31 @@ test('R07: one boop can graduate both players on the post-boop board', () => {
   assert.equal(gray.catsInPool, 3);
   assert.equal((g as any).currentTurn, 'gray');
 });
+
+test('R08: a graduation event carries the promoted piece, not a stale board lookup', () => {
+  const { g, board } = freshGame();
+  (g as any).currentTurn = 'gray';
+  board[3][0] = K('orange'); board[3][1] = K('orange'); board[3][3] = K('orange');
+  // Gray plays (3,4): the boop pushes the orange kitten from (3,3) to (3,2),
+  // which was EMPTY before the move. The client used to read the colour from
+  // that pre-move board and surfaced mixed-colour kittens in the promotion.
+  const res = (g as any).placePiece('g', 3, 4, 'kitten');
+  assert.equal(res.valid, true);
+  assert.equal(res.graduatedPieces.length, 3);
+  const filledByBoop = res.graduatedPieces.find((c: any) => c.row === 3 && c.col === 2);
+  assert.ok(filledByBoop, 'the booped kitten graduated too');
+  for (const cell of res.graduatedPieces) {
+    assert.deepEqual(cell.piece, K('orange'), 'every graduated piece is the line owner');
+  }
+});
+
+test('R09: both players\' graduations in one boop keep their own piece data', () => {
+  const { g, board } = freshGame();
+  board[0][4] = K('orange'); board[1][4] = K('orange');
+  board[2][0] = K('gray'); board[2][1] = K('gray'); board[2][3] = K('gray');
+  const res = (g as any).placePiece('o', 2, 4, 'kitten');
+  assert.equal(res.graduatedPieces.length, 6);
+  const colors = res.graduatedPieces.map((c: any) => c.piece.color);
+  assert.equal(colors.filter((c: string) => c === 'orange').length, 3);
+  assert.equal(colors.filter((c: string) => c === 'gray').length, 3);
+});

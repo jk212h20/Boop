@@ -1,6 +1,18 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MoveRecord, Board, PlayerColor, PieceType, BoopEffect, Cell } from '../types';
+import { MoveRecord, Board, PlayerColor, PieceType, BoopEffect, GraduatedCell, GraduationEffect, Cell } from '../types';
 import { cloneBoard } from '../bot/LocalGame';
+
+// One graduation event per player: a single boop can complete a line for the
+// mover AND for the opponent, so the mover's name must not be stamped on both.
+function groupGraduations(pieces: GraduatedCell[]): GraduationEffect[] {
+  const byPlayer = new Map<PlayerColor, Cell[]>();
+  for (const { row, col, piece } of pieces) {
+    const cells = byPlayer.get(piece.color) ?? [];
+    cells.push({ row, col });
+    byPlayer.set(piece.color, cells);
+  }
+  return [...byPlayer].map(([player, cells]) => ({ cells, player }));
+}
 
 interface UseGameHistoryReturn {
   // History data
@@ -26,7 +38,7 @@ interface UseGameHistoryReturn {
     player: PlayerColor,
     placement: { row: number; col: number; pieceType: PieceType },
     boops: BoopEffect[],
-    graduatedPieces: Cell[],
+    graduatedPieces: GraduatedCell[],
     playersBefore: { orange: { kittensInPool: number; catsInPool: number }; gray: { kittensInPool: number; catsInPool: number } },
     playersAfter: { orange: { kittensInPool: number; catsInPool: number }; gray: { kittensInPool: number; catsInPool: number } }
   ) => void;
@@ -102,7 +114,7 @@ export function useGameHistory(initialBoard?: Board): UseGameHistoryReturn {
     player: PlayerColor,
     placement: { row: number; col: number; pieceType: PieceType },
     boops: BoopEffect[],
-    graduatedPieces: Cell[],
+    graduatedPieces: GraduatedCell[],
     playersBefore: { orange: { kittensInPool: number; catsInPool: number }; gray: { kittensInPool: number; catsInPool: number } },
     playersAfter: { orange: { kittensInPool: number; catsInPool: number }; gray: { kittensInPool: number; catsInPool: number } }
   ) => {
@@ -111,9 +123,9 @@ export function useGameHistory(initialBoard?: Board): UseGameHistoryReturn {
       player,
       placement,
       boops,
-      graduations: graduatedPieces.length > 0 
-        ? [{ cells: graduatedPieces, player }]
-        : [],
+      // A boop can graduate BOTH players on one move, so attribute each group
+      // by the piece that actually left the board rather than by the mover.
+      graduations: groupGraduations(graduatedPieces),
       boardBefore: cloneBoard(boardBefore),
       boardAfter: cloneBoard(boardAfter),
       playersBefore: { ...playersBefore },

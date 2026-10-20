@@ -17,6 +17,14 @@ export interface BoardCell extends Cell {
   piece: Piece | null;
 }
 
+// A graduating cell carries the piece that left the board. Clients must not
+// re-derive it from a previous board snapshot: the line may have been formed by
+// a boop, so the piece that was standing there before the move can be empty or
+// belong to the other player.
+export interface GraduatedCell extends Cell {
+  piece: Piece;
+}
+
 // 6x6 board
 export type Board = (Piece | null)[][];
 
@@ -49,7 +57,7 @@ export interface GameState {
   winner: PlayerColor | null;
   lastMove: Cell | null;
   boopedPieces: BoopEffect[];
-  graduatedPieces: Cell[];
+  graduatedPieces: GraduatedCell[];
   pendingGraduationOptions?: Cell[][]; // Multiple 3-in-a-row options to choose from
   pendingGraduationPlayer?: PlayerColor; // Which player needs to choose
 }
@@ -58,7 +66,7 @@ export interface MoveResult {
   valid: boolean;
   error?: string;
   boopedPieces: BoopEffect[];
-  graduatedPieces: Cell[];
+  graduatedPieces: GraduatedCell[];
   newCatsEarned: number;
   winner: PlayerColor | null;
   winCondition?: 'three_cats_in_row' | 'all_eight_cats';
@@ -69,7 +77,7 @@ export interface MoveResult {
 export interface GraduationResult {
   valid: boolean;
   error?: string;
-  graduatedPieces: Cell[];
+  graduatedPieces: GraduatedCell[];
   newCatsEarned: number;
   winner: PlayerColor | null;
   winCondition?: 'three_cats_in_row' | 'all_eight_cats';

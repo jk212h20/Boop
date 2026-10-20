@@ -7,8 +7,8 @@ import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
 import {
-  BOOP_DELAY_MS, FALLEN_TRIP_MS, GRADUATION_DELAY_MS, GRADUATION_HIGHLIGHT_MS,
-  animationDurationMs,
+  BOOP_DELAY_MS, FALLEN_TRIP_MS, GRADUATION_HIGHLIGHT_MS,
+  animationDurationMs, graduationDelayMs,
 } from '../animationTiming';
 
 // Ghost piece data to show where pieces were before being booped
@@ -236,21 +236,21 @@ export function Game({
     }
   }, [gameState.lastMove]);
 
-  // Animation timing constants (must match Board.tsx).
+  // Animation timing (must match the 3D board).
   //
   // Timeline for a move that both boops and graduates:
   //   t=0               move arrives; pieces visible in pre-graduation position
   //                     (displayBoard overlays graduating pieces back onto their cells).
   //   0..DROP_DURATION  newly-placed piece drops in.
   //   BOOP_DELAY        booped pieces start hopping.
-  //   BOOP_END          boops done; graduating pieces get the "graduating-piece"
-  //                     class which plays the sparkle+scale highlight animation.
-  //   +GRADUATION_HIGHLIGHT_DURATION  highlight animation ends.
-  //   +GRADUATION_REMOVAL_DURATION    removal (scale-out + fade) completes.
+  //   IMPACT            the last graduating piece lands on its square, so the
+  //                     sparkle+glow highlight starts on that impact rather
+  //                     than after the whole boop budget.
+  //   +GRADUATION_HIGHLIGHT_DURATION  highlight ends; the rise begins.
+  //   +GRADUATION_REMOVAL_DURATION    removal (ascent + reserve arrival) ends.
   // Cells are cleared from displayBoard only after the final phase ends,
-  // so the visual order is: move, boop, highlight, remove.
+  // so the visual order is: move, boop, glow, rise.
   const BOOP_DELAY = BOOP_DELAY_MS;
-  const GRADUATION_DELAY = GRADUATION_DELAY_MS;
   const GRADUATION_HIGHLIGHT_DURATION = GRADUATION_HIGHLIGHT_MS;
 
   // Handle game state updates - trigger animations and sounds (live game only)
@@ -322,22 +322,28 @@ export function Game({
       // and step through three phases:
       //   1. 'visible' — pieces are just there, no special rendering.
       //      This covers the placement-drop and boop phases.
-      //   2. 'highlighting' — triggered after boops end. Board.tsx applies
-      //      the .graduating-piece class (sparkle + scale keyframe).
-      //   3. 'removing' — triggered after the highlight finishes. Board.tsx
-      //      switches to the exit animation (fade + scale-out).
+      //   2. 'highlighting' — triggered the moment the last graduating piece
+      //      lands. The 3D actor eases the glow in from zero so the pulse and
+      //      point light never pop on, and keeps it lit into the rise.
+      //   3. 'removing' — triggered after the highlight finishes: the piece
+      //      ascends while the glow fades out.
       // Finally we clear animatingGraduations, displayBoard snaps to the
       // post-graduation state, and the cells become empty.
       const timers: ReturnType<typeof setTimeout>[] = [];
+      const graduationDelay = graduationDelayMs({
+        graduatedPieces: graduated,
+        boopedPieces: booped,
+        lastMove: gameState.lastMove,
+      });
       if (graduated.length > 0) {
-        const graduatingPlayer: PlayerColor =
-          gameState.currentTurn === 'orange' ? 'gray' : 'orange';
+        // The piece comes with the event. Reading it from prevBoardRef used to
+        // guess: a line made by a boop sits on cells that were empty — or held
+        // the other player's piece — before the move, which surfaced
+        // mixed-colour kittens in the removal animation.
         const graduatingWithPieces: GraduatingPiece[] = graduated.map(cell => ({
           row: cell.row,
           col: cell.col,
-          piece:
-            prevBoardRef.current[cell.row]?.[cell.col] ||
-            { color: graduatingPlayer, type: 'kitten' as PieceType }
+          piece: { ...cell.piece },
         }));
         // Set the full graduation list immediately so displayBoard keeps
         // the pieces visible from t=0.
@@ -347,13 +353,13 @@ export function Game({
         timers.push(setTimeout(() => {
           setGraduationPhase('highlighting');
           playSound('graduate');
-        }, GRADUATION_DELAY));
+        }, graduationDelay));
 
         timers.push(setTimeout(() => {
           setGraduationPhase('removing');
 
 
-        }, GRADUATION_DELAY + GRADUATION_HIGHLIGHT_DURATION));
+        }, graduationDelay + GRADUATION_HIGHLIGHT_DURATION));
       }
       
       // Play sounds with proper timing
@@ -369,6 +375,7 @@ export function Game({
       const totalAnimationTime = animationDurationMs({
         graduatedPieces: graduated,
         boopedPieces: booped,
+        lastMove: gameState.lastMove,
       });
 
       timers.push(setTimeout(() => {

@@ -48,47 +48,66 @@ const winningSetup = () => {
   s.players.orange!.kittensInPool--; s.players.orange!.kittensRetired++; s.players.orange!.catsInPool++;
   return s;
 };
-detect('R01 winning cat line erased by mixed graduation (server and local)', () => {
+// Repaired 2026-10-15: the win is checked on the post-boop board BEFORE any
+// graduation, so the winning cat line survives and the game ends.
+detect('R01 winning cat line survives graduation (server and local)', () => {
   const s = winningSetup();
   const local = executeMove(s, 2,2,'cat','orange');
   const server = engine(winningSetup()); const result = server.placePiece('local-player',2,2,'cat');
   assert.equal(local.valid, true); assert.equal(result.valid, true);
-  assert.equal(local.newState.winner, null); assert.equal(result.winner, null);
-  assert.equal(findCatLines(local.newState.board, 'orange').length, 0);
-  assert.equal(local.newState.graduatedPieces.length, 3);
+  assert.equal(local.newState.winner, 'orange'); assert.equal(result.winner, 'orange');
+  assert.equal(findCatLines(local.newState.board, 'orange').length, 1);
+  assert.equal(local.newState.graduatedPieces.length, 0);
 });
-detect('R02 opponent cat win is ignored', () => {
+// Repaired 2026-10-15: both players are checked on the post-boop board, so a
+// win the mover hands to the opponent is honoured.
+detect('R02 opponent cat win created by the boop ends the game', () => {
   const s = fixture([[0,0,'cat','gray'], [0,1,'cat','gray'], [1,2,'cat','gray']]);
   // Give orange one cat to push the gray cat upwards.
   s.players.orange!.kittensInPool = 7; s.players.orange!.kittensRetired = 1; s.players.orange!.catsInPool = 1;
   const game = engine(s); const result = game.placePiece('local-player',2,2,'cat');
   assert.equal(result.valid,true); assert.equal(findCatLines(game.getState().board,'gray').length,1);
-  assert.equal(result.winner,null); assert.equal(game.getState().phase,'playing');
+  assert.equal(result.winner,'gray'); assert.equal(game.getState().phase,'finished');
 });
 const eightSetup = () => fixture([[0,0,'kitten','orange'],[0,2,'kitten','orange'],[0,4,'kitten','orange'],[2,0,'kitten','orange'],[2,2,'kitten','orange'],[2,4,'kitten','orange'],[4,0,'kitten','orange']]);
-detect('R03 eight-piece graduation is forced to first kitten with no choice', () => {
+// Repaired 2026-08-20: the eight-piece rule offers any on-board kitten, so the
+// engine pauses for the choice instead of retiring the first one.
+detect('R03 eight-piece graduation offers every kitten as a choice', () => {
   const game = engine(eightSetup()); const result = game.placePiece('local-player',4,4,'kitten');
-  assert.equal(result.valid,true); assert.deepEqual(result.graduatedPieces,[{row:0,col:0}]);
-  assert.equal(game.getState().phase,'playing');
+  assert.equal(result.valid,true);
+  assert.equal(result.requiresGraduationChoice,true);
+  assert.equal(result.pendingGraduationOptions.length,8);
+  assert.equal(game.getState().phase,'selecting_graduation');
 });
-detect('R04 eight pieces plus a triple offers no single-piece alternative', () => {
+// Repaired 2026-08-20: with both a triple and eight pieces on the bed the
+// player chooses which rule to activate, so every kitten is also offered.
+detect('R04 eight pieces plus a triple offers both rules', () => {
   const s = eightSetup(); s.board[0][4] = null; s.board[0][1] = kitten;
   const result = engine(s).placePiece('local-player',4,4,'kitten');
-  assert.equal(result.valid,true); assert.equal(result.graduatedPieces.length,3);
-  assert.equal(result.requiresGraduationChoice,undefined);
+  assert.equal(result.valid,true); assert.equal(result.graduatedPieces.length,0);
+  assert.equal(result.requiresGraduationChoice,true);
+  const sizes = result.pendingGraduationOptions.map((o: { length: number }) => o.length);
+  assert.ok(sizes.includes(3), 'the triple is offered');
+  assert.equal(sizes.filter((n: number) => n === 1).length, 8, 'each kitten is offered');
 });
-detect('V01 invalid piece type mints a piece and negative cat inventory', () => {
+// Repaired 2026-08-20: the runtime piece-type enum is enforced.
+detect('V01 invalid piece type is rejected', () => {
   const game = engine(); const result = game.placePiece('local-player',2,2,'dragon' as any);
-  assert.equal(result.valid,true); assert.equal(game.getState().players.orange!.catsInPool,-1);
-  assert.equal(game.getState().board[2][2]!.type,'dragon');
+  assert.equal(result.valid,false); assert.equal(result.error,'Invalid move');
+  assert.equal(game.getState().players.orange!.catsInPool,0);
+  assert.equal(game.getState().board[2][2],null);
 });
-detect('V02 fractional row crashes engine rather than returning invalid', () => {
-  assert.throws(() => engine().placePiece('local-player',0.5,2,'kitten'),TypeError);
+// Repaired 2026-08-20: coordinates must be real integers, not coercible ones.
+detect('V02 fractional row is rejected instead of throwing', () => {
+  const result = engine().placePiece('local-player',0.5,2,'kitten');
+  assert.equal(result.valid,false);
 });
 const selectionSetup = () => fixture([[0,0,'kitten','orange'],[0,1,'kitten','orange'],[0,2,'kitten','orange'],[5,0,'kitten','orange'],[5,1,'kitten','orange'],[5,2,'kitten','orange']]);
-detect('V03 fractional graduation index throws', () => {
+// Repaired 2026-08-20: option indices must be real integers.
+detect('V03 fractional graduation index is rejected', () => {
   const game = engine(selectionSetup()); assert.equal(game.placePiece('local-player',3,4,'kitten').requiresGraduationChoice,true);
-  assert.throws(() => game.selectGraduation('local-player',0.5),TypeError);
+  const result = game.selectGraduation('local-player',0.5);
+  assert.equal(result.valid,false);
 });
 detect('S01 both reconnect secrets are exposed to clients', () => {
   const game = new BoopGame(); game.addPlayer('a','A','secret-a'); game.addPlayer('b','B','secret-b');
@@ -179,9 +198,11 @@ detect('B05 config knobs are accepted but never used', () => {
   assert.equal(source.includes('this.config.ownPieceBoopedOff'),false);
   assert.equal(source.includes('this.config.oppPieceBoopedOff'),false);
 });
-detect('B06 cloning a selection state strips its pending options', () => {
+// Repaired 2026-08-20: a clone keeps the pending choice it was cloned with.
+detect('B06 cloning a selection state keeps its pending options', () => {
   const s=executeMove(selectionSetup(),3,4,'kitten','orange').newState;
-  assert.ok(s.pendingGraduationOptions); assert.equal(cloneGameState(s).pendingGraduationOptions,undefined);
+  assert.ok(s.pendingGraduationOptions);
+  assert.deepEqual(cloneGameState(s).pendingGraduationOptions, s.pendingGraduationOptions);
 });
 // Exercise event handlers without binding any ports.
 function socketHarness() {

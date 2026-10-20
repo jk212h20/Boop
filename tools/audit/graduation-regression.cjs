@@ -41,11 +41,13 @@ async function main(){
    window.__animationDuration({}),
    window.__animationDuration({boopedPieces:[{to:{row:1,col:1}}]}),
    window.__animationDuration({boopedPieces:[{to:null}]}),
-   window.__animationDuration({graduatedPieces:[{}]}),
+   window.__animationDuration({graduatedPieces:[{row:0,col:2}],boopedPieces:[],lastMove:{row:0,col:2}}),
   ]);
   // A returned-to-box trip is cosmetic and must NOT add to the move budget:
-  // the game may advance while the cat is still walking home.
-  assert.deepEqual(timings,[800,3600,3600,6500]);
+  // the game may advance while the cat is still walking home. The graduation
+  // budget starts at the impact of the last graduating piece (a placed piece
+  // lands after its 400ms drop), not after the full boop budget.
+  assert.deepEqual(timings,[800,3600,3600,3520]);
   console.log('PASS: shared handoff timing covers the complete graduation and fly-to-pool sequence');
   async function graduate(){
    await page.evaluate(()=>window.__game.setState(window.__fixture()));await page.waitForTimeout(30);
@@ -67,7 +69,7 @@ async function main(){
   console.log('PASS: next placement interrupts graduation without leaving phantom kittens');
   // Wait the shared animation budget rather than a hard-coded guess, so a
   // pacing change cannot silently make this check race the overlay cleanup.
-  const graduationMs=await page.evaluate(()=>window.__animationDuration({graduatedPieces:[{}]}));
+  const graduationMs=await page.evaluate(()=>window.__animationDuration({graduatedPieces:[{row:0,col:2}],boopedPieces:[],lastMove:{row:0,col:2}}));
   await graduate();await page.waitForTimeout(graduationMs+300);
   assert.equal(await page.evaluate(()=>window.__board.board.flat().filter(Boolean).length),0);
   console.log('PASS: uninterrupted graduation removes all three kittens and awards three cats');

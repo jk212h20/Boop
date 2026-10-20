@@ -182,3 +182,18 @@ body {
 @media (min-width: 1280px) {
   .floating-board-shell { width: calc(100% + 528px); margin-left: -264px; aspect-ratio: 1.6 / 1; }
 }
+
+/* One continuous woven carpet reaches every screen edge during a game.
+   Keep it outside the max-width layout and behind the transparent 3D scene. */
+body:has(.game-page) {
+  background-color: #c9d3c1;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(70,89,63,.12) 2px 3px),
+    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,237,.25) 2px 3px),
+    repeating-linear-gradient(45deg, transparent 0 23px, rgba(83,110,76,.24) 23px 26px, transparent 26px 49px, rgba(248,240,211,.45) 49px 52px),
+    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(83,110,76,.24) 23px 26px, transparent 26px 49px, rgba(248,240,211,.45) 49px 52px);
+  background-attachment: fixed;
+  color: #26382d;
+}
+body:has(.game-page) .game-instructions { color: #344837; }
+body:has(.game-page) .floating-board-shell { background: transparent; border: 0; box-shadow: none; }

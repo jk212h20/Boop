@@ -424,11 +424,8 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
           ))}
         </group>
       </group>
-      {/* Continuous floor: its edges lie outside the viewport, never crop the bed. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.08, 0]}>
-        <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial color="#d9e4d8" map={fabric.map} bumpMap={fabric.bumpMap} bumpScale={.012} roughness={1} />
-      </mesh>
+      {/* The page-wide carpet is behind the transparent canvas, without a
+          second floor surface creating a rectangular visual division. */}
       <Environment preset="apartment" environmentIntensity={.7} />
       <OrbitControls makeDefault enablePan={false} minDistance={10} maxDistance={26}
         minPolarAngle={.52} maxPolarAngle={1.16} minAzimuthAngle={-.75} maxAzimuthAngle={.75}

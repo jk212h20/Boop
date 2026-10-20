@@ -188,12 +188,26 @@ body {
 body:has(.game-page) {
   background-color: #c9d3c1;
   background-image:
-    repeating-linear-gradient(0deg, transparent 0 2px, rgba(70,89,63,.12) 2px 3px),
-    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,237,.25) 2px 3px),
-    repeating-linear-gradient(45deg, transparent 0 23px, rgba(83,110,76,.24) 23px 26px, transparent 26px 49px, rgba(248,240,211,.45) 49px 52px),
-    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(83,110,76,.24) 23px 26px, transparent 26px 49px, rgba(248,240,211,.45) 49px 52px);
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(70,89,63,.035) 2px 3px),
+    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,237,.09) 2px 3px),
+    repeating-linear-gradient(45deg, transparent 0 23px, rgba(83,110,76,.065) 23px 26px, transparent 26px 49px, rgba(248,240,211,.12) 49px 52px),
+    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(83,110,76,.065) 23px 26px, transparent 26px 49px, rgba(248,240,211,.12) 49px 52px);
   background-attachment: fixed;
   color: #26382d;
 }
 body:has(.game-page) .game-instructions { color: #344837; }
 body:has(.game-page) .floating-board-shell { background: transparent; border: 0; box-shadow: none; }
+
+/* Carpet starts below the header, continuing sideways and to the page bottom. */
+body:has(.game-page) { background-image: linear-gradient(155deg, #1b2733, #121b26); }
+body:has(.game-page)::before {
+  content: ''; position: fixed; inset: 150px 0 0; z-index: -1;
+  background-color: #c9d3c1;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(70,89,63,.035) 2px 3px),
+    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,237,.09) 2px 3px),
+    repeating-linear-gradient(45deg, transparent 0 23px, rgba(83,110,76,.065) 23px 26px, transparent 26px 49px, rgba(248,240,211,.12) 49px 52px),
+    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(83,110,76,.065) 23px 26px, transparent 26px 49px, rgba(248,240,211,.12) 49px 52px);
+  pointer-events: none;
+}
+body:has(.game-page) { isolation: isolate; }

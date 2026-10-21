@@ -29,4 +29,4 @@ Limits: these are transcript/acoustic checks, not a claim of human listening app
 
 ## Deliverable
 
-One MP4, 1920×1080, 24 fps, H.264/AAC, approximately 255.8 seconds, plus matching SRT and chaptered local player. Breeze outputs are for research/non-commercial use under the installed model license. Generated media is gitignored; source scripts and these review notes are maintained in the Boop repository.
+Final corrected MP4 verified: 1920×1080, 24 fps, H.264/AAC, 255.75 seconds, 9,446,989 bytes. Encoded loudness is -18.17 LUFS integrated, -1.50 dBTP, 3.30 LU loudness range. Chrome successfully decoded the local player, found all 17 chapter controls, and sought into the eight-cat chapter. Encoded-frame review confirms all eight cats remain visible after moving the win banner out of the board. Matching SRT and chaptered local player included. Breeze outputs are for research/non-commercial use under the installed model license. Generated media is gitignored; source scripts and these review notes are maintained in the Boop repository.

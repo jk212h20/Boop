@@ -59,3 +59,28 @@ independent full-rig jump rendered within the pool.
 
 Graduation arrivals use the same exact portrait-bound handoff after their landing,
 rather than shrinking away beside the inventory image.
+
+### Tail and accessory correction (2026-10-21)
+
+Tail centerlines use Catmull-Rom interpolation before metaball meshing, with a
+slower, lower-amplitude traveling sway rather than a large root swing. Ground
+clearance remains covered by the full-loop skin test. Runtime vertex colors are
+explicitly disabled on non-fur materials: the joined GLB's zero-valued fur Mask
+was multiplying eye and glasses materials to black. Adult frame color is the
+team fur accent (orange `#ed6b25` for orange), while kittens contain no glasses
+primitives. An appearance regression checks this accessory-mask isolation.
+
+### Articulated feet and whiskers (2026-10-21)
+
+Legs now use individual rounded upper/lower segments, explicitly bound to their
+own bones; paws are separate rounded white meshes with underside pads. Torso
+skin excludes limb weights, eliminating the heat-weighted central web exposed
+by raised dance paws. IK keeps sole orientation horizontal instead of pitching
+feet with the shins. `review_feet.py` renders low-angle and underside views of
+both models in Sit, Walk, Dance, Jump, Land and Crouch. Whiskers use near-black
+material and a thin 0.008-head-radius curve bevel.
+
+Foot review outcome: repaired seated/dancing close-ups show no detached paws or
+stretched membranes. Rounded articulated joints retain visible cartoon seams;
+they are not a seamless organic limb sculpt. Whiskers use an almost-black matte
+material to avoid gray specular glare, with the same fine strand radius.

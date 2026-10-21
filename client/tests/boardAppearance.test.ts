@@ -165,3 +165,18 @@ test('ghost fur program is cached separately from a solid cat', () => {
   assert.equal(keyOf(ghost), 'boop-fur-orange-ghost-mask');
   assert.equal(keyOf(placed), 'boop-fur-orange-solid-mask');
 });
+
+test('fur masks never blacken glasses or eye accessories', () => {
+  for (const name of ['GlassesAccent', 'GlassesLens', 'EyeGlints', 'Iris', 'Pupils']) {
+    const geometry = new THREE.BoxGeometry();
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count * 3), 3));
+    const material = new THREE.MeshStandardMaterial({vertexColors: true});
+    material.name = name;
+    const source = new THREE.Group(); source.add(new THREE.Mesh(geometry, material));
+    const copy = createCatScene(source, 'orange', false);
+    const actual = (copy.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial;
+    assert.equal(actual.vertexColors, false, name);
+    if (name === 'GlassesAccent') assert.equal(actual.color.getHexString(), 'ed6b25');
+    actual.dispose(); geometry.dispose(); material.dispose();
+  }
+});

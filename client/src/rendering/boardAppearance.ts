@@ -99,6 +99,9 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
     const hasMask = Boolean((child.geometry as THREE.BufferGeometry).getAttribute('color'));
     const prepare = (source: THREE.MeshStandardMaterial) => {
       const material = source.clone();
+      // Mask is fur data, not accessory color. Joined GLBs carry it on every
+      // primitive; zero mask values were multiplying eyes and frames to black.
+      if (source.name !== 'Fur') material.vertexColors = false;
       if (source.name === 'GlassesAccent') {
         material.color.set(ghost ? ghostColors.outline : colors.fur);
         material.roughness = .3;

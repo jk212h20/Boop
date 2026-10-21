@@ -6,6 +6,15 @@ for stage in ('kitten', 'cat'):
     bpy.ops.wm.open_mainfile(filepath=str(root / 'tools/blender/out' / f'boop-{stage}.blend'))
     arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
     mesh = next(o for o in bpy.data.objects if o.type == 'MESH' and o.find_armature() == arm)
+    # Every paw/leg accessory vertex is bound to exactly its own limb bone;
+    # no vertex can stretch from one leg to another during the dance.
+    for prefix in ('front', 'hind'):
+        for side in ('L', 'R'):
+            name = f'{prefix}Paw.{side}'
+            group = mesh.vertex_groups.get(name)
+            assert group is not None, name
+            vertices = [v for v in mesh.data.vertices if any(g.group == group.index and g.weight > .99 for g in v.groups)]
+            assert len(vertices) > 100, f'{stage}: missing independently bound paw {name}'
     tail_groups = {g.index for g in mesh.vertex_groups if g.name.startswith('tail')}
     tail_vertices = [v.index for v in mesh.data.vertices if sum(g.weight for g in v.groups if g.group in tail_groups) > .65]
     assert tail_vertices, 'Tail skin not found'

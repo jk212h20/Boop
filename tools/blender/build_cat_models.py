@@ -177,7 +177,7 @@ def make_materials():
     add("EyeGlints", (1, 1, 1), .10)
     add("NoseAndEars", (.93, .48, .50), .50)
     add("Mouth", (.45, .26, .28), .55)
-    add("Whiskers", (.96, .93, .88), .50)
+    add("Whiskers", (.002, .002, .002), 1.0)
     return mats
 
 
@@ -284,16 +284,20 @@ def build_body(L, stage):
     for co in L["muzzle"]:
         blob(mb, co, head_r * 0.30)
 
-    for tag in ("R", "L"):
-        sh, el, wr, pw = L["front"][tag]
-        chain_blobs(mb, [sh, el, wr], [r_body * 0.44, r_body * 0.34, r_body * 0.30])
-        blob(mb, (wr.x, (sh.y + pw.y) / 2, 0.055), L["radii"]["paw"], (1.06, 1.5, 0.82))
-        hip, knee, hock, toe = L["hind"][tag]
-        chain_blobs(mb, [hip, knee, hock], [r_body * 0.58, r_body * 0.34, r_body * 0.30])
-        chain_blobs(mb, [hock, (hock + toe) / 2, toe], [L["radii"]["paw"] * 0.94,
-                                                        L["radii"]["paw"] * 0.75, L["radii"]["paw"] * 0.81])
-
-    chain_blobs(mb, L["tail"], L["radii"]["tail"])
+    # A continuous Catmull-Rom centerline avoids the angular five-point tail.
+    points, radii = L["tail"], L["radii"]["tail"]
+    smooth_points, smooth_radii = [], []
+    for i in range(len(points) - 1):
+        a, b = points[max(0, i - 1)], points[i]
+        c, d = points[i + 1], points[min(len(points) - 1, i + 2)]
+        for j in range(5):
+            t = j / 5
+            smooth_points.append(.5 * ((2 * b) + (-a + c) * t +
+                (2 * a - 5 * b + 4 * c - d) * t * t +
+                (-a + 3 * b - 3 * c + d) * t * t * t))
+            smooth_radii.append(radii[i] * (1 - t) + radii[i + 1] * t)
+    smooth_points.append(points[-1]); smooth_radii.append(radii[-1])
+    chain_blobs(mb, smooth_points, smooth_radii)
 
     obj.data.materials.append(bpy.data.materials["Fur"])
     bpy.context.view_layer.objects.active = obj
@@ -396,6 +400,26 @@ def build_accessories(arm_obj, L, mats, bvh):
         parts.append((o, bone))
         return o
 
+    for tag in ("R", "L"):
+        for limb in ("front", "hind"):
+            joints = L[limb][tag]
+            for segment, bone_name in [(0, f"{limb}Upper.{tag}"), (1, f"{limb}Lower.{tag}")]:
+                start, end = joints[segment], joints[segment + 1]
+                vector = end - start
+                radius = L["radii"]["leg"] * (.70 if segment == 0 else .56)
+                sphere(f"Leg.{limb}.{tag}.{segment}", (start + end) * .5,
+                       (radius, radius, vector.length * .5 + radius * .85),
+                       mats["Fur"], bone_name, direction_quat(vector))
+            ankle, toe = L[limb][tag][2:]
+            radius = L["radii"]["paw"]
+            center = ankle + Vector((0, -radius * .40, -radius * .18))
+            paw = sphere(f"Paw.{limb}.{tag}", center,
+                         (radius * .86, radius * 1.15, radius * .70),
+                         mats["Fur"], f"{limb}Paw.{tag}")
+            # Small discrete pads remain anatomically legible from below.
+            sphere(f"Pad.{limb}.{tag}", center + Vector((0, 0, -radius * .62)),
+                   (radius * .45, radius * .55, radius * .09), mats["NoseAndEars"], f"{limb}Paw.{tag}")
+
     if L.get("adult"):
         glasses = bpy.data.materials.get("GlassesAccent") or bpy.data.materials.new("GlassesAccent")
         glasses.diffuse_color = (.22, .38, .65, 1)
@@ -441,7 +465,7 @@ def build_accessories(arm_obj, L, mats, bvh):
                        [start,
                         start + Vector((side * head_r * .55, -head_r * .12, dz * head_r * .3)),
                         start + Vector((side * head_r * 1.15, -head_r * .02, dz * head_r * .55))],
-                       head_r * .012, mats["Whiskers"], f"eye.{tag}")
+                       head_r * .008, mats["Whiskers"], f"eye.{tag}")
 
     nose_dir = Euler((math.radians(-18), 0, 0), "XYZ").to_matrix() @ Vector((0, -1, 0))
     nco, nn = surface_point(bvh, head_c + Vector((0, 0, -0.12 * head_r)), nose_dir)
@@ -479,7 +503,7 @@ def build_accessories(arm_obj, L, mats, bvh):
         vg.add(list(range(len(obj.data.vertices))), 1.0, "REPLACE")
         if obj.data.materials and obj.data.materials[0].name == "Fur":
             attr = obj.data.color_attributes.new(name="Mask", type="BYTE_COLOR", domain="CORNER")
-            attr.data.foreach_set("color", [0.0, 0.0, 0.0, 1.0] * len(obj.data.loops))
+            attr.data.foreach_set("color", [1.0 if obj.name.startswith("Paw.") else 0.0, 0.0, 0.0, 1.0] * len(obj.data.loops))
             attr.data.update()
     return parts
 
@@ -591,7 +615,10 @@ class PoseApi:
         self.update()
         self.aim(f"{prefix}Lower.{tag}", Vector(target) - knee)
         self.update()
-        self.aim(f"{prefix}Paw.{tag}", Vector((0, -0.4, -0.9)))
+        # Keep the sole horizontal instead of pitching the entire paw down.
+        # The ankle joint may bend, but a planted foot is not a continuation
+        # of the shin direction.
+        self.set_world_rot(f"{prefix}Paw.{tag}", self.rest_pose[f"{prefix}Paw.{tag}"].to_quaternion())
         self.update()
 
 
@@ -619,7 +646,7 @@ def tail_dirs(L, phase, pitch=0.0, sway=0.12):
         d = (pts[i + 1] - pts[i]).normalized()
         if pitch:
             d = rot_x(d, pitch)
-        d = Euler((0, 0, math.sin(phase + i * 0.6) * sway), "XYZ").to_matrix() @ d
+        d = Euler((0, 0, math.sin(phase - i * 0.35) * sway * (0.45 + i * .12)), "XYZ").to_matrix() @ d
         dirs.append(d)
     dirs.append(dirs[-1])
     return dirs
@@ -634,7 +661,7 @@ def pose_tail_safe(L, api, phase=0.0, pitch=0.0, sway=.12):
     api.update()
     for i, direction in enumerate(tail_dirs(L, phase, pitch, sway)):
         pb = api.pb(f"tail{i}")
-        radius = L["radii"]["tail"][i] + .09
+        radius = L["radii"]["tail"][i] + .16
         length = pb.bone.length
         d = direction.normalized()
         min_z = max(-.8, min(.95, (radius - pb.head.z) / length))
@@ -677,12 +704,12 @@ def pose_sit(L, api, phase=0.0):
     api.aim("head", (0, -0.45, 0.85))
     for tag in ("L", "R"):
         api.aim(f"ear.{tag}", ((0.12 if tag == "L" else -0.12), -0.10, 1))
-    api.root_move((0, 0, -0.48 * H))
-    pose_tail_safe(L, api, phase, pitch=-65, sway=.10)
+    api.root_move((0, 0, -0.30 * H))
+    pose_tail_safe(L, api, phase, pitch=-35, sway=.07)
     api.update()
     for tag in ("L", "R"):
         hp = api.pb(f"hindUpper.{tag}").bone.head_local
-        api.leg_ik("hind", tag, (hp.x, hp.y - 0.40 * B, 0.02), (0, -1, 0))
+        api.leg_ik("hind", tag, (hp.x, hp.y - 0.20 * B, .055), (0, -1, 0))
         sh = api.pb(f"frontUpper.{tag}").bone.head_local
         api.leg_ik("front", tag, (sh.x, sh.y, 0.0), (0, 1, -0.2))
 
@@ -748,7 +775,7 @@ def pose_celebrate(L, api, phase=0.0):
         lift = math.sin(phase * 2 + (0 if sgn > 0 else math.pi)) * 0.5 + 0.5
         sh = api.pb(f"frontUpper.{tag}").bone.head_local
         api.leg_ik("front", tag, (sh.x, sh.y - 0.30, sh.z + 0.10 + lift * 0.35), (0, 1, 0))
-    pose_tail_safe(L, api, phase, pitch=-45, sway=.25)
+    pose_tail_safe(L, api, phase, pitch=-30, sway=.13)
 
 
 def pose_walk(L, api, phase):
@@ -870,6 +897,32 @@ def build(stage):
     bvh = BVHTree.FromObject(body_obj, bpy.context.evaluated_depsgraph_get())
     parts = build_accessories(arm_obj, L, mats, bvh)
     skin_to_armature(body_obj, arm_obj)
+    # Torso skin cannot be pulled into a web by leg bones. Articulated limbs
+    # are separate overlapping rounded segments with explicit rigid weights.
+    for group in list(body_obj.vertex_groups):
+        if group.name.startswith(("front", "hind")):
+            body_obj.vertex_groups.remove(group)
+    for vertex in body_obj.data.vertices:
+        tail_weights = [(g.group, g.weight) for g in vertex.groups
+                        if body_obj.vertex_groups[g.group].name.startswith('tail')]
+        # Heat weighting without limb bones can misclassify the belly as tail.
+        # Only the actual posterior tail region may use the tail chain.
+        if vertex.co.y < L["tail"][0].y + .03:
+            for index, _ in tail_weights:
+                body_obj.vertex_groups[index].remove([vertex.index])
+            tail_weights = []
+        tail_total = sum(w for _, w in tail_weights)
+        if tail_total > .35:
+            for g in list(vertex.groups):
+                body_obj.vertex_groups[g.group].remove([vertex.index])
+            for index, weight in tail_weights:
+                body_obj.vertex_groups[index].add([vertex.index], weight / tail_total, 'REPLACE')
+        total = sum(g.weight for g in vertex.groups)
+        if total > 0:
+            for g in list(vertex.groups):
+                body_obj.vertex_groups[g.group].add([vertex.index], g.weight / total, "REPLACE")
+        else:
+            body_obj.vertex_groups['hips'].add([vertex.index], 1, "REPLACE")
     joined = join_all(body_obj, parts)
     enable_deform(arm_obj, [f"eye.{t}" for t in ("L", "R")] + [f"ear.{t}" for t in ("L", "R")])
 

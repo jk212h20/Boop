@@ -126,7 +126,7 @@ function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: Pie
       const glance = Math.sin(seconds * .21 + seed * 23);
       headYaw = Math.sin(phase) * .09 + Math.sign(glance) * Math.pow(Math.abs(glance), 6) * .3;
       headPitch = Math.sin(phase * .7) * .035;
-      tailYaw = Math.sin(seconds * 1.25 + seed * 7) * .22;
+      tailYaw = Math.sin(seconds * .65 + seed * 7) * .07;
       const flick = Math.max(0, Math.sin(seconds * 1.7 + seed * 29) - .97) * 22;
       earL = flick * .06; earR = flick * .05;
     }

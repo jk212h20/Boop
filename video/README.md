@@ -23,3 +23,7 @@ Dependencies: Boop's installed Playwright and Chrome; Pillow/NumPy; `/opt/homebr
 - Final artifacts and browser history screenshots are in gitignored `outputs/`. Review `QC.md` for actual validation results.
 
 Breeze TTS 2 self-hosted outputs are restricted by its model license to research/non-commercial use. This personal explainer must not be treated as commercial deliverable clearance. Director workflow informed by Serge Shima's CC-BY-4.0 video skill, https://github.com/smixs/visual-skills.
+
+## New in-game TV cut
+
+The TV now uses the separate [cozy 2:04 cut](cozy/README.md), with actual game assets and an original continuous music bed. This original 4:16 master and its player remain intact.

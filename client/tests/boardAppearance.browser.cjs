@@ -182,9 +182,9 @@ const path = require('node:path');
       };
     });
     assert.ok(!media.missing, 'The popup must render the explainer video itself');
-    assert.ok(media.src.endsWith('/video/boop-rules.mp4'), `Unexpected video source ${media.src}`);
+    assert.ok(media.src.endsWith('/video/boop-cozy-rules.mp4'), `Unexpected video source ${media.src}`);
     assert.ok(media.readyState >= 1, 'The explainer must load its metadata');
-    assert.ok(media.duration > 200 && media.duration < 400, `Explainer duration ${media.duration}s`);
+    assert.ok(media.duration >= 120 && media.duration <= 180, `Explainer duration ${media.duration}s`);
     assert.equal(media.w, 1920, 'Explainer width');
     assert.equal(media.h, 1080, 'Explainer height');
     // And it plays: the click that opened the popup is the gesture autoplay needs.

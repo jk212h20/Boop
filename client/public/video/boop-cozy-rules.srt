@@ -1,0 +1,143 @@
+1
+00:00:00,000 --> 00:00:00,952
+Welcome to Boop.
+
+2
+00:00:00,952 --> 00:00:04,697
+Grow your kittens into cats, then line up three cats to win.
+
+3
+00:00:04,697 --> 00:00:05,967
+Here is how to play.
+
+4
+00:00:06,667 --> 00:00:10,435
+Start with an empty six by six bed and eight kittens each.
+
+5
+00:00:10,435 --> 00:00:12,881
+Keep your eight adult cats in reserve.
+
+6
+00:00:12,881 --> 00:00:16,715
+Take turns placing one available piece on any empty square.
+
+7
+00:00:16,715 --> 00:00:19,425
+You never move an existing piece by hand.
+
+8
+00:00:20,125 --> 00:00:26,571
+The piece you place pushes every neighboring piece it can boop one square directly away, including diagonally.
+
+9
+00:00:26,571 --> 00:00:28,404
+Both colors move, even your own.
+
+10
+00:00:28,404 --> 00:00:30,592
+Here, all eight neighbors spread out.
+
+11
+00:00:31,292 --> 00:00:35,554
+A piece pushed off the edge goes back to its owner's pool, ready to play again.
+
+12
+00:00:35,554 --> 00:00:36,592
+It is not captured.
+
+13
+00:00:37,292 --> 00:00:39,002
+An occupied square blocks a push.
+
+14
+00:00:39,002 --> 00:00:42,849
+These two pieces cannot be pushed into each other, whatever their colors.
+
+15
+00:00:42,849 --> 00:00:47,925
+And there are no chain reactions: a booped piece moves once, without pushing its new neighbors.
+
+16
+00:00:48,625 --> 00:00:54,457
+After the pushes finish, check for three of your pieces in a row: across, down, or diagonally.
+
+17
+00:00:54,457 --> 00:00:55,837
+Three kittens graduate.
+
+18
+00:00:55,837 --> 00:00:58,345
+Remove them from the bed and retire them.
+
+19
+00:00:58,345 --> 00:01:03,550
+Take three cats from reserve and put them in your pool, not on those empty squares.
+
+20
+00:01:04,250 --> 00:01:08,056
+Now you can place either a kitten or a cat from your pool.
+
+21
+00:01:08,056 --> 00:01:09,792
+Cats boop kittens and cats.
+
+22
+00:01:09,792 --> 00:01:11,395
+Kittens cannot boop cats.
+
+23
+00:01:11,395 --> 00:01:14,800
+But cats still cannot push into an occupied square.
+
+24
+00:01:15,500 --> 00:01:17,238
+A row can mix your kittens and cats.
+
+25
+00:01:17,238 --> 00:01:21,259
+Remove all three; graduate the kittens, and return the existing cats to your pool.
+
+26
+00:01:21,259 --> 00:01:24,883
+You always have eight active pieces, split between your pool and the bed.
+
+27
+00:01:25,583 --> 00:01:31,062
+If all eight of your pieces are on the bed, you may remove one kitten and graduate it into a cat in your pool.
+
+28
+00:01:31,062 --> 00:01:33,425
+Or return an existing cat to your pool instead.
+
+29
+00:01:34,125 --> 00:01:38,227
+If several rows qualify, or a longer line forms, choose one group of three.
+
+30
+00:01:38,227 --> 00:01:43,050
+If you also have eight pieces out, choose the row or the single-piece option, not both.
+
+31
+00:01:43,750 --> 00:01:48,552
+Win with three of your adult cats in a row, across, down, or diagonally.
+
+32
+00:01:48,552 --> 00:01:51,595
+Or win with all eight of your cats on the bed.
+
+33
+00:01:51,595 --> 00:01:54,300
+Only check after every push is finished.
+
+34
+00:01:55,000 --> 00:01:58,727
+That is it: place, boop, then check for a win or graduation.
+
+35
+00:01:58,727 --> 00:02:02,960
+Protect your pairs, watch the edges, and make a little room to grow.
+
+36
+00:02:02,960 --> 00:02:03,592
+Your turn.

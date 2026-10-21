@@ -1,0 +1,65 @@
+{
+  "title": "Boop \u2022 Cozy TV",
+  "scenes": [
+    {
+      "id": "welcome",
+      "title": "A little push. A clever game.",
+      "text": "Welcome to Boop. Grow your kittens into cats, then line up three cats to win. Here is how to play."
+    },
+    {
+      "id": "setup",
+      "title": "Make the bed",
+      "text": "Start with an empty six by six bed and eight kittens each. Keep your eight adult cats in reserve. Take turns placing one available piece on any empty square. You never move an existing piece by hand."
+    },
+    {
+      "id": "boop",
+      "title": "Neighbors go boop",
+      "text": "The piece you place pushes every neighboring piece it can boop one square directly away, including diagonally. Both colors move, even your own. Here, all eight neighbors spread out."
+    },
+    {
+      "id": "edge",
+      "title": "Off the bed? Back to the pool.",
+      "text": "A piece pushed off the edge goes back to its owner\u2019s pool, ready to play again. It is not captured."
+    },
+    {
+      "id": "limits",
+      "title": "No space? No push.",
+      "text": "An occupied square blocks a push. These two pieces cannot be pushed into each other, whatever their colors. And there are no chain reactions: a booped piece moves once, without pushing its new neighbors."
+    },
+    {
+      "id": "graduate",
+      "title": "Three kittens grow up",
+      "text": "After the pushes finish, check for three of your pieces in a row: across, down, or diagonally. Three kittens graduate. Remove them from the bed and retire them. Take three cats from reserve and put them in your pool, not on those empty squares."
+    },
+    {
+      "id": "strength",
+      "title": "Cats have staying power",
+      "text": "Now you can place either a kitten or a cat from your pool. Cats boop kittens and cats. Kittens cannot boop cats. But cats still cannot push into an occupied square."
+    },
+    {
+      "id": "mixed",
+      "title": "Mixed rows count too",
+      "text": "A row can mix your kittens and cats. Remove all three; graduate the kittens, and return the existing cats to your pool. You always have eight active pieces, split between your pool and the bed."
+    },
+    {
+      "id": "eight",
+      "title": "Eight pieces? Choose one.",
+      "text": "If all eight of your pieces are on the bed, you may remove one kitten and graduate it into a cat in your pool. Or return an existing cat to your pool instead."
+    },
+    {
+      "id": "choice",
+      "title": "One graduation at a time",
+      "text": "If several rows qualify, or a longer line forms, choose one group of three. If you also have eight pieces out, choose the row or the single-piece option, not both."
+    },
+    {
+      "id": "win",
+      "title": "Three cats. One winner.",
+      "text": "Win with three of your adult cats in a row, across, down, or diagonally. Or win with all eight of your cats on the bed. Only check after every push is finished."
+    },
+    {
+      "id": "recap",
+      "title": "Place. Boop. Check.",
+      "text": "That is it: place, boop, then check for a win or graduation. Protect your pairs, watch the edges, and make a little room to grow. Your turn."
+    }
+  ]
+}

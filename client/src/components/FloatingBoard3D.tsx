@@ -49,7 +49,7 @@ interface InventoryFlight { id: number; piece: PieceData; origin: FlightOrigin }
 type RequestInventoryFlight = (piece: PieceData, origin: FlightOrigin) => void;
 const InventoryFlightContext = createContext<RequestInventoryFlight>(() => {});
 
-function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpeed }: { piece: PieceData; ghost?: boolean; clip?: string; seed?: number; gaitSpeed?: { current: number } }) {
+export function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpeed, filmTime }: { piece: PieceData; ghost?: boolean; clip?: string; seed?: number; gaitSpeed?: { current: number }; filmTime?: number }) {
   const { scene, animations } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
   const cloned = useMemo(() => {
     const model = createCatScene(scene, piece.color, ghost);
@@ -155,9 +155,10 @@ function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpeed }: {
     if (rig.earL) rig.earL.rotation.z -= a.earL;
     if (rig.earR) rig.earR.rotation.z -= a.earR;
     mixer.timeScale = clip === 'Walk' ? gaitSpeed?.current ?? 1 : 1;
-    mixer.update(Math.min(delta, .05));
+    if (filmTime !== undefined) mixer.setTime(filmTime);
+    else mixer.update(Math.min(delta, .05));
 
-    const seconds = performance.now() / 1000;
+    const seconds = filmTime ?? performance.now() / 1000;
     const atEase = ['Sit', 'Stand', 'Curious', 'Sleepy'].includes(clip);
     let headYaw = 0, headPitch = 0, tailYaw = 0, earL = 0, earR = 0;
     if (atEase) {
@@ -177,6 +178,7 @@ function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpeed }: {
     a.head.set(headPitch, headYaw, 0); a.tail = tailYaw; a.earL = earL; a.earR = earR;
 
     if (!atEase) return; // blink only while at ease
+    if (filmTime !== undefined) return;
     nextBlink.current -= delta;
     if (blink && nextBlink.current <= 0 && (!blinkAction.current || !blinkAction.current.isRunning())) {
       const action = mixer.clipAction(blink);
@@ -661,7 +663,7 @@ function SheetRipple({ row, col, colors }: { row: number; col: number; colors: Q
   );
 }
 
-function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, onClick, onHover }: {
+export function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, onClick, onHover }: {
   row: number; col: number; enabled: boolean; active: boolean; hovered: boolean;
   colors: QuiltColors; fabric: QuiltResources;
   onClick: () => void; onHover: (value: boolean) => void;
@@ -892,7 +894,7 @@ function CatProbe() {
 /** The bed itself: turned legs, a wooden rail box, a soft mattress, a quilt
  * with a draped hem on all four sides, and a low headboard behind row 0.
  * Playable cells stay on the quilt top (y .36) exactly where they were. */
-function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: QuiltResources }) {
+export function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: QuiltResources }) {
   const quilt = new THREE.Color(quiltColors[0]);
   const quiltShade = quilt.clone().multiplyScalar(.82);
   // The hem takes the coolest pastel darkened toward the grey frame, so the
@@ -1208,7 +1210,7 @@ const TV_CORD_POINTS: [number, number, number][] = [
 const TV_CORD_CURVE = new THREE.CatmullRomCurve3(
   TV_CORD_POINTS.map(([x, y, z]) => new THREE.Vector3(x, y, z)), false, 'catmullrom', .45);
 
-function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
+export function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
   fabric: QuiltResources; quiltColors: QuiltColors;
   onOpenBook: () => void; onOpenVideo: () => void;
 }) {
@@ -1740,7 +1742,7 @@ function RulesBook({ onClose }: { onClose: () => void }) {
 
 // Drop the rendered explainer here when it exists and the panel becomes a real
 // player; with nothing set, the dialog explains itself and points at the book.
-const RULES_VIDEO_SRC: string | null = '/video/boop-rules.mp4';
+const RULES_VIDEO_SRC: string | null = '/video/boop-cozy-rules.mp4';
 
 /** The rules explainer, playing on the television across the bed. */
 function RulesVideo({ onClose }: { onClose: () => void }) {
@@ -1774,7 +1776,7 @@ function RulesVideo({ onClose }: { onClose: () => void }) {
             </>}
         </div>
         <p className="rules-video-foot">
-          Four minutes, start to finish. The book on the other table has the same
+          About two minutes, start to finish. The book on the other table has the same
           rules in writing, and <kbd>?</kbd> opens it at any time.
         </p>
       </div>

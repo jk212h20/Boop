@@ -52,3 +52,5 @@ __pycache__/
 
 # Rules explainer generated media and browser state
 video/outputs/
+
+video/cozy/outputs/

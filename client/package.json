@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test:appearance": "tsx --tsconfig tests/tsconfig.json --test tests/boardAppearance.test.ts tests/playerPool.test.tsx",
     "test": "tsx --tsconfig tests/tsconfig.json --test tests/rules.test.ts",
-    "test:appearance:browser": "node tests/boardAppearance.browser.cjs"
+    "test:appearance:browser": "node tests/boardAppearance.browser.cjs",
+    "test:rules-film": "tsx --tsconfig tests/tsconfig.json --test tests/rulesFilm.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

@@ -1,3 +1,4 @@
+import { RulesFilmStage } from './components/RulesFilmStage';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { useBotGame } from './hooks/useBotGame';
@@ -13,7 +14,7 @@ function getGameCodeFromHash(): string | null {
   return match ? match[1].toUpperCase() : null;
 }
 
-function App() {
+function MainApp() {
   const preview3D = new URLSearchParams(window.location.search).has('preview3d');
   // Auto-play a scripted opening (placement at (2,2) + bot reply) only when
   // explicitly requested. A plain ?preview3d must show the true fresh-game
@@ -339,4 +340,6 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return import.meta.env.DEV && new URLSearchParams(location.search).has('rulesfilm') ? <RulesFilmStage/> : <MainApp/>;
+}

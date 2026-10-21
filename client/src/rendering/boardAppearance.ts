@@ -30,8 +30,8 @@ export function readQuiltColors(): QuiltColors {
 }
 
 const TEAM = {
-  orange: { fur: '#ed6b25', light: '#ffd09b', stripe: '#6e2415', eye: '#63bc58' },
-  gray: { fur: '#64748b', light: '#dce7f2', stripe: '#222b3c', eye: '#48bfd1' },
+  orange: { fur: '#ed6b25', light: '#ffd09b', stripe: '#6e2415', eye: '#63bc58', rim: '#ffa24a' },
+  gray: { fur: '#64748b', light: '#dce7f2', stripe: '#222b3c', eye: '#48bfd1', rim: '#478ef5' },
 };
 
 /** Clone per-instance (independent skeletons for rigged models) and apply
@@ -65,11 +65,11 @@ export interface GhostPalette {
 /** The preview palette for a player: a grey cat outlined in their color. */
 export function ghostPalette(color: PlayerColor): GhostPalette {
   const colors = TEAM[color];
-  const hsl = { h: 0, s: 0, l: 0 };
-  new THREE.Color(colors.fur).getHSL(hsl, THREE.SRGBColorSpace);
-  // The rim keeps the team hue but is pushed bright and saturated: a one-pixel
-  // edge has to survive against both the pale cell and the dark bed frame.
-  const outline = new THREE.Color().setHSL(hsl.h, Math.max(hsl.s, .9), .62, THREE.SRGBColorSpace);
+  // The rim is its own color, not the fur hue pushed to full saturation: the
+  // orange fur sits close enough to red that a saturated rim of the same hue
+  // read as red through the tone mapping. The rim is the one warm orange the
+  // orange player ever sees, so it is picked as an orange.
+  const outline = new THREE.Color(colors.rim);
   return {
     body: GHOST_BODY.clone(),
     belly: GHOST_LIGHT.clone(),

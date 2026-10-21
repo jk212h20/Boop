@@ -499,12 +499,14 @@ export function PlayerPool({
                 ${empty ? 'pool-piece-empty' : 'pool-piece-available'}
                 ${selected ? 'pool-piece-selected' : ''}
                 ${selectable ? 'pool-piece-selectable' : ''}`}>
-              {/* Name, then the animal, then how many are left: the piece is
-                  the thing you pick, so it sits in the middle and the count
-                  reads as a footnote rather than a headline. */}
-              <span className="pool-piece-label">{type === 'kitten' ? 'Kittens' : 'Cats'}</span>
+              {/* "3 Kittens" on one line, then the animal: the count and its
+                  name share a row so the portrait gets the rest of the box
+                  instead of losing a third of it to two separate lines. */}
+              <span className="pool-piece-head">
+                <span className="pool-piece-count">{count}</span>
+                <span className="pool-piece-label">{type === 'kitten' ? (count === 1 ? 'Kitten' : 'Kittens') : (count === 1 ? 'Cat' : 'Cats')}</span>
+              </span>
               <AnimatedPieceIcon piece={{ color, type }} />
-              <span className="pool-piece-count">{count}</span>
             </motion.button>
           );
         })}

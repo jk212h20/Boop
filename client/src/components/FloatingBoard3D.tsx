@@ -162,6 +162,10 @@ const DROP_FROM_Y = 2.7;   // how high the piece starts above its cell
 const BOOP_DELAY_S = BOOP_DELAY_MS / 1000;
 const BOOP_S = .8; // crouch, airborne arc, and the fall onto the carpet
 const FLOOR_Y = -1.03;
+// Graduation ascent: fast enough to clear the top of the canvas and still
+// accelerating, so a rising piece never appears to hesitate in view.
+const RISE_MS = 1100;
+const RISE_HEIGHT = 22;
 // Return trip to the inventory portrait: absorb the landing, trot over, look
 // up, and only then hand off to the short screen-space hop into the box.
 const CARPET_LAND_S = .24;
@@ -408,9 +412,12 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
     const now = performance.now();
     const glowStart = graduationStarted.current;
     const glowIn = glowStart === null ? 0 : Math.min(1, (now - glowStart) / 220);
-    // Milliseconds (performance.now) over a 700ms ascent.
+    // Milliseconds (performance.now) over the ascent. It has to keep moving
+    // until the cat is out of frame: a short rise used to stop six units up,
+    // which is right at the top edge of the canvas, so the graduating piece
+    // hung there for the rest of the removal phase before blinking out.
     const rise = removing && removalStarted.current !== null
-      ? Math.min(1, (now - removalStarted.current) / 700)
+      ? Math.min(1, (now - removalStarted.current) / RISE_MS)
       : 0;
     const breathe = 1 + Math.sin(now / 900 + seed * 20) * .006;
     const squashY = 1 - squash + stretch * .18;
@@ -423,7 +430,14 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
       scale *= 1 + pulse;
     }
     if (removing && removalStarted.current !== null) {
-      g.position.y = target[1] + 6 * Math.pow(rise, 1.3);
+      // Accelerating the whole way: no stall at the top, and the piece is long
+      // gone before the removal phase ends.
+      g.position.y = target[1] + RISE_HEIGHT * rise * rise;
+      g.visible = rise < 1;
+    } else if (!offBoard) {
+      // The ascent leaves the group hidden. A piece placed on this square later
+      // reuses the same instance, so the flag has to come back.
+      g.visible = true;
     }
     if (glow.current) glow.current.intensity = isGraduating ? 2.2 * glowIn * (1 - rise) : 0;
     g.scale.set(scale * breathe * squashXZ, scale / breathe * squashY, scale * breathe * squashXZ);
@@ -1428,10 +1442,9 @@ function RulesBook({ onClose }: { onClose: () => void }) {
           <li><strong>Big cats push everything.</strong> A kitten only boops other kittens; a cat boops kittens and cats alike.</li>
           <li><strong>Two in a row do not push.</strong> A piece cannot be booped into another piece; that push simply does not happen.</li>
           <li><strong>Off the bed.</strong> A piece booped off the edge goes back to your pool.</li>
-          <li><strong>Graduate.</strong> Three of your kittens in a row leave the bed and become cats in your pool.</li>
+          <li><strong>Graduate.</strong> Three of your pieces in a row leave the bed and become cats in your pool.</li>
           <li><strong>Win.</strong> Three of your cats in a row, or all eight cats on the bed.</li>
         </ol>
-        <p className="rules-foot">Click the lamp if you would rather play in the dark.</p>
       </div>
     </div>,
     document.body

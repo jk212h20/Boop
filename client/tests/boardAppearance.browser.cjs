@@ -53,6 +53,28 @@ const path = require('node:path');
     }
     assert.ok(pools[0].selectors.some(selector => selector.count > 0 && selector.disabled));
     console.log('PASS: name-only panels, large counts, and availability independent of turn/ownership');
+    // The count and its name share one line ("7 Kittens"), so the portrait gets
+    // the rest of the box rather than losing a third of it to two rows.
+    const head = await page.evaluate(() => {
+      const button = document.querySelector('[data-pool-target="orange-kitten"]');
+      const row = button.querySelector('.pool-piece-head');
+      const count = row.querySelector('.pool-piece-count').getBoundingClientRect();
+      const label = row.querySelector('.pool-piece-label').getBoundingClientRect();
+      const icon = button.querySelector('.animated-piece-icon').getBoundingClientRect();
+      return {
+        // Baseline-aligned, so compare vertical overlap rather than tops: the
+        // count is three times the size of its name.
+        sameRow: count.top < label.bottom && label.top < count.bottom
+          && row.getBoundingClientRect().height < count.height * 1.8,
+        countLeads: count.left < label.left,
+        iconBelow: icon.top >= count.bottom - 2,
+        iconShare: icon.height / button.getBoundingClientRect().height,
+      };
+    });
+    assert.ok(head.sameRow && head.countLeads, 'The count leads its name on one line');
+    assert.ok(head.iconBelow, 'The portrait sits under the count line');
+    assert.ok(head.iconShare > .6, `The portrait owns most of the card (${head.iconShare.toFixed(2)})`);
+    console.log('PASS: count and name share a line above a full-height portrait');
     await page.screenshot({ path: path.join(out, 'woven-board.png') });
 
     const canvas = page.locator('.floating-board-shell canvas');

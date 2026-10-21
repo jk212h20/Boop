@@ -102,6 +102,9 @@ test('ghost is grey with a player-colored outline', () => {
   assert.ok(!orange.outline.equals(gray.outline), 'the outline differs per player');
   // Orange is warm, slate is cool: not two shades of the same hue.
   assert.ok(orange.outline.getHSL({}, srgb).h < .12);
+  // And orange stays orange. The fur hue pushed to full saturation came out
+  // red through the tone mapping, which is what the player sees on a ghost.
+  assert.ok(orange.outline.getHSL({}, srgb).h > .07, 'the orange rim is not red');
   assert.ok(Math.abs(gray.outline.getHSL({}, srgb).h - orange.outline.getHSL({}, srgb).h) > .2);
 });
 

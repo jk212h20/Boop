@@ -21,7 +21,7 @@ from pathlib import Path
 import math
 
 import bpy
-from mathutils import Euler, Quaternion, Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 from mathutils.bvhtree import BVHTree
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -430,20 +430,31 @@ def build_accessories(arm_obj, L, mats, bvh):
             shader = material.node_tree.nodes.get("Principled BSDF")
             shader.inputs["Base Color"].default_value = material.diffuse_color
             shader.inputs["Roughness"].default_value = roughness
+        inner_rims = {}
         for side in (-1, 1):
-            # Slightly oversized rounded shades; rigid head binding prevents
-            # eye blink scaling from shrinking the frame or its lenses.
-            center = head_c + Vector((side * head_r * .43, -head_r * .94, head_r * .08))
-            sphere(f"Lens.{side}", center, (head_r * .41, head_r * .055, head_r * .30), lenses, "head")
-            pts = [center + Vector((math.cos(a) * head_r * .43, -head_r * .035, math.sin(a) * head_r * .32))
-                   for a in [i * math.tau / 16 for i in range(17)]]
-            curve_mesh(f"ShadesFrame.{side}", pts, head_r * .095, glasses, "head")
-            curve_mesh(f"ShadesArm.{side}", [center + Vector((side * head_r * .40, 0, 0)),
-                       head_c + Vector((side * head_r * .85, -head_r * .4, head_r * .1)),
-                       head_c + Vector((side * head_r * .83, head_r * .15, head_r * .05))],
-                       head_r * .055, glasses, "head")
-        curve_mesh("ShadesBridge", [head_c + Vector((-head_r * .08, -head_r * .98, head_r * .09)),
-                   head_c + Vector((head_r * .08, -head_r * .98, head_r * .09))], head_r * .095, glasses, "head")
+            # Fit each lens to the actual eye surface, then offset beyond the
+            # protruding eye. A shared tangent basis keeps frame and lens aligned.
+            eye_dir = Euler((math.radians(-10), 0, math.radians(-side * 30)), "XYZ").to_matrix() @ Vector((0, -1, .15))
+            co, normal = surface_point(bvh, head_c, eye_dir)
+            center = co + normal * head_r * .48
+            horizontal = Vector((0, 0, 1)).cross(normal).normalized()
+            vertical = normal.cross(horizontal).normalized()
+            orient = Matrix((horizontal, vertical, normal)).transposed().to_quaternion()
+            sphere(f"Lens.{side}", center, (head_r * .41, head_r * .30, head_r * .055), lenses, "head", orient)
+            pts = [center + normal * head_r * .025
+                   + horizontal * (math.cos(a) * head_r * .43)
+                   + vertical * (math.sin(a) * head_r * .32)
+                   for a in [i * math.tau / 32 for i in range(33)]]
+            curve_mesh(f"ShadesFrame.{side}", pts, head_r * .065, glasses, "head")
+            outer = center + horizontal * (side * head_r * .43)
+            inner_rims[side] = center - horizontal * (side * head_r * .43)
+            curve_mesh(f"ShadesArm.{side}", [outer,
+                       head_c + Vector((side * head_r * 1.02, -head_r * .4, head_r * .16)),
+                       head_c + Vector((side * head_r * .94, head_r * .15, head_r * .08))],
+                       head_r * .045, glasses, "head")
+        curve_mesh("ShadesBridge", [inner_rims[-1],
+                   (inner_rims[-1] + inner_rims[1]) * .5 + Vector((0, -head_r * .04, head_r * .035)),
+                   inner_rims[1]], head_r * .055, glasses, "head")
 
     for side, tag in ((-1, "R"), (1, "L")):
         # Eyes: glossy dark sphere + iris + pupil + glints, placed on the head

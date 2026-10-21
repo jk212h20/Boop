@@ -106,3 +106,10 @@ per cheek, rooted together on the muzzle in a shallow outward fan and bound to
 head rather than blinking eye bones. Kittens use shorter (.68 vs 1.05 head-radius)
 and finer (.004 vs .007 head-radius) whiskers. Walk QA measures evaluated sole
 geometry (not elevated paw-bone pivots) and verifies loop closure.
+
+Adult shades fit each eye's sampled face normal with a shared tangent basis for
+lens and rim. Lenses sit .48 head-radius beyond the eye surface (the eye geometry
+protrudes up to .415), rather than intersecting the face on a flat global plane.
+Thinner rims leave visible dark lenses; temples and bridge meet the new rims.
+Kittens remain without glasses. Front, three-quarter, and side review renders
+were checked, alongside appearance, animation and responsive browser regressions.

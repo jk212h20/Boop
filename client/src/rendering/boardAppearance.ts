@@ -104,7 +104,7 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
       const isFur = /^Fur(?:\.\d+)?$/.test(source.name);
       if (!isFur) material.vertexColors = false;
       if (source.name === 'GlassesAccent') {
-        material.color.set(ghost ? ghostColors.outline : colors.fur);
+        material.color.set(ghost ? ghostColors.body : colors.fur);
         material.roughness = .3;
       }
       if (source.name === 'Eyes' || source.name === 'Iris') {
@@ -126,34 +126,21 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
           shader.uniforms.furColor = { value: new THREE.Color(fur) };
           shader.uniforms.lightColor = { value: new THREE.Color(light) };
           shader.uniforms.stripeColor = { value: new THREE.Color(stripe) };
-          shader.uniforms.outlineColor = { value: ghostColors.outline.clone() };
-          shader.uniforms.outlineWidth = { value: ghost ? 2.4 : 0 };
           shader.fragmentShader = shader.fragmentShader
-            .replace('#include <common>', '#include <common>\nuniform vec3 furColor;\nuniform vec3 lightColor;\nuniform vec3 stripeColor;\nuniform vec3 outlineColor;\nuniform float outlineWidth;')
+            .replace('#include <common>', '#include <common>\nuniform vec3 furColor;\nuniform vec3 lightColor;\nuniform vec3 stripeColor;')
             .replace('#include <color_fragment>', [
               '#ifdef USE_COLOR',
               '  vec3 catFur = mix(furColor, lightColor, vColor.r);',
               '  catFur = mix(catFur, stripeColor, vColor.g);',
               '  diffuseColor.rgb = catFur;',
               '#endif',
-            ].join('\n'))
-            // The player's color lives on the edge of the silhouette only:
-            // a fresnel rim, so the body itself stays grey.
-            .replace('#include <dithering_fragment>', [
-              '#include <dithering_fragment>',
-              'if (outlineWidth > 0.0) {',
-              '  float rim = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);',
-              '  float edge = pow(rim, outlineWidth);',
-              '  gl_FragColor.rgb = mix(gl_FragColor.rgb, outlineColor, edge);',
-              '  gl_FragColor.a = max(gl_FragColor.a, edge);',
-              '}',
             ].join('\n'));
         };
         material.customProgramCacheKey = () => `boop-fur-${color}-${ghost ? 'ghost' : 'solid'}-${hasMask ? 'mask' : 'flat'}`;
       }
       if (ghost) {
         // A grey ghost, not an opaque cat inside a bubble. The team color is
-        // only in the rim shader above; there is no emissive wash.
+        // only on the screen-space silhouette; there is no emissive wash.
         material.transparent = true;
         material.opacity = .42;
         material.depthWrite = false;
@@ -161,6 +148,36 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
         material.metalness = 0;
         material.emissive.set('#000000');
         material.emissiveIntensity = 0;
+        // Screen-space union mask: curvature and overlapping limbs are not edges.
+        const colorCompile = material.onBeforeCompile;
+        const silhouette = {
+          mask: { value: null as THREE.Texture | null },
+          size: { value: new THREE.Vector2(1, 1) },
+          color: { value: ghostColors.outline.clone() },
+        };
+        material.userData.silhouette = silhouette;
+        material.onBeforeCompile = (shader, renderer) => {
+          colorCompile.call(material, shader, renderer);
+          shader.uniforms.silhouetteMask = silhouette.mask;
+          shader.uniforms.silhouetteSize = silhouette.size;
+          shader.uniforms.silhouetteColor = silhouette.color;
+          shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', '#include <common>\nuniform sampler2D silhouetteMask;\nuniform vec2 silhouetteSize;\nuniform vec3 silhouetteColor;')
+            .replace('#include <dithering_fragment>', `
+              #include <dithering_fragment>
+              vec2 uv = gl_FragCoord.xy / silhouetteSize;
+              vec2 stepUV = vec2(2.0) / silhouetteSize;
+              float covered = 1.0;
+              for (int x = -1; x <= 1; x++) {
+                for (int y = -1; y <= 1; y++) {
+                  covered = min(covered, texture2D(silhouetteMask, uv + vec2(float(x), float(y)) * stepUV).r);
+                }
+              }
+              float edge = 1.0 - covered;
+              gl_FragColor.rgb = mix(gl_FragColor.rgb, silhouetteColor, edge);
+              gl_FragColor.a = max(gl_FragColor.a, edge);
+            `);
+        };
       }
       return material;
     };

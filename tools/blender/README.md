@@ -113,3 +113,12 @@ protrudes up to .415), rather than intersecting the face on a flat global plane.
 Thinner rims leave visible dark lenses; temples and bridge meet the new rims.
 Kittens remain without glasses. Front, three-quarter, and side review renders
 were checked, alongside appearance, animation and responsive browser regressions.
+
+Adult hind-leg rig is set further rearward (+Y), with hip roots raised and
+narrowed so the upper limb overlaps the torso rather than perching outside it.
+All poses use these same rest joints; kittens retain their existing proportions.
+
+Ghost highlighting uses an offscreen depth-tested mask of the complete preview,
+then an inward two-pixel screen-space border. The shared silhouette mask ignores
+interior curvature and overlaps between joined primitives. Render state is
+restored after the mask pass, and targets/materials are disposed on unmount.

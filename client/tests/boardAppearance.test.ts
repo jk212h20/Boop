@@ -192,3 +192,16 @@ test('joined leg fur retains team patch shader despite Blender material suffix',
   assert.ok(actual.customProgramCacheKey().includes('boop-fur-orange'));
   actual.dispose(); material.dispose(); geometry.dispose();
 });
+
+test('ghost edge shader samples the union mask rather than interior surface normals', () => {
+  const source = new THREE.Group();
+  const fur = new THREE.MeshStandardMaterial(); fur.name = 'Fur';
+  source.add(new THREE.Mesh(new THREE.BoxGeometry(), fur));
+  const scene = createCatScene(source, 'orange', true);
+  const material = (scene.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial;
+  const shader = { uniforms: {}, fragmentShader: '#include <common>\n#include <color_fragment>\n#include <dithering_fragment>' };
+  material.onBeforeCompile(shader as any, {} as any);
+  assert.ok(shader.fragmentShader.includes('texture2D(silhouetteMask'));
+  assert.ok(!shader.fragmentShader.includes('dot(normalize(normal)'));
+  assert.ok(material.userData.silhouette);
+});

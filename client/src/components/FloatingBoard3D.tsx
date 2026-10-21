@@ -70,6 +70,45 @@ function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpeed }: {
     // The mixer is created once; clip changes crossfade below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cloned, ghost]);
+  const { gl: maskRenderer, scene: worldScene, camera: maskCamera } = useThree();
+  const silhouetteTarget = useMemo(() => ghost ? new THREE.WebGLRenderTarget(1, 1, {
+    minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
+  }) : null, [ghost]);
+  const silhouetteMaterial = useMemo(() => ghost ? new THREE.MeshBasicMaterial({color: 'white'}) : null, [ghost]);
+  useEffect(() => () => { silhouetteTarget?.dispose(); silhouetteMaterial?.dispose(); }, [silhouetteTarget, silhouetteMaterial]);
+  useFrame(() => {
+    if (!silhouetteTarget || !silhouetteMaterial) return;
+    const size = maskRenderer.getDrawingBufferSize(new THREE.Vector2());
+    if (silhouetteTarget.width !== size.x || silhouetteTarget.height !== size.y) silhouetteTarget.setSize(size.x, size.y);
+    const hidden: THREE.Object3D[] = [];
+    const members = new Set<THREE.Object3D>();
+    cloned.traverse(node => members.add(node));
+    worldScene.traverse(node => {
+      if ((node instanceof THREE.Mesh || node instanceof THREE.Sprite || node instanceof THREE.Line || node instanceof THREE.Points) && !members.has(node) && node.visible) { node.visible = false; hidden.push(node); }
+    });
+    const oldTarget = maskRenderer.getRenderTarget();
+    const oldOverride = worldScene.overrideMaterial;
+    const oldBackground = worldScene.background;
+    const oldClear = maskRenderer.getClearColor(new THREE.Color());
+    const oldAlpha = maskRenderer.getClearAlpha();
+    const oldAutoClear = maskRenderer.autoClear;
+    try {
+      worldScene.overrideMaterial = silhouetteMaterial; worldScene.background = null;
+      maskRenderer.setRenderTarget(silhouetteTarget); maskRenderer.setClearColor(0, 0); maskRenderer.autoClear = true;
+      maskRenderer.clear(); maskRenderer.render(worldScene, maskCamera);
+    } finally {
+      maskRenderer.setRenderTarget(oldTarget); maskRenderer.setClearColor(oldClear, oldAlpha); maskRenderer.autoClear = oldAutoClear;
+      worldScene.overrideMaterial = oldOverride; worldScene.background = oldBackground;
+      hidden.forEach(node => { node.visible = true; });
+    }
+    cloned.traverse(node => {
+      if (!(node instanceof THREE.Mesh)) return;
+      for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+        const uniforms = material.userData.silhouette;
+        if (uniforms) { uniforms.mask.value = silhouetteTarget.texture; uniforms.size.value.copy(size); }
+      }
+    });
+  });
   const currentClip = useRef(clip);
   const blink = useMemo(() => (mixer ? THREE.AnimationClip.findByName(animations, 'Blink') ?? null : null), [mixer, animations]);
   const nextBlink = useRef(2 + Math.random() * 4);

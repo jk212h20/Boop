@@ -75,6 +75,39 @@ const path = require('node:path');
     assert.ok(head.iconBelow, 'The portrait sits under the count line');
     assert.ok(head.iconShare > .6, `The portrait owns most of the card (${head.iconShare.toFixed(2)})`);
     console.log('PASS: count and name share a line above a full-height portrait');
+    // The portraits are rendered from the models, so this measures the actual
+    // artwork: no animal may be cropped at the frame edge, and the kitten must
+    // read as the smaller animal instead of being scaled up to fill the box.
+    const portraits = await page.evaluate(async () => {
+      const measure = async (target) => {
+        const img = document.querySelector(`[data-pool-target="${target}"] img`);
+        if (img.decode) await img.decode().catch(() => {});
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const context = canvas.getContext('2d');
+        context.drawImage(img, 0, 0);
+        const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+        let top = canvas.height, bottom = -1;
+        for (let y = 0; y < canvas.height; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            if (data[(y * canvas.width + x) * 4 + 3] < 8) continue;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+          }
+        }
+        return { top, bottom, share: (bottom - top + 1) / canvas.height, height: canvas.height };
+      };
+      return { kitten: await measure('orange-kitten'), cat: await measure('orange-cat') };
+    });
+    for (const [name, portrait] of Object.entries(portraits)) {
+      assert.ok(portrait.top > 1, `${name} portrait is not cut off at the top (top=${portrait.top})`);
+      assert.ok(portrait.bottom < portrait.height - 1, `${name} portrait is not cut off at the bottom`);
+    }
+    assert.ok(portraits.kitten.share < portraits.cat.share * .85,
+      `The kitten reads smaller than the cat (${portraits.kitten.share.toFixed(2)} vs ${portraits.cat.share.toFixed(2)})`);
+    assert.ok(portraits.cat.share > .75, 'The cat still fills its portrait');
+    console.log('PASS: portraits are uncropped and the kitten is smaller than the cat');
     await page.screenshot({ path: path.join(out, 'woven-board.png') });
 
     const canvas = page.locator('.floating-board-shell canvas');

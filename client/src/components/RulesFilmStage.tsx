@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Environment, Lightformer } from '@react-three/drei';
-import { CatModel, BedShell, Room, QuiltCell } from './FloatingBoard3D';
+import { CatActor, CatModel, BedShell, Room, QuiltCell } from './FloatingBoard3D';
 import { createFabricTextures, createQuiltPatchGeometry, createQuiltStitches, readQuiltColors } from '../rendering/boardAppearance';
 import type { Piece } from '../types';
 
@@ -31,11 +31,18 @@ export function filmPoolCount(id:string,t:number,color:'orange'|'gray') {
   if(['graduate','mixed','eight'].includes(id)&&t>.80&&color==='orange')return id==='eight'?1:3;
   return 0;
 }
+export function floorKittenPose(i:number,t:number,color:'orange'|'gray') {
+  const points=[[3.5,1.5],[4.2,.9],[3.6,2.5],[4.2,2.7],[2.8,3.2],[2.9,4],[1.8,3.8],[4.5,1.9]];
+  const [x,z]=points[i];const sign=color==='orange'?1:-1;
+  const phase=(i%3===0?t*4:0)+i*1.7;
+  return {position:[sign*x+Math.sin(phase)*.15,-1.03,z+Math.cos(phase)*.16] as [number,number,number], heading:Math.atan2(Math.cos(phase),-Math.sin(phase))};
+}
 function World({id,t}:{id:string;t:number}) {
   const fabric=useMemo(()=>({...createFabricTextures(),patch:createQuiltPatchGeometry(),stitches:createQuiltStitches()}),[]);
   const colors=useMemo(readQuiltColors,[]);
   useEffect(()=>()=>{fabric.map.dispose();fabric.bumpMap.dispose();fabric.patch.dispose();fabric.stitches.dispose();},[fabric]);
-  const {camera}=useThree();
+  const {camera,scene}=useThree();
+  useEffect(()=>{(window as any).filmBoopProbe=()=>{const values:any[]=[];scene.traverse(node=>{if(node.userData.catProbe)values.push({id:node.userData.catProbe,x:node.position.x,y:node.position.y,z:node.position.z});});return values;};return ()=>{delete (window as any).filmBoopProbe;};},[scene]);
   useEffect(()=>{
     const intro=id==='welcome'||id==='recap';
     const angle=intro ? -.20+t*.38 : 0;
@@ -50,8 +57,8 @@ function World({id,t}:{id:string;t:number}) {
     <BedShell fabric={fabric} quiltColors={colors}/>
     {Array.from({length:6},(_,row)=>Array.from({length:6},(_,col)=><QuiltCell key={`${row}-${col}`} row={row} col={col} enabled={false} active={false} hovered={false} colors={colors} fabric={fabric} onClick={()=>{}} onHover={()=>{}}/>))}
     {['boop','strength','limits','edge'].includes(id)&&t>.20&&<mesh position={[((id==='edge'?2: id==='boop'?2:1)-2.5)*1.17, .48, ((id==='edge'?1:2)-2.5)*1.17]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.43,.48,48]}/><meshBasicMaterial color="#d99536"/></mesh>}
-    {filmActors(id,t).map((p,i)=><group key={`${id}-${i}-${p.type}`} position={id==='edge'&&i===0&&t>.70?[-4.5,.3,3.8]:[(p.c-2.5)*1.17,.49+(['graduate','mixed'].includes(id)?Math.max(0,t-.62)*6:0),(p.r-2.5)*1.17]} scale={p.type==='kitten'?.55:.65}><CatModel piece={p} clip={(id==='win'||id==='recap'||id==='welcome')?'Dance':'Sit'} seed={i*.2} filmTime={t*12}/></group>)}
-    {['orange','gray'].map(color=>Array.from({length: filmPoolCount(id,t,color as 'orange'|'gray')},(_,i)=><group key={`${color}-${i}`} position={poolCats?[-.85+i*.85,.3,4.7]:[color==='orange'?4.5:-4.5,.3,-1.6+i*.57]} scale={.44}><CatModel piece={{color:color as 'orange'|'gray',type:poolCats?'cat':'kitten'}} filmTime={t*12}/></group>))}
+    {filmActors(id,t).map((p,i)=>id==='boop'?<CatActor key={`boop-${i}`} piece={p} row={p.to?.[0]??p.r} col={p.to?.[1]??p.c} boop={p.to?{fromRow:(p.to[0]+2)/2,fromCol:(p.to[1]+2)/2}:undefined} isNew={!p.to} animationKey={1} filmElapsed={(t-.20)*11.17}/>:<group key={`${id}-${i}-${p.type}`} position={id==='edge'&&i===0&&t>.70?[-4.5,-1.03,3.8]:[(p.c-2.5)*1.17,.49+(['graduate','mixed'].includes(id)?Math.max(0,t-.62)*6:0),(p.r-2.5)*1.17]} scale={p.type==='kitten'?.55:.65}><CatModel piece={p} clip={(id==='win'||id==='recap'||id==='welcome')?'Dance':'Sit'} seed={i*.2} filmTime={t*12}/></group>)}
+    {['orange','gray'].map(color=>Array.from({length: filmPoolCount(id,t,color as 'orange'|'gray')},(_,i)=><group key={`${color}-${i}`} position={poolCats?[-.85+i*.85,-1.03,4.0]:floorKittenPose(i,t,color as 'orange'|'gray').position} rotation={[0,poolCats?0:floorKittenPose(i,t,color as 'orange'|'gray').heading,0]} scale={.44}><CatModel piece={{color:color as 'orange'|'gray',type:poolCats?'cat':'kitten'}} clip={poolCats?'Sit':i%3===0?'Walk':i%3===1?'Curious':'Sit'} seed={i*.37} filmTime={t*12}/></group>))}
     <Environment resolution={64}><Lightformer position={[0,8,4]} intensity={2} scale={[12,6,1]} rotation={[-Math.PI/2,0,0]}/></Environment>
   </>;
 }

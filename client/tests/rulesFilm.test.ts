@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filmActors, filmPoolCount } from '../src/components/RulesFilmStage';
+import { filmActors, filmPoolCount, floorKittenPose } from '../src/components/RulesFilmStage';
 test('film boops eight neighbors exactly one square away',()=>{
  const before=filmActors('boop',.2),after=filmActors('boop',.6);
  assert.equal(before.length,8);assert.equal(after.length,9);
@@ -25,4 +25,12 @@ test('setup and eight-piece option conserve active pieces across bed and pool',(
  for(const t of [.4,.9])assert.equal(filmActors('setup',t).length+filmPoolCount('setup',t,'orange'),8);
  for(const t of [.4,.9])assert.equal(filmActors('eight',t).length+filmPoolCount('eight',t,'orange'),8);
  assert.equal(filmPoolCount('graduate',.9,'orange'),3);
+});
+
+test('floor kittens stay on carpet, avoid table centers, and move independently',()=>{
+ for(const color of ['orange','gray'] as const)for(let i=0;i<8;i++) {
+  const a=floorKittenPose(i,0,color),b=floorKittenPose(i,.5,color);
+  assert.equal(a.position[1],-1.03);if(i%3===0)assert.notDeepEqual(a.position,b.position);else assert.deepEqual(a.position,b.position);
+  assert.ok(a.position[2]>.5); // tables are beside the head of the bed
+ }
 });

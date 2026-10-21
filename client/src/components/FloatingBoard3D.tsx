@@ -203,6 +203,8 @@ interface CatActorProps {
   isWinner?: boolean;
   removing?: boolean;
   animationKey: number;
+  /** Explicit capture time; gameplay continues to use its own clock. */
+  filmElapsed?: number;
 }
 
 // Cat-like motion. Everything below is elapsed-time driven so a re-render
@@ -300,7 +302,7 @@ function flightOrigin(group: THREE.Group, camera: THREE.Camera, gl: THREE.WebGLR
     height: Math.max(...points.map(p => p.y)) - y};
 }
 
-function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinner, removing, animationKey }: CatActorProps) {
+export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinner, removing, animationKey, filmElapsed }: CatActorProps) {
   const group = useRef<THREE.Group>(null);
   const glow = useRef<THREE.PointLight>(null);
   const { camera, gl } = useThree();
@@ -343,7 +345,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinne
       setClip('Sit');
       return;
     }
-    const elapsed = (performance.now() - born.current) / 1000;
+    const elapsed = filmElapsed ?? (performance.now() - born.current) / 1000;
     let x = target[0], y = target[1], z = target[2];
     let desiredHeading = settleHeading;
     let nextClip = 'Sit';
@@ -488,7 +490,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinne
     g.rotation.y = heading.current;
     g.rotation.z = roll;
 
-    const now = performance.now();
+    const now = filmElapsed === undefined ? performance.now() : filmElapsed * 1000;
     const glowStart = graduationStarted.current;
     const glowIn = glowStart === null ? 0 : Math.min(1, (now - glowStart) / 220);
     // Milliseconds (performance.now) over the ascent. It has to keep moving
@@ -525,7 +527,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinne
   return (
     <><group ref={group} position={target} renderOrder={isGhost ? -1 : 1}
       userData={{ catProbe: isGhost ? 'ghost' : `${piece.color}-${piece.type}-${row}-${col}` }}>
-      <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} seed={seed} gaitSpeed={gaitSpeed} />
+      <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} seed={seed} gaitSpeed={gaitSpeed} filmTime={filmElapsed === undefined ? undefined : Math.max(0, filmElapsed - BOOP_DELAY_S) % BOOP_S} />
       {isGraduating && (
         <pointLight ref={glow} color="#ffd76a" intensity={0} distance={2.4} position={[0, 1.25, 0]} />
       )}
@@ -1761,7 +1763,7 @@ function RulesVideo({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   return createPortal(
     <div className="rules-scrim" onPointerDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="rules-video" role="dialog" aria-modal="true" aria-labelledby="rules-video-title">
+      <div className="rules-tv-cabinet"><div className="rules-tv-antenna" aria-hidden="true"><i/><i/></div><div className="rules-video" role="dialog" aria-modal="true" aria-labelledby="rules-video-title">
         <div className="rules-book-head">
           <h2 id="rules-video-title">How to Boop, on film</h2>
           <button ref={close} type="button" className="rules-close" onClick={onClose}
@@ -1779,7 +1781,7 @@ function RulesVideo({ onClose }: { onClose: () => void }) {
           About two minutes, start to finish. The book on the other table has the same
           rules in writing, and <kbd>?</kbd> opens it at any time.
         </p>
-      </div>
+      </div></div>
     </div>,
     document.body
   );

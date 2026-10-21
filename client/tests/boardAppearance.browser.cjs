@@ -192,6 +192,9 @@ const path = require('node:path');
       () => (document.querySelector('.rules-video video')?.currentTime ?? 0) > 0.4,
       null, { timeout: 8000 });
     await page.screenshot({ path: path.join(out, 'rules-video.png') });
+    assert.equal(await page.locator('.rules-tv-antenna i').count(), 2);
+    const tvBounds = await page.locator('.rules-tv-cabinet').boundingBox();
+    assert.ok(tvBounds.x >= 0 && tvBounds.x + tvBounds.width <= 1441, 'TV cabinet fits viewport');
     await page.keyboard.press('Escape');
     await page.locator('.rules-video').waitFor({ state: 'detached' });
     // And the backdrop closes it, like the book.

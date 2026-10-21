@@ -345,3 +345,16 @@ body:has(.game-page)::after {
 body:has(.game-page) .game-instructions > p { display: inline-block; background: #fffaf0ed; border-radius: 12px; padding: 6px 14px; }
 
 @media (max-width: 600px) { .game-finished .game-header > * { visibility: hidden; } }
+
+/* Rounded CRT cabinet: antennae live outside the scrollable dialog. */
+.rules-tv-cabinet { position: relative; width: min(48rem, 100%); margin-top: 3.5rem; }
+.rules-tv-antenna { position: absolute; left: 50%; top: -3.1rem; width: 4rem; height: 3.1rem; transform: translateX(-50%); pointer-events: none; }
+.rules-tv-antenna i { position: absolute; bottom: 0; left: 50%; width: .22rem; height: 3.8rem; border-radius: 1rem; transform-origin: bottom; background: linear-gradient(90deg,#6b7075,#e6e2d6,#737579); }
+.rules-tv-antenna i:first-child { transform: rotate(-42deg); }
+.rules-tv-antenna i:last-child { transform: rotate(42deg); }
+.rules-video { width: 100%; max-height: calc(90vh - 4rem); border-radius: 1.8rem; border: .45rem solid #583b29; background: repeating-linear-gradient(2deg,#3d291f 0,#493126 3px,#402b21 7px); padding: 1rem 1.15rem; }
+.rules-video .rules-book-head h2 { font-family: 'American Typewriter', Georgia, serif; font-weight: 600; }
+.rules-video-frame { border: .6rem solid #171c21; border-radius: 8% / 12%; box-shadow: 0 0 0 .15rem #96745b, inset 0 0 36px #000; }
+.rules-video-frame video { border-radius: 7% / 11%; }
+.rules-video-frame::after { content: ''; position: absolute; inset: 0 0 2.8rem; border-radius: 8% / 12%; pointer-events: none; background: radial-gradient(ellipse at center,transparent 55%,rgba(10,6,15,.14) 100%),linear-gradient(125deg,rgba(255,244,214,.08),transparent 40%); }
+@media(max-width:600px) { .rules-tv-cabinet { margin-top: 2.8rem; } .rules-video { padding:.65rem; } .rules-video-frame { border-width:.3rem; } }

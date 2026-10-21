@@ -12,7 +12,7 @@
 ## Checks
 
 - Source narration: all twelve lines independently transcribed locally with Nemotron. Exact numerical counts and key rule contrasts retained. Minor ASR differences include “PCU” for “piece you”, “rook” for “row”, and “rose” for “rows”. Whisper.cpp large-v3 independently confirms “piece you place”, “row”, and the full graduation/pool instruction. Both recognize the first boop line's connective as “that” rather than scripted “it”; the surrounding complete sentence, strength contrast, and demonstration are retained. No claim of human listening approval or perceptual voice-identity proof.
-- Six fixture regressions: eight-neighbor one-square boops, blocked moves/no chains, empty graduation squares, kitten/adult contrast, eight-piece option and adult win fixtures, plus bed/pool conservation.
+- Seven fixture regressions: eight-neighbor one-square boops, blocked moves/no chains, empty graduation squares, kitten/adult contrast, eight-piece option and adult win fixtures, plus bed/pool conservation, and grounded moving pool positions.
 - Production build and 26 existing appearance tests.
 - In-game television browser test verifies source, 120–180-second duration, native 1080p decoding and advancing playback. Escape/backdrop close behavior retained.
 - Whole-page responsive checks cover 1440, 1280, 1279, 1200, 1024, 768, 601, 600, 390 and 320 px, asserting actual pool widths, label fit, overflow and layout. Winner animation/reduced-motion regression also retained.
@@ -26,3 +26,24 @@ This Pi session's image reads return descriptions rather than native pixels. Sav
 Breeze narration is for personal/research noncommercial use only. Nothing is pushed or deployed by this change.
 
 Measured encoded mix: **−18.13 LUFS**, **−1.47 dBTP**, **3.40 LU LRA**.
+
+## User-requested CRT repair
+
+Replaced floating/aligned setup pools with staggered, individually phased
+floor kittens on the gameplay carpet plane; pool adults and edge returns also
+use that plane. Only wandering kittens translate; seated/curious kittens remain planted.
+The eight-neighbor boop now invokes the actual shared CatActor
+crouch/airborne arc/landing and placement-drop code via an explicit elapsed-time
+input. No gameplay default timing is changed. All chapters were recaptured and
+the same canonical short cut re-rendered (no alternate deliverable).
+
+American Typewriter headlines, Futura supporting text, low-strength barrel
+curvature/scanlines/vignette over the encoded movie, and a rounded wood TV viewer
+with two external antennae. Dedicated TV checks cover desktop/tablet/phone and
+both sides of 1280/600 breakpoints, including antenna/cabinet/screen bounds.
+
+The shared-boop browser regression independently samples the scene and confirms
+nine actors, eight airborne neighbors, and all pieces landing at quilt height.
+Replacement-font headings and captions were measured against their safe columns.
+
+CRT repair retains the same narration, music mix and 124.291667-second timing.

@@ -5,7 +5,13 @@ import numpy as np
 from PIL import Image,ImageDraw,ImageFont
 ROOT=Path(__file__).parent;OUT=ROOT/'outputs';FPS=24
 script=json.loads((ROOT/'script.json').read_text());FF='/opt/homebrew/bin/ffmpeg'
-def font(n,bold=False):return ImageFont.truetype('/System/Library/Fonts/Supplemental/Arial'+(' Bold' if bold else '')+'.ttf',n)
+yy,xx=np.mgrid[0:1080,0:1920];nx=(xx-959.5)/960;ny=(yy-539.5)/540
+radius=nx*nx+ny*ny
+CRT_SX=np.clip(np.rint(959.5+nx*(1+.018*radius)*960),0,1919).astype(int)
+CRT_SY=np.clip(np.rint(539.5+ny*(1+.018*radius)*540),0,1079).astype(int)
+CRT_SHADE=((1-.065*radius.clip(0,2))*(1-.028*(yy%3==0))).astype(np.float32)
+
+def font(n,bold=False):return ImageFont.truetype('/System/Library/Fonts/Supplemental/'+('AmericanTypewriter.ttc' if bold else 'Futura.ttc'),n)
 def probe(p):return float(subprocess.check_output(['/opt/homebrew/bin/ffprobe','-v','quiet','-show_entries','format=duration','-of','csv=p=0',str(p)]))
 def prepare():
     timeline=[];start=0
@@ -72,7 +78,10 @@ def frame(s,f):
     lines=textwrap.wrap(captions(s,t),94)
     for i,line in enumerate(lines):d.text((960,938+i*39),line,font=font(33),fill='#fff5df',anchor='mt')
     d.text((72,825),f'{script["scenes"].index(next(x for x in script["scenes"] if x["id"]==s["id"]))+1:02d} / 12',font=font(24),fill='#a75a3c')
-    return im
+    # Subtle whole-frame CRT: barrel curvature, scanlines and edge falloff.
+    pixels=np.asarray(im)[CRT_SY,CRT_SX].astype(np.float32)
+    pixels*=CRT_SHADE[...,None]
+    return Image.fromarray(pixels.clip(0,255).astype(np.uint8))
 
 def finish():
     tl=json.loads((OUT/'timeline.json').read_text());duration=sum(s['duration'] for s in tl);music(duration)

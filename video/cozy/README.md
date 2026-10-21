@@ -27,3 +27,14 @@ Workflow attribution: Serge Shima's CC-BY-4.0 director skill, https://github.com
 The available still-image tool in this Pi session returns textual descriptions,
 not native image pixels. Encoded stills and full-page screenshots were saved,
 but numerical/browser checks must not be represented as direct visual approval.
+
+## CRT/floor staging repair
+
+Pool kittens now sit or wander on the actual carpet plane (-1.03), in staggered
+positions clear of the tables; Walk/Curious/Sit clips are sampled with
+individual phases. The eight-neighbor demonstration uses the shared CatActor
+placement and crouch/jump/landing choreography with explicit film elapsed time,
+not the instructional adapter's linear interpolation. Titles use American
+Typewriter and supporting text Futura. A restrained whole-film barrel warp,
+scanlines and edge falloff evoke a CRT. The game viewer has a wood cabinet,
+external rabbit ears and rounded glass screen; native video controls stay clear.

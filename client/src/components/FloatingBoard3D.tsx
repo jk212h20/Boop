@@ -741,6 +741,38 @@ function CatProbe() {
       });
       return out;
     };
+    // Any world point to page pixels, so a test can measure or click a spot in
+    // the room without duplicating the camera maths.
+    (window as unknown as { __project?: (points: number[][]) => { x: number; y: number }[] }).__project = points => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const point = new THREE.Vector3();
+      return points.map(([x, y, z]) => {
+        point.set(x, y, z).project(camera);
+        return {
+          x: +((point.x * .5 + .5) * rect.width + rect.left).toFixed(1),
+          y: +((-point.y * .5 + .5) * rect.height + rect.top).toFixed(1),
+        };
+      });
+    };
+    // Where the clickable set dressing lands on screen, so a test can click the
+    // lamp or the television instead of guessing pixel coordinates.
+    (window as unknown as { __roomProbe?: () => { prop: string; x: number; y: number; visible: boolean }[] }).__roomProbe = () => {
+      const out: { prop: string; x: number; y: number; visible: boolean }[] = [];
+      const rect = gl.domElement.getBoundingClientRect();
+      const point = new THREE.Vector3();
+      scene.traverse(o => {
+        const tag = o.userData?.roomProp;
+        if (typeof tag !== 'string') return;
+        o.getWorldPosition(point).project(camera);
+        out.push({
+          prop: tag,
+          x: +((point.x * .5 + .5) * rect.width + rect.left).toFixed(1),
+          y: +((-point.y * .5 + .5) * rect.height + rect.top).toFixed(1),
+          visible: o.visible,
+        });
+      });
+      return out;
+    };
     (window as unknown as { __boardView?: () => { azimuth: number; polar: number; distance: number } }).__boardView = () => {
       const offset = camera.position.clone().sub(new THREE.Vector3(0, .18, 0));
       return { azimuth: +Math.atan2(offset.x, offset.z).toFixed(3),
@@ -1049,8 +1081,9 @@ function useSpineTexture(title: string) {
   return texture;
 }
 
-function Room({ fabric, quiltColors, onOpenBook }: {
-  fabric: QuiltResources; quiltColors: QuiltColors; onOpenBook: () => void;
+function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
+  fabric: QuiltResources; quiltColors: QuiltColors;
+  onOpenBook: () => void; onOpenVideo: () => void;
 }) {
   const shadow = useMemo(() => createContactShadowTexture(), []);
   // The lamp is the one thing in the room you can switch on.
@@ -1065,15 +1098,36 @@ function Room({ fabric, quiltColors, onOpenBook }: {
       new THREE.Vector3(.3, .06, -.36),
     ]), 18, .014, 6, false,
   ), []);
+  // The television's power cord: out of the back of the set, over the rim of
+  // its table, down to the carpet and away under the bed. Drawn in room space
+  // rather than inside the (rotated) television group, because the run ends
+  // nowhere near the set's own axes.
+  const tvCord = useMemo(() => new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-5.12, .4, -1.43),    // out of the back of the set
+      new THREE.Vector3(-5.34, .36, -.9),     // round the near corner of the set
+      new THREE.Vector3(-5.15, .24, -.42),
+      new THREE.Vector3(-4.85, .19, -.28),    // down onto the table top
+      new THREE.Vector3(-4.5, .17, -.5),
+      new THREE.Vector3(-4.15, .12, -.68),
+      new THREE.Vector3(-3.9, -.1, -.8),      // over the rim, on the bed's side
+      new THREE.Vector3(-3.62, -.6, -.88),
+      new THREE.Vector3(-3.15, -1.018, -.95), // on the rug, under the bed
+      new THREE.Vector3(-2.6, -1.018, -1.02), // away into the bed's shadow
+    ], false, 'catmullrom', .45), 96, .024, 7, false,
+  ), []);
+  useEffect(() => () => tvCord.dispose(), [tvCord]);
   const hoverPiece = (on: boolean) => { document.body.style.cursor = on ? 'pointer' : ''; };
   useEffect(() => () => shadow.dispose(), [shadow]);
   useEffect(() => () => mouseTail.dispose(), [mouseTail]);
   const wood = '#6d4527';
   const woodLight = '#96633c';
   const woodDark = '#4e3019';
-  // Graphite pile with a silver cast: the page carpet is a silver weave now, so
-  // the rug is the dark element on it rather than a green-grey floor.
-  const slate = new THREE.Color('#5d6469');
+  // Royal blue pile. The weave map multiplies over this colour, so the base is
+  // lighter and more saturated than the blue that ends up on screen, and the
+  // rim is a deeper navy than the pile rather than a neutral graphite.
+  const slate = new THREE.Color('#3f57d8');
+  const rugRim = '#16204d';
 
   return (
     <group>
@@ -1085,7 +1139,7 @@ function Room({ fabric, quiltColors, onOpenBook }: {
       </mesh>
       <mesh position={[0, FLOOR_Y - .006, RUG_Z]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[RUG_RADIUS - .22, RUG_RADIUS, 64]} />
-        <meshStandardMaterial color="#20282c" roughness={.98} />
+        <meshStandardMaterial color={rugRim} roughness={.98} />
       </mesh>
       <mesh position={[0, FLOOR_Y - .001, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>
         <planeGeometry args={[10.4, 10.4]} />
@@ -1137,7 +1191,7 @@ function Room({ fabric, quiltColors, onOpenBook }: {
         {/* A little lamp: click the shade to switch it. The glow is a point
             light inside the shade, so the table, the book and the near side of
             the bed all pick up the warm pool when it is on. */}
-        <group position={[-.42, 1.18, -.28]}
+        <group position={[-.42, 1.18, -.28]} userData={{ roomProp: 'lamp' }}
           onPointerDown={event => { event.stopPropagation(); setLampOn(on => !on); }}
           onPointerOver={event => { event.stopPropagation(); hoverPiece(true); }}
           onPointerOut={() => hoverPiece(false)}>
@@ -1168,7 +1222,7 @@ function Room({ fabric, quiltColors, onOpenBook }: {
 
         {/* "How to Boop", lying flat with its title down the spine, which faces
             the player. Clicking it opens the rules. */}
-        <group position={[.16, 1.18, .3]} rotation={[0, .42, 0]}
+        <group position={[.16, 1.18, .3]} rotation={[0, .42, 0]} userData={{ roomProp: 'book' }}
           onPointerDown={event => { event.stopPropagation(); onOpenBook(); }}
           onPointerOver={event => { event.stopPropagation(); hoverPiece(true); }}
           onPointerOut={() => hoverPiece(false)}>
@@ -1188,6 +1242,111 @@ function Room({ fabric, quiltColors, onOpenBook }: {
           </mesh>
         </group>
       </group>
+
+      {/* The other bedside table, mirrored across the bed, with an old box
+          television on it. Clicking the screen opens the rules explainer. */}
+      <group position={[-4.95, FLOOR_Y - .012, -1.15]}>
+        <mesh position={[0, .002, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>
+          <planeGeometry args={[1.45, 1.45]} />
+          <meshBasicMaterial map={shadow} transparent opacity={.85} depthWrite={false} />
+        </mesh>
+        <mesh position={[0, .51, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[.55, .58, 1.02, 28]} />
+          <meshStandardMaterial color={wood} roughness={.62} />
+        </mesh>
+        <mesh position={[0, .2, 0]}>
+          <cylinderGeometry args={[.565, .565, .05, 28]} />
+          <meshStandardMaterial color={woodDark} roughness={.7} />
+        </mesh>
+        <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[.99, .93, .16, 32]} />
+          <meshStandardMaterial color={woodLight} roughness={.55} />
+        </mesh>
+
+        {/* The set is turned toward the bed and the player, so its screen is
+            legible from the seat. Everything inside this group is in the
+            television's own frame. */}
+        <group position={[0, 1.18, 0]} rotation={[0, .55, 0]}>
+          {/* Cabinet: chunky, slightly tapered, dark walnut. */}
+          <RoundedBox args={[.94, .78, .66]} radius={.06} smoothness={3}
+            position={[0, .39, 0]} castShadow receiveShadow>
+            <meshStandardMaterial color="#4a3826" roughness={.72} />
+          </RoundedBox>
+          {/* A lighter face panel, so the front reads as a bezel. */}
+          <mesh position={[0, .39, .331]}>
+            <planeGeometry args={[.9, .74]} />
+            <meshStandardMaterial color="#5a4530" roughness={.65} />
+          </mesh>
+          {/* Screen. The click target is the glass itself. */}
+          <mesh position={[-.08, .42, .338]} userData={{ roomProp: 'tv' }}
+            onPointerDown={event => { event.stopPropagation(); onOpenVideo(); }}
+            onPointerOver={event => { event.stopPropagation(); hoverPiece(true); }}
+            onPointerOut={() => hoverPiece(false)}>
+            <RoundedBox args={[.62, .5, .02]} radius={.045} smoothness={3}>
+              <meshStandardMaterial color="#151b20" roughness={.24} metalness={.1}
+                emissive="#16303a" emissiveIntensity={.55} />
+            </RoundedBox>
+          </mesh>
+          {/* A cheap glass highlight across the top left of the tube. */}
+          <mesh position={[-.19, .55, .351]} rotation={[0, 0, -.34]}>
+            <planeGeometry args={[.3, .09]} />
+            <meshBasicMaterial color="#7d97a4" transparent opacity={.16} depthWrite={false} />
+          </mesh>
+          {/* Two dials and a power lamp down the right-hand column. */}
+          {[.55, .34].map((y, index) => (
+            <group key={`dial-${index}`} position={[.31, y, .336]}>
+              <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+                <cylinderGeometry args={[.062, .066, .04, 20]} />
+                <meshStandardMaterial color="#2b2724" roughness={.55} metalness={.15} />
+              </mesh>
+              <mesh position={[0, 0, .021]} rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[.043, .043, .01, 20]} />
+                <meshStandardMaterial color="#8b8378" roughness={.4} metalness={.4} />
+              </mesh>
+              {/* The pointer on the dial, so they read as knobs. */}
+              <mesh position={[0, 0, .03]}>
+                <boxGeometry args={[.012, .05, .008]} />
+                <meshStandardMaterial color="#d9d3c6" roughness={.5} />
+              </mesh>
+            </group>
+          ))}
+          <mesh position={[.31, .17, .338]}>
+            <sphereGeometry args={[.022, 12, 10]} />
+            <meshStandardMaterial color="#7a1d1d" emissive="#5d1414" emissiveIntensity={.7} roughness={.4} />
+          </mesh>
+          {/* Speaker slots under the screen. */}
+          {[0, 1, 2, 3].map(slot => (
+            <mesh key={`slot-${slot}`} position={[-.08, .175 - slot * .028, .34]}>
+              <boxGeometry args={[.4, .012, .006]} />
+              <meshStandardMaterial color="#241c15" roughness={.9} />
+            </mesh>
+          ))}
+
+          {/* Rabbit ears: a little mount on the lid and two splayed rods. */}
+          <mesh position={[0, .81, -.04]} castShadow>
+            <cylinderGeometry args={[.075, .09, .05, 16]} />
+            <meshStandardMaterial color="#3b2d1f" roughness={.7} />
+          </mesh>
+          {[-1, 1].map(side => (
+            <group key={`antenna-${side}`} position={[side * .03, .8, -.04]} rotation={[0, 0, -side * .55]}>
+              <mesh position={[0, .3, 0]} castShadow>
+                <cylinderGeometry args={[.01, .007, .6, 8]} />
+                <meshStandardMaterial color="#c3c8cb" roughness={.32} metalness={.72} />
+              </mesh>
+              <mesh position={[0, .61, 0]}>
+                <sphereGeometry args={[.023, 12, 10]} />
+                <meshStandardMaterial color="#dde1e4" roughness={.28} metalness={.6} />
+              </mesh>
+            </group>
+          ))}
+        </group>
+      </group>
+
+      {/* The cord, from the back of the set, over the table rim, down to the
+          carpet and under the bed. */}
+      <mesh geometry={tvCord} castShadow>
+        <meshStandardMaterial color="#6c6e6d" roughness={.78} />
+      </mesh>
 
       {/* A plush mouse half out from under the bed: nose and ears in the open,
           the bulk of it in the bed's shadow. */}
@@ -1244,7 +1403,9 @@ function Room({ fabric, quiltColors, onOpenBook }: {
   );
 }
 
-function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors; onOpenBook: () => void }) {
+function Scene(props: FloatingBoard3DProps & {
+  quiltColors: QuiltColors; onOpenBook: () => void; onOpenVideo: () => void;
+}) {
   const [hover, setHover] = useState<Cell | null>(null);
   const fabric = useMemo(() => ({ ...createFabricTextures(), patch: createQuiltPatchGeometry(), stitches: createQuiltStitches() }), []);
   useEffect(() => () => {
@@ -1265,7 +1426,8 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors; onOpenB
         shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7}
         shadow-camera-bottom={-7} shadow-camera-near={.5} shadow-camera-far={34} />
       <directionalLight position={[6, 4, -5]} intensity={1.5} color="#eef4ff" />
-      <Room fabric={fabric} quiltColors={props.quiltColors} onOpenBook={props.onOpenBook} />
+      <Room fabric={fabric} quiltColors={props.quiltColors} onOpenBook={props.onOpenBook}
+        onOpenVideo={props.onOpenVideo} />
       <group>
         <group rotation={[0, -.08, 0]}>
           <BedShell quiltColors={props.quiltColors} fabric={fabric} />
@@ -1372,6 +1534,9 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   // The book on the bedside table opens the rules. It is a real 3D object, so
   // the click arrives from the scene and the dialog is plain DOM.
   const [bookOpen, setBookOpen] = useState(false);
+  // The television opposite the bedside table plays the rules explainer. Its
+  // rendered copy is delivered separately, so for now the dialog is a stub.
+  const [videoOpen, setVideoOpen] = useState(false);
   // The book is the in-world way in; "?" is the keyboard way in, so the rules
   // are not reachable by mouse only.
   useEffect(() => {
@@ -1404,7 +1569,8 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
           <CatProbe />
           <Precompile />
           <InventoryFlightContext.Provider value={requestFlight}>
-            <Scene {...props} quiltColors={quiltColors} onOpenBook={() => setBookOpen(true)} />
+            <Scene {...props} quiltColors={quiltColors} onOpenBook={() => setBookOpen(true)}
+              onOpenVideo={() => setVideoOpen(true)} />
           </InventoryFlightContext.Provider>
         </Suspense>
       </Canvas>
@@ -1415,6 +1581,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
       </div>
       {props.isViewingHistory && <div className="history-3d-badge">Viewing game history · click a square to return</div>}
       {bookOpen && <RulesBook onClose={() => setBookOpen(false)} />}
+      {videoOpen && <RulesVideo onClose={() => setVideoOpen(false)} />}
     </div>
     </div>
   );
@@ -1445,6 +1612,50 @@ function RulesBook({ onClose }: { onClose: () => void }) {
           <li><strong>Graduate.</strong> Three of your pieces in a row leave the bed and become cats in your pool.</li>
           <li><strong>Win.</strong> Three of your cats in a row, or all eight cats on the bed.</li>
         </ol>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Drop the rendered explainer here when it exists and the panel becomes a real
+// player; with nothing set, the dialog explains itself and points at the book.
+const RULES_VIDEO_SRC: string | null = null;
+
+/** The rules explainer, playing on the television across the bed. */
+function RulesVideo({ onClose }: { onClose: () => void }) {
+  const close = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    close.current?.focus();
+    // The dialog is opened by clicking the set, and the browser hands focus to
+    // the canvas as that click finishes. Take it back once the click is over.
+    const frame = requestAnimationFrame(() => close.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [onClose]);
+  return createPortal(
+    <div className="rules-scrim" onPointerDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="rules-video" role="dialog" aria-modal="true" aria-labelledby="rules-video-title">
+        <div className="rules-book-head">
+          <h2 id="rules-video-title">How to Boop, on film</h2>
+          <button ref={close} type="button" className="rules-close" onClick={onClose}
+            aria-label="Close the video">✕</button>
+        </div>
+        <div className="rules-video-frame">
+          {RULES_VIDEO_SRC
+            ? <video src={RULES_VIDEO_SRC} controls autoPlay playsInline />
+            : <>
+              <span className="rules-video-play" aria-hidden="true">▶</span>
+              <p className="rules-video-note">The explainer is still in the cutting room.</p>
+            </>}
+        </div>
+        <p className="rules-video-foot">
+          Until it lands, the whole game is in the book on the other table, or press <kbd>?</kbd>.
+        </p>
       </div>
     </div>,
     document.body

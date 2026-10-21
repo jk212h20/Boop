@@ -180,3 +180,40 @@ re-applies camera options when that object changes identity.
 `tools/audit/camera-view-regression.cjs` drags the board, then asserts the orbit
 survives a layout shift, a placement plus the computer's reply, and a breakpoint
 change.
+
+## The television corner, a royal blue rug, and kitten-sized portraits (2026-10-21)
+
+- **Second table.** A mirrored drum table at `[-4.95, FLOOR_Y - .012, -1.15]`
+  carries an old box television: a walnut cabinet, a recessed tube with a glass
+  highlight, two pointer dials, a power lamp, speaker slots, and rabbit ears
+  (a mount on the lid plus two splayed rods with ball tips). The set is turned
+  `.55` rad on its table so its screen faces the bed and the player.
+- **The cord.** A single `TubeGeometry` leaves the back of the set, rounds the
+  near corner, crosses the table top, spills over the rim on the bed's side and
+  drops onto the rug, where it runs under the bed. It is drawn in room space,
+  not inside the rotated set, because the run ends nowhere near the set's axes.
+  Note the framing: the bed occludes the floor beyond roughly `x < -5.8`, so the
+  floor leg of the cord is only visible when the player orbits low. The visible
+  part is the run across the table, which is what makes the cable readable.
+- **Rules explainer.** The screen is a click target with a pointer cursor and
+  `userData.roomProp = 'tv'`. Clicking it opens `.rules-video`, a 16:9 popup
+  player (`role="dialog"`, focus on the close button, Escape and backdrop both
+  close). `RULES_VIDEO_SRC` is `null` until the rendered explainer exists; set
+  it and the placeholder becomes a real `<video>`.
+- **Royal blue rug.** Pile `#3f57d8` with a `#16204d` rim, replacing graphite
+  `#5d6469` / `#20282c`. The weave map multiplies over the base, so the base is
+  more saturated than the blue that lands on screen; measured on-screen pile is
+  around `rgb(80, 95, 195)` in light and `rgb(28, 39, 93)` in shadow.
+- **Portraits.** The inventory portraits now frame the model rather than a fixed
+  camera position, crop to the animal's own pixels (supersampled 2×, then
+  re-drawn into 192×216 with a 6% margin) and put both types on one baseline.
+  The kitten is drawn at its true height relative to the cat, less another 8%,
+  so it occupies ~0.55 of the portrait against the cat's ~0.88 instead of being
+  stretched to fill the box and reading as a full-grown cat.
+
+Regressions: `client/tests/boardAppearance.browser.cjs` measures the portraits'
+alpha bounds (no edge contact, kitten under 85% of the cat), clicks the
+television's projected screen point and closes the popup both ways, samples the
+rendered rug for royal blue, and samples the cord's table run for the grey
+cable. `window.__project` and `window.__roomProbe` expose world→page projection
+and the tagged clickable props, so the test never guesses pixel coordinates.

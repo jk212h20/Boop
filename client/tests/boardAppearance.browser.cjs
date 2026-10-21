@@ -147,6 +147,70 @@ const path = require('node:path');
     await page.locator('.rules-book').waitFor({ state: 'detached' });
     console.log('PASS: the book opens the rules and Escape closes them');
 
+    // The television across the bed is the second way into the rules: clicking
+    // its screen opens the explainer in a popup, not on the little set itself.
+    const room = await page.evaluate(() => window.__roomProbe());
+    const tv = room.find(prop => prop.prop === 'tv');
+    assert.ok(tv && tv.visible, 'The television must be in the room and rendered');
+    const boardBox = await page.locator('.floating-board-shell canvas').boundingBox();
+    assert.ok(tv.x > boardBox.x + 6 && tv.x < boardBox.x + boardBox.width - 6
+      && tv.y > boardBox.y + 6 && tv.y < boardBox.y + boardBox.height - 6,
+      'The television screen must be clickable inside the canvas');
+    assert.equal(await page.locator('.rules-video').count(), 0, 'The video starts closed');
+    await page.mouse.click(tv.x, tv.y);
+    await page.locator('.rules-video').waitFor();
+    assert.equal(await page.locator('#rules-video-title').textContent(), 'How to Boop, on film');
+    assert.equal(await page.locator('.rules-video').getAttribute('role'), 'dialog');
+    // The click hands focus to the canvas, so the dialog takes it back on the
+    // next frame rather than during the click.
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute('aria-label') === 'Close the video',
+      null, { timeout: 2000 });
+    await page.screenshot({ path: path.join(out, 'rules-video.png') });
+    await page.keyboard.press('Escape');
+    await page.locator('.rules-video').waitFor({ state: 'detached' });
+    // And the backdrop closes it, like the book.
+    await page.mouse.click(tv.x, tv.y);
+    await page.locator('.rules-video').waitFor();
+    await page.mouse.click(24, 24);
+    await page.locator('.rules-video').waitFor({ state: 'detached' });
+    console.log('PASS: the television opens the explainer video popup, and Escape or the backdrop closes it');
+
+    // The room itself: a royal blue rug, and a cable that leaves the set and
+    // heads for the bed instead of stopping at the table edge.
+    const points = await page.evaluate(() => window.__project([
+      [0, -1.026, 3.95], [1.5, -1.026, 3.7], [-1.5, -1.026, 3.7],
+      [-4.5, .17, -.5], [-4.85, .19, -.28],
+    ]));
+    const shot = (await page.screenshot()).toString('base64');
+    const samples = await page.evaluate(async ({ shot, points }) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${shot}`;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0);
+      return points.map(({ x, y }) => {
+        const patch = [];
+        for (let dy = -3; dy <= 3; dy++) {
+          for (let dx = -3; dx <= 3; dx++) {
+            const [r, g, b] = context.getImageData(Math.round(x) + dx, Math.round(y) + dy, 1, 1).data;
+            patch.push({ r, g, b });
+          }
+        }
+        return patch;
+      });
+    }, { shot, points });
+    const rug = samples.slice(0, 3);
+    const blue = rug.filter(patch => patch.some(({ r, g, b }) => b - r > 60 && b > 120)).length;
+    assert.ok(blue >= 2, 'The circular rug is royal blue, not graphite');
+    const cables = samples.slice(3).filter(patch => patch.filter(({ r, g, b }) =>
+      Math.abs(r - g) < 16 && Math.abs(g - b) < 16 && r > 70).length >= 6).length;
+    assert.ok(cables >= 1, 'The power cord is visible on the table, heading for the bed');
+    console.log('PASS: royal blue rug and a visible power cord running to the bed');
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(1000);
     // The carpet keeps its wooden capping strip on every layout.

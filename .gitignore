@@ -49,3 +49,6 @@ coverage/
 # Python scratch
 __pycache__/
 *.pyc
+
+# Rules explainer generated media and browser state
+video/outputs/

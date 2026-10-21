@@ -81,6 +81,17 @@ const path = require('node:path');
     await page.waitForTimeout(150);
     assert.equal(await page.locator('.kitten-preview-label').count(), 0);
 
+    // The rules live in the book on the bedside table; "?" is the keyboard way
+    // in, and Escape closes it.
+    assert.equal(await page.locator('.rules-book').count(), 0, 'Rules start closed');
+    await page.keyboard.press('?');
+    await page.locator('.rules-book').waitFor();
+    assert.equal(await page.locator('#rules-title').textContent(), 'How to Boop');
+    await page.screenshot({ path: path.join(out, 'rules.png') });
+    await page.keyboard.press('Escape');
+    await page.locator('.rules-book').waitFor({ state: 'detached' });
+    console.log('PASS: the book opens the rules and Escape closes them');
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(1000);
     // The carpet keeps its wooden capping strip on every layout.

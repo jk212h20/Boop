@@ -30,7 +30,7 @@ body {
 }
 .game-pool-opponent { grid-area: opponent; }
 .game-pool-self { grid-area: self; }
-.game-pool-opponent, .game-pool-self { min-width: 0; padding-top: 28px; }
+.game-pool-opponent, .game-pool-self { min-width: 0; padding-top: 6px; }
 .game-board { grid-area: board; min-width: 0; }
 
 /* The realtime board owns the scene framing and remains comfortably usable from phones to desktops. */
@@ -112,6 +112,32 @@ body {
 .quilt-reset:hover { color: #e3edf2; background: rgba(255,255,255,.06); }
 .quilt-color-control input:focus-visible, .quilt-reset:focus-visible { outline: 2px solid #a8c3ce; outline-offset: 3px; }
 
+/* The rules, opened from the book on the bedside table. */
+.rules-scrim {
+  position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 1.25rem;
+  background: rgba(9, 15, 21, .62); backdrop-filter: blur(3px);
+}
+.rules-book {
+  width: min(30rem, 100%); max-height: 86vh; overflow: auto;
+  padding: 1.15rem 1.25rem 1.1rem; border-radius: 1rem; color: #f3ead8;
+  background: linear-gradient(170deg, #7d3f2f, #5d2c21 60%, #4a231a);
+  border: 1px solid rgba(240, 205, 150, .35);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 230, 190, .25);
+}
+.rules-book-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.rules-book-head h2 {
+  margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 1.35rem; letter-spacing: .01em;
+  color: #ffe9c2;
+}
+.rules-close {
+  width: 2rem; height: 2rem; border-radius: 999px; color: #ffe9c2; font-size: .95rem;
+  background: rgba(0, 0, 0, .22); border: 1px solid rgba(240, 205, 150, .35);
+}
+.rules-close:hover { background: rgba(0, 0, 0, .34); }
+.rules-list { margin: .9rem 0 .6rem; padding-left: 1.1rem; display: grid; gap: .5rem; font-size: .86rem; line-height: 1.5; }
+.rules-list strong { color: #ffe0ab; }
+.rules-foot { margin: 0; font-size: .74rem; font-style: italic; color: rgba(255, 233, 194, .72); }
+
 /* Compact illustrated avatars are used in pools and fly-to-pool celebrations. */
 .kitten-piece { position: relative; display: grid; place-items: center; transition: filter .2s; }
 .kitten-piece-selected { filter: drop-shadow(0 0 8px #facc15); }
@@ -142,7 +168,7 @@ body {
 .player-pool-selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; width: 100%; max-width: 15rem; margin: 0 auto; }
 .pool-piece-button {
   --pool-fur: #718096; display: flex; flex-direction: column; align-items: center;
-  min-width: 0; padding: .65rem .25rem .75rem; border: 1px solid var(--pool-accent);
+  min-width: 0; padding: .8rem .25rem .7rem; border: 1px solid var(--pool-accent);
   border-radius: 1rem; color: #24313e; opacity: 1;
   transition: background .2s, box-shadow .2s, border-color .2s;
 }
@@ -197,7 +223,7 @@ body {
     grid-template-areas: 'label' 'icon' 'count';
     justify-items: center; row-gap: .2rem; padding: .65rem .5rem;
   }
-  .pool-piece-button .animated-piece-icon { grid-area: icon; width: 56px; height: 64px; }
+  .pool-piece-button .animated-piece-icon { grid-area: icon; width: 56px; height: 68px; }
   .pool-piece-label { grid-area: label; }
   .pool-piece-count { grid-area: count; font-size: 2rem; }
   .bedroom-palette { margin-top: 0; margin-bottom: .25rem; }
@@ -205,11 +231,11 @@ body {
 }
 @media (max-width: 359px) {
   .pool-piece-button { grid-template-columns: 40px minmax(0, 1fr); }
-  .pool-piece-button .animated-piece-icon { width: 44px; height: 50px; }
+  .pool-piece-button .animated-piece-icon { width: 44px; height: 54px; }
 }
 @media (prefers-reduced-motion: reduce) { .pool-cat-icon, .turn-active, .animated-piece-icon img { animation: none; } }
 
-.animated-piece-icon { display: block; width: 76px; height: 86px; flex-shrink: 0; pointer-events: none; }
+.animated-piece-icon { display: block; width: 76px; height: 92px; flex-shrink: 0; pointer-events: none; }
 .animated-piece-icon img { display: block; width: 100%; height: 100%; object-fit: contain; }
 /* The portrait is a still image now, so give it the life the WebGL version had. */
 .pool-piece-available .animated-piece-icon img { animation: pool-breathe 3.6s ease-in-out infinite; }
@@ -240,12 +266,12 @@ body:has(.game-page) { isolation: isolate; }
 body:has(.game-page)::before {
   content: ''; position: absolute; min-height: 100vh;
   inset: var(--carpet-top, 360px) 0 0; z-index: -1;
-  background-color: #b3b9bd;
+  background-color: #6f7579;
   background-image:
-    repeating-linear-gradient(0deg, transparent 0 2px, rgba(58,65,70,.07) 2px 3px),
-    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,255,255,.12) 2px 3px),
-    repeating-linear-gradient(45deg, transparent 0 23px, rgba(70,78,84,.11) 23px 26px, transparent 26px 49px, rgba(233,237,239,.17) 49px 52px),
-    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(70,78,84,.11) 23px 26px, transparent 26px 49px, rgba(233,237,239,.17) 49px 52px);
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(18,22,25,.16) 2px 3px),
+    repeating-linear-gradient(90deg, transparent 0 2px, rgba(214,221,224,.12) 2px 3px),
+    repeating-linear-gradient(45deg, transparent 0 23px, rgba(28,33,37,.22) 23px 26px, transparent 26px 49px, rgba(186,195,200,.11) 49px 52px),
+    repeating-linear-gradient(-45deg, transparent 0 23px, rgba(28,33,37,.22) 23px 26px, transparent 26px 49px, rgba(186,195,200,.11) 49px 52px);
   pointer-events: none;
 }
 

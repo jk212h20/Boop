@@ -463,7 +463,7 @@ export function Game({
 
       <div className="game-page">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="font-display text-2xl font-bold text-boop-orange-600">
               🐱 Boop!
@@ -521,7 +521,7 @@ export function Game({
 
         {/* Turn indicator - above board (fixed height container to prevent board jumping) */}
         {!gameHistory.isViewingHistory && !gameOver && (
-          <div className="text-center mb-3 h-10 flex items-center justify-center">
+          <div className="text-center mb-1 h-8 flex items-center justify-center">
             {!isMyTurn ? (
               <motion.div
                 initial={{ opacity: 0 }}

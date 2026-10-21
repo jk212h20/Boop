@@ -999,8 +999,47 @@ function FrameBoard() {
 /** The room around the bed: a woven rug on the floor, a soft contact shadow,
  * and a little bedside furniture so the bed reads as furniture rather than a
  * floating slab. Everything here sits outside the playable quilt. */
-function Room({ fabric, quiltColors }: { fabric: QuiltResources; quiltColors: QuiltColors }) {
+/** "How to Boop", written down the spine of the little book on the bedside
+ * table. Drawn to a canvas instead of loaded: one texture, no extra fetch. */
+function useSpineTexture(title: string) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 96;
+    canvas.height = 512;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.fillStyle = '#b4553f';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    // Two thin gilt rules, like a bound volume.
+    context.fillStyle = '#d8b478';
+    context.fillRect(9, 0, 3, canvas.height);
+    context.fillRect(canvas.width - 12, 0, 3, canvas.height);
+    context.save();
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate(Math.PI / 2); // the spine title runs down the book
+    context.fillStyle = '#f6e7c8';
+    context.font = 'bold 46px Georgia, serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(title, 0, 0);
+    context.restore();
+    const map = new THREE.CanvasTexture(canvas);
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 4;
+    return map;
+  }, [title]);
+  useEffect(() => () => { texture?.dispose(); }, [texture]);
+  return texture;
+}
+
+function Room({ fabric, quiltColors, onOpenBook }: {
+  fabric: QuiltResources; quiltColors: QuiltColors; onOpenBook: () => void;
+}) {
   const shadow = useMemo(() => createContactShadowTexture(), []);
+  // The lamp is the one thing in the room you can switch on.
+  const [lampOn, setLampOn] = useState(false);
+  const spine = useSpineTexture('How to Boop');
+  const hoverPiece = (on: boolean) => { document.body.style.cursor = on ? 'pointer' : ''; };
   useEffect(() => () => shadow.dispose(), [shadow]);
   const wood = '#6d4527';
   const woodLight = '#96633c';
@@ -1025,8 +1064,10 @@ function Room({ fabric, quiltColors }: { fabric: QuiltResources; quiltColors: Qu
         <meshBasicMaterial map={shadow} transparent depthWrite={false} opacity={.85} />
       </mesh>
 
-      {/* Bedside table, left of the headboard. */}
-      <group position={[4.72, 0, -1.15]}>
+      {/* Bedside table, left of the headboard. Scaled up from a drinks table to
+          a real nightstand so the lamp and the book are legible at the framing
+          the board uses. */}
+      <group position={[4.86, 0, -1.15]} scale={1.45}>
         <mesh position={[0, -.52, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[.62, .58, .1, 24]} />
           <meshStandardMaterial color={woodLight} roughness={.55} />
@@ -1039,19 +1080,58 @@ function Room({ fabric, quiltColors }: { fabric: QuiltResources; quiltColors: Qu
           <cylinderGeometry args={[.3, .3, .05, 20]} />
           <meshStandardMaterial color={wood} roughness={.62} />
         </mesh>
-        {/* Mug and a small book. */}
-        <mesh position={[.2, -.43, .08]} castShadow>
+        {/* Mug. */}
+        <mesh position={[.34, -.43, -.24]} castShadow>
           <cylinderGeometry args={[.11, .1, .17, 18]} />
           <meshStandardMaterial color={new THREE.Color(quiltColors[1]).lerp(new THREE.Color('#ffffff'), .35)} roughness={.6} />
         </mesh>
-        <mesh position={[-.19, -.455, -.05]} rotation={[0, .34, 0]} castShadow>
-          <boxGeometry args={[.3, .05, .22]} />
-          <meshStandardMaterial color="#b4553f" roughness={.8} />
-        </mesh>
-        <mesh position={[-.19, -.4, -.05]} rotation={[0, .34, 0]} castShadow>
-          <boxGeometry args={[.28, .045, .2]} />
-          <meshStandardMaterial color="#e8dcc4" roughness={.9} />
-        </mesh>
+
+        {/* A little lamp: click the shade to switch it. The glow is a point
+            light inside the shade, so the table, the book and the near side of
+            the bed all pick up the warm pool when it is on. */}
+        <group position={[-.28, -.47, -.2]}
+          onPointerDown={event => { event.stopPropagation(); setLampOn(on => !on); }}
+          onPointerOver={event => { event.stopPropagation(); hoverPiece(true); }}
+          onPointerOut={() => hoverPiece(false)}>
+          <mesh position={[0, .02, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[.13, .15, .05, 20]} />
+            <meshStandardMaterial color="#3f4447" roughness={.5} metalness={.35} />
+          </mesh>
+          <mesh position={[0, .18, 0]} castShadow>
+            <cylinderGeometry args={[.014, .014, .28, 10]} />
+            <meshStandardMaterial color="#a9aeb1" roughness={.35} metalness={.6} />
+          </mesh>
+          <mesh position={[0, .36, 0]}>
+            <cylinderGeometry args={[.085, .135, .17, 24, 1, true]} />
+            <meshStandardMaterial color={lampOn ? '#ffe6bd' : '#efe4d2'} roughness={.85}
+              side={THREE.DoubleSide} emissive={lampOn ? '#ffd79a' : '#000000'}
+              emissiveIntensity={lampOn ? .85 : 0} />
+          </mesh>
+          <pointLight position={[0, .3, 0]} color="#ffd9a3" intensity={lampOn ? 2.4 : 0}
+            distance={2.6} decay={2} />
+        </group>
+
+        {/* "How to Boop": a standing book you can open. It is the rules, and
+            clicking it says so. */}
+        <group position={[.02, -.26, .04]} rotation={[0, .55, 0]}
+          onPointerDown={event => { event.stopPropagation(); onOpenBook(); }}
+          onPointerOver={event => { event.stopPropagation(); hoverPiece(true); }}
+          onPointerOut={() => hoverPiece(false)}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[.34, .42, .1]} />
+            <meshStandardMaterial color="#b4553f" roughness={.8} />
+          </mesh>
+          {/* Page block, inset a hair on three sides so the cover reads as a cover. */}
+          <mesh position={[.008, 0, 0]}>
+            <boxGeometry args={[.324, .396, .086]} />
+            <meshStandardMaterial color="#e8dcc4" roughness={.95} />
+          </mesh>
+          {/* The spine, turned toward the player so the title is legible. */}
+          <mesh position={[0, 0, .0505]}>
+            <planeGeometry args={[.1, .42]} />
+            <meshStandardMaterial map={spine ?? undefined} color="#ffffff" roughness={.7} />
+          </mesh>
+        </group>
       </group>
 
       {/* A toy mouse on the rug at the foot of the bed. */}
@@ -1073,7 +1153,7 @@ function Room({ fabric, quiltColors }: { fabric: QuiltResources; quiltColors: Qu
   );
 }
 
-function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
+function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors; onOpenBook: () => void }) {
   const [hover, setHover] = useState<Cell | null>(null);
   const fabric = useMemo(() => ({ ...createFabricTextures(), patch: createQuiltPatchGeometry(), stitches: createQuiltStitches() }), []);
   useEffect(() => () => {
@@ -1094,7 +1174,7 @@ function Scene(props: FloatingBoard3DProps & { quiltColors: QuiltColors }) {
         shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7}
         shadow-camera-bottom={-7} shadow-camera-near={.5} shadow-camera-far={34} />
       <directionalLight position={[6, 4, -5]} intensity={1.5} color="#eef4ff" />
-      <Room fabric={fabric} quiltColors={props.quiltColors} />
+      <Room fabric={fabric} quiltColors={props.quiltColors} onOpenBook={props.onOpenBook} />
       <group>
         <group rotation={[0, -.08, 0]}>
           <BedShell quiltColors={props.quiltColors} fabric={fabric} />
@@ -1198,6 +1278,20 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   // fabric no longer has a preference to read or write; a previously stored
   // palette is honoured so nobody's board changes under them.
   const quiltColors = useMemo<QuiltColors>(() => readQuiltColors(), []);
+  // The book on the bedside table opens the rules. It is a real 3D object, so
+  // the click arrives from the scene and the dialog is plain DOM.
+  const [bookOpen, setBookOpen] = useState(false);
+  // The book is the in-world way in; "?" is the keyboard way in, so the rules
+  // are not reachable by mouse only.
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      if (event.key === '?') { event.preventDefault(); setBookOpen(true); }
+    };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, []);
   // Inventory hops live here, in the DOM tree, and expire once the hop lands.
   const [flights, setFlights] = useState<InventoryFlight[]>([]);
   const flightId = useRef(0);
@@ -1219,7 +1313,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
           <CatProbe />
           <Precompile />
           <InventoryFlightContext.Provider value={requestFlight}>
-            <Scene {...props} quiltColors={quiltColors} />
+            <Scene {...props} quiltColors={quiltColors} onOpenBook={() => setBookOpen(true)} />
           </InventoryFlightContext.Provider>
         </Suspense>
       </Canvas>
@@ -1229,8 +1323,41 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
         {Array.from({ length: 36 }, (_, i) => <span key={i} data-cell={`${Math.floor(i / 6)}-${i % 6}`} />)}
       </div>
       {props.isViewingHistory && <div className="history-3d-badge">Viewing game history · click a square to return</div>}
+      {bookOpen && <RulesBook onClose={() => setBookOpen(false)} />}
     </div>
     </div>
+  );
+}
+
+/** The rules, as printed in the book on the bedside table. Anything a player
+ * needs mid-game and nothing else: the pool already shows the counts. */
+function RulesBook({ onClose }: { onClose: () => void }) {
+  const close = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    close.current?.focus();
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [onClose]);
+  return createPortal(
+    <div className="rules-scrim" onPointerDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="rules-book" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+        <div className="rules-book-head">
+          <h2 id="rules-title">How to Boop</h2>
+          <button ref={close} type="button" className="rules-close" onClick={onClose} aria-label="Close the rules">✕</button>
+        </div>
+        <ol className="rules-list">
+          <li><strong>Place.</strong> Pick a kitten or cat from your pool, then click an empty square. Placing a piece boops everything next to it one space away.</li>
+          <li><strong>Big cats push everything.</strong> A kitten only boops other kittens; a cat boops kittens and cats alike.</li>
+          <li><strong>Two in a row do not push.</strong> A piece cannot be booped into another piece; that push simply does not happen.</li>
+          <li><strong>Off the bed.</strong> A piece booped off the edge goes back to your pool.</li>
+          <li><strong>Graduate.</strong> Three of your kittens in a row leave the bed and become cats in your pool.</li>
+          <li><strong>Win.</strong> Three of your cats in a row, or all eight cats on the bed.</li>
+        </ol>
+        <p className="rules-foot">Click the lamp if you would rather play in the dark.</p>
+      </div>
+    </div>,
+    document.body
   );
 }
 

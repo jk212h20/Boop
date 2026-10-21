@@ -95,7 +95,7 @@ export function Game({
   // Game history for reviewing past moves
   const gameHistory = useGameHistory(gameState.board);
 
-  const isMyTurn = gameState.currentTurn === playerColor;
+  const isMyTurn = !gameOver && gameState.phase !== 'finished' && gameState.currentTurn === playerColor;
   const myPlayer = gameState.players[playerColor];
   const opponentColor: PlayerColor = playerColor === 'orange' ? 'gray' : 'orange';
   const opponent = gameState.players[opponentColor];
@@ -467,9 +467,9 @@ export function Game({
           (to fit the pool slot), and fades out on arrival. */}
 
 
-      <div className="game-page">
+      <div className={`game-page${gameOver ? ' game-finished' : ''}`}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="game-header flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="font-display text-2xl font-bold text-boop-orange-600">
               🐱 Boop!
@@ -550,40 +550,15 @@ export function Game({
           </div>
         )}
 
-        {/* Game Over Banner - inline above board */}
+        {/* Out-of-flow status never moves the bed or inventories. */}
         <AnimatePresence>
           {gameOver && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className={`mb-4 p-4 rounded-xl shadow-lg text-center ${
-                gameOver.winner === playerColor 
-                  ? 'bg-gradient-to-r from-yellow-100 to-orange-100 border-2 border-yellow-400' 
-                  : 'bg-gradient-to-r from-gray-100 to-slate-100 border-2 border-gray-400'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-3 mb-2">
-                <span className="text-3xl">{gameOver.winner === playerColor ? '🎉' : '😿'}</span>
-                <h2 className={`font-display text-2xl font-bold ${
-                  gameOver.winner === playerColor ? 'text-boop-orange-600' : 'text-boop-gray-600'
-                }`}>
-                  {gameOver.winner === playerColor ? 'You Win!' : 'You Lose!'}
-                </h2>
-                <span className="text-3xl">{gameOver.winner === playerColor ? '🎉' : '😿'}</span>
-              </div>
-              <p className="text-gray-600 mb-3">
-                {gameOver.winCondition === 'three_cats_in_row' ? '3 Cats in a Row!' : 'All 8 Cats on the Board!'}
-              </p>
-              <div className="flex gap-2 justify-center">
-                {isBotGame && onRematch && (
-                  <button onClick={onRematch} className="btn-primary text-sm px-4 py-2">
-                    🔄 Rematch
-                  </button>
-                )}
-                <button onClick={onLeave} className={`${isBotGame ? 'btn-secondary' : 'btn-primary'} text-sm px-4 py-2`}>
-                  {isBotGame ? '← Back to Menu' : 'Play Again'}
-                </button>
-              </div>
+            <motion.div className="game-win-status" role="status"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <strong>{gameOver.winner === playerColor ? 'You win!' : 'Opponent wins'}</strong>
+              <span>{gameOver.winCondition === 'three_cats_in_row' ? 'Three cats in a row' : 'Eight cats on the bed'}</span>
+              {isBotGame && onRematch && <button onClick={onRematch}>Rematch</button>}
+              <button onClick={onLeave}>Menu</button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -597,7 +572,7 @@ export function Game({
                 color={opponentColor}
                 kittensInPool={displayPools[opponentColor].kittensInPool}
                 catsInPool={displayPools[opponentColor].catsInPool}
-                isMyTurn={!isMyTurn && !gameHistory.isViewingHistory}
+                isMyTurn={!gameOver && !isMyTurn && !gameHistory.isViewingHistory}
                 selectedPieceType={null}
                 onSelectPiece={() => {}}
                 playerName={opponent.name}
@@ -610,6 +585,7 @@ export function Game({
           <div className="game-board">
             <FloatingBoard3D
               board={displayBoard}
+              winningColor={gameOver && !gameHistory.isViewingHistory ? gameOver.winner : undefined}
               onCellClick={handleCellClick}
               isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
               lastMove={gameHistory.isViewingHistory ? null : gameState.lastMove}
@@ -646,6 +622,8 @@ export function Game({
         <div className="game-instructions">
           {gameHistory.isViewingHistory ? (
             <p className="text-blue-600">📜 Viewing move history - click board or "Return to game" to continue playing</p>
+          ) : gameOver ? (
+            <p>Game complete — start a rematch when you’re ready.</p>
           ) : isMyTurn ? (
             <p>
               Select a piece from your pool, then click an empty cell to place it.

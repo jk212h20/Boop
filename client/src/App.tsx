@@ -3,7 +3,7 @@ import { useSocket } from './hooks/useSocket';
 import { useBotGame } from './hooks/useBotGame';
 import { Lobby, WaitingRoom, QuickMatchLobby, BotDifficulty, BOT_DIFFICULTIES } from './components/Lobby';
 import { Game } from './components/Game';
-import { GameMode } from './types';
+import { GameMode, GameState, GameOverInfo } from './types';
 
 // Parse game code from URL hash
 function getGameCodeFromHash(): string | null {
@@ -19,6 +19,9 @@ function App() {
   // explicitly requested. A plain ?preview3d must show the true fresh-game
   // state — an empty board — so a hard reload actually verifies new-game
   // correctness instead of watching the demo open by itself.
+  // Development-only visual fixtures exercise final states without a bot race.
+  const previewReturn = import.meta.env.DEV && preview3D && new URLSearchParams(window.location.search).has('return');
+  const previewWin = import.meta.env.DEV && preview3D && new URLSearchParams(window.location.search).has('win');
   const previewDemo = new URLSearchParams(window.location.search).has('demo');
   const [gameMode, setGameMode] = useState<GameMode>(null);
   const previewMoveMade = useRef(false);
@@ -214,6 +217,26 @@ function App() {
       );
     }
 
+    // Deterministic final board for motion/layout review; absent in production.
+    if (previewWin && botGameState) {
+      const state: GameState = { ...botGameState,
+        board: Array.from({length: 6}, (_, r) => Array.from({length: 6}, (_, c) =>
+          r === 2 && c >= 1 && c <= 3 ? {color: 'orange' as const, type: 'cat' as const} :
+          r === 4 && c === 3 ? {color: 'gray' as const, type: 'kitten' as const} : null)),
+        phase: 'finished', winner: 'orange', lastMove: null, boopedPieces: [], graduatedPieces: [] };
+      const over: GameOverInfo = {winner: 'orange', winCondition: 'three_cats_in_row', gameState: state};
+      return <Game gameState={state} playerColor="orange" roomCode="Animation review"
+        onPlacePiece={async () => false} onSelectGraduation={async () => false} onLeave={handleLeaveBotGame}
+        gameOver={over} opponentDisconnected={false} isBotGame onRematch={resetBotGame} />;
+    }
+    if (previewReturn && botGameState) {
+      const state: GameState = { ...botGameState, lastMove: {row: 4, col: 2},
+        boopedPieces: [{from: {row: 5, col: 2}, to: null, piece: {color: 'orange', type: 'cat'}}],
+        graduatedPieces: [] };
+      return <Game gameState={state} playerColor="orange" roomCode="Return review"
+        onPlacePiece={async () => false} onSelectGraduation={async () => false} onLeave={handleLeaveBotGame}
+        gameOver={null} opponentDisconnected={false} isBotGame />;
+    }
     // Bot game mode
     if (gameMode === 'bot' && botGameState) {
       return (

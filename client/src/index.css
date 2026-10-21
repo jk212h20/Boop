@@ -324,3 +324,24 @@ body:has(.game-page)::after {
   pointer-events: none;
 }
 
+
+/* Compact victory badge: overlays the header, never consumes layout height. */
+.game-win-status {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  z-index: 45; display: flex; align-items: center; gap: 10px;
+  max-width: calc(100vw - 24px); padding: 8px 14px; border-radius: 18px;
+  background: #fffaf0f2; border: 1px solid #dfc8a0;
+  box-shadow: 0 3px 16px #41301c18; color: #674f39; font-size: 13px;
+}
+.game-win-status strong { white-space: nowrap; color: #a0542f; }
+.game-win-status button { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.game-win-status button:focus-visible { outline: 2px solid #a0542f; outline-offset: 3px; }
+@media (max-width: 600px) {
+  .game-win-status { top: 6px; gap: 8px; font-size: 12px; padding: 7px 10px; }
+  .game-win-status > span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .game-win-status { transition: none; } }
+
+body:has(.game-page) .game-instructions > p { display: inline-block; background: #fffaf0ed; border-radius: 12px; padding: 6px 14px; }
+
+@media (max-width: 600px) { .game-finished .game-header > * { visibility: hidden; } }

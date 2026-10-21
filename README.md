@@ -196,3 +196,15 @@ rendering fix; other findings remain open unless explicitly marked repaired.
 
 This is a fan-made implementation for personal/educational use. 
 Boop is © 2022 Smirk and Dagger Games. All Rights Reserved.
+
+### Character polish (2026-10-21)
+
+Both teams now use white/team-accent two-tone coats. Adults wear oversized
+accent-framed sunglasses; kittens have open cartoon eyes and no glasses. Idles
+include staggered curious glances, sleepy nods, ear flicks and eye-only blinks.
+Tail poses are floor-safe across complete grounded animation loops. Three
+winning cats dance in place after the move resolves; eight-cat victories
+celebrate all winning adults. A compact top-center result replaces the old
+layout-pushing banner, and finished games no longer invite placement.
+Return hops end precisely on the matching inventory portrait, including mobile.
+See `tools/blender/README.md` for implementation and regression entry points.

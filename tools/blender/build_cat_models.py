@@ -323,14 +323,14 @@ def build_body(L, stage):
 def paint_mask(obj, L):
     """Vertex color mask: R = cream (belly/muzzle/paws), G = tabby stripes."""
     head_r, r_body = L["radii"]["head_r"], L["radii"]["r_body"]
-    head_c, chest = L["head_c"], L["chest"]
+    head_c = L["head_c"]
     mesh = obj.data
     attr = mesh.color_attributes.new(name="Mask", type="BYTE_COLOR", domain="POINT")
     colors = []
-    y0, y1 = chest.y - 0.3, head_c.y  # stripe zone across the back
     for v in mesh.vertices:
         co, n = v.co, v.normal
-        cream = 0.0
+        # Tuxedo split: one side white, one side team accent, with a soft seam.
+        cream = smoothstep(co.x, -.018, .018)
         if co.y < 0.05 and co.z < 0.30 and n.z < -0.15:
             cream = 0.85  # belly
         if co.z < 0.13:
@@ -338,9 +338,6 @@ def paint_mask(obj, L):
         if co.y < head_c.y - 0.45 * head_r and co.z < head_c.z - 0.10 * head_r:
             cream = max(cream, 0.9)  # muzzle
         stripe = 0.0
-        if n.z > 0.25 and y0 < co.y < y1 and co.z > 0.40:
-            wave = 0.5 + 0.5 * math.sin((co.y - y0) / (y1 - y0) * math.pi * 7)
-            stripe = smooth_window(wave, .30, .5, .70) * smoothstep(n.z, .25, .8) * 0.85
         colors.extend((cream, stripe, 0.0, 1.0))
     attr.data.foreach_set("color", colors)
     try:
@@ -399,6 +396,31 @@ def build_accessories(arm_obj, L, mats, bvh):
         parts.append((o, bone))
         return o
 
+    if L.get("adult"):
+        glasses = bpy.data.materials.get("GlassesAccent") or bpy.data.materials.new("GlassesAccent")
+        glasses.diffuse_color = (.22, .38, .65, 1)
+        lenses = bpy.data.materials.get("GlassesLens") or bpy.data.materials.new("GlassesLens")
+        lenses.diffuse_color = (.025, .035, .065, 1)
+        for material, roughness in ((glasses, .3), (lenses, .18)):
+            material.use_nodes = True
+            shader = material.node_tree.nodes.get("Principled BSDF")
+            shader.inputs["Base Color"].default_value = material.diffuse_color
+            shader.inputs["Roughness"].default_value = roughness
+        for side in (-1, 1):
+            # Slightly oversized rounded shades; rigid head binding prevents
+            # eye blink scaling from shrinking the frame or its lenses.
+            center = head_c + Vector((side * head_r * .43, -head_r * .94, head_r * .08))
+            sphere(f"Lens.{side}", center, (head_r * .41, head_r * .055, head_r * .30), lenses, "head")
+            pts = [center + Vector((math.cos(a) * head_r * .43, -head_r * .035, math.sin(a) * head_r * .32))
+                   for a in [i * math.tau / 16 for i in range(17)]]
+            curve_mesh(f"ShadesFrame.{side}", pts, head_r * .095, glasses, "head")
+            curve_mesh(f"ShadesArm.{side}", [center + Vector((side * head_r * .40, 0, 0)),
+                       head_c + Vector((side * head_r * .85, -head_r * .4, head_r * .1)),
+                       head_c + Vector((side * head_r * .83, head_r * .15, head_r * .05))],
+                       head_r * .055, glasses, "head")
+        curve_mesh("ShadesBridge", [head_c + Vector((-head_r * .08, -head_r * .98, head_r * .09)),
+                   head_c + Vector((head_r * .08, -head_r * .98, head_r * .09))], head_r * .095, glasses, "head")
+
     for side, tag in ((-1, "R"), (1, "L")):
         # Eyes: glossy dark sphere + iris + pupil + glints, placed on the head
         # surface and flattened along the surface normal.
@@ -406,9 +428,9 @@ def build_accessories(arm_obj, L, mats, bvh):
         co, n = surface_point(bvh, head_c, eye_dir)
         q = direction_quat(-n)
         up = n.cross(Vector((side, 0, 0))).normalized()
-        sphere(f"Eye.{tag}", co + n * 0.005, (head_r * .34, head_r * .34, head_r * .20), mats["Eyes"], f"eye.{tag}", q)
-        sphere(f"Iris.{tag}", co + n * head_r * .055, (head_r * .22, head_r * .22, head_r * .12), mats["Iris"], f"eye.{tag}", q)
-        sphere(f"Pupil.{tag}", co + n * head_r * .085, (head_r * .13, head_r * .13, head_r * .07), mats["Pupils"], f"eye.{tag}", q)
+        sphere(f"Eye.{tag}", co + n * 0.005, (head_r * .34, head_r * .34, head_r * .20), (mats["EyeGlints"] if not L.get("adult") else mats["Eyes"]), f"eye.{tag}", q)
+        sphere(f"Iris.{tag}", co + n * head_r * .28, (head_r * .13, head_r * .17, head_r * .09), mats["Iris"], f"eye.{tag}", q)
+        sphere(f"Pupil.{tag}", co + n * head_r * .36, (head_r * .055, head_r * .09, head_r * .055), mats["Pupils"], f"eye.{tag}", q)
         for sgn in (1, -1):
             glint = co + n * head_r * .12 + up * sgn * head_r * .10 - Vector((side * head_r * .10, 0, 0))
             size = head_r * (.055 if sgn > 0 else .030)
@@ -603,6 +625,29 @@ def tail_dirs(L, phase, pitch=0.0, sway=0.12):
     return dirs
 
 
+def pose_tail_safe(L, api, phase=0.0, pitch=0.0, sway=.12):
+    """Curl each segment above the support plane, including its skin radius.
+
+    Aim in armature/world space AFTER moving the hips/root. A fixed -95 degree
+    sit pitch used to point the long adult tail through the floor.
+    """
+    api.update()
+    for i, direction in enumerate(tail_dirs(L, phase, pitch, sway)):
+        pb = api.pb(f"tail{i}")
+        radius = L["radii"]["tail"][i] + .09
+        length = pb.bone.length
+        d = direction.normalized()
+        min_z = max(-.8, min(.95, (radius - pb.head.z) / length))
+        if d.z < min_z:
+            horizontal = Vector((d.x, d.y, 0))
+            if horizontal.length < .001:
+                horizontal = Vector((0, 1, 0))
+            horizontal.normalize()
+            d = horizontal * math.sqrt(1 - min_z * min_z) + Vector((0, 0, min_z))
+        api.aim(f"tail{i}", d)
+        api.update()
+
+
 def pose_stand(L, api, phase=0.0):
     api.aim("hips", REST_DIRS["hips"])
     api.update()
@@ -612,8 +657,7 @@ def pose_stand(L, api, phase=0.0):
     api.aim("head", REST_DIRS["head"])
     for tag in ("L", "R"):
         api.aim(f"ear.{tag}", ((0.12 if tag == "L" else -0.12), -0.15, 1))
-    for i, d in enumerate(tail_dirs(L, phase, sway=0.15)):
-        api.aim(f"tail{i}", d)
+    pose_tail_safe(L, api, phase, sway=.15)
     api.update()
     for tag in ("L", "R"):
         sh = api.pb(f"frontUpper.{tag}").bone.head_local
@@ -633,9 +677,8 @@ def pose_sit(L, api, phase=0.0):
     api.aim("head", (0, -0.45, 0.85))
     for tag in ("L", "R"):
         api.aim(f"ear.{tag}", ((0.12 if tag == "L" else -0.12), -0.10, 1))
-    for i, d in enumerate(tail_dirs(L, phase, pitch=-95, sway=0.10)):
-        api.aim(f"tail{i}", d)
-    api.root_move((0, 0, -0.60 * H))
+    api.root_move((0, 0, -0.48 * H))
+    pose_tail_safe(L, api, phase, pitch=-65, sway=.10)
     api.update()
     for tag in ("L", "R"):
         hp = api.pb(f"hindUpper.{tag}").bone.head_local
@@ -657,6 +700,8 @@ def pose_crouch(L, api, phase=0.0):
         hp = api.pb(f"hindUpper.{tag}").bone.head_local
         api.leg_ik("hind", tag, (hp.x, hp.y + 0.05, 0.02), (0, -1, -0.1))
 
+    pose_tail_safe(L, api, phase, pitch=-25, sway=.10)
+
 
 def pose_jump(L, api, phase=0.0):
     pose_stand(L, api, phase)
@@ -673,8 +718,7 @@ def pose_jump(L, api, phase=0.0):
         api.leg_ik("front", tag, (sh.x, sh.y - 0.85 * L["B"], max(0.03, sh.z - 0.55 * L["H"])), (0, -1, 0))
         hp = api.pb(f"hindUpper.{tag}").bone.head_local
         api.leg_ik("hind", tag, (hp.x, hp.y + 0.72 * L["B"], max(0.04, hp.z - 0.30 * L["H"])), (0, 1, 0))
-    for i, d in enumerate(tail_dirs(L, phase, pitch=55, sway=0.05)):
-        api.aim(f"tail{i}", d)
+    pose_tail_safe(L, api, phase, pitch=30, sway=.05)
 
 
 def pose_fall(L, api, phase=0.0):
@@ -692,8 +736,7 @@ def pose_fall(L, api, phase=0.0):
         api.leg_ik("front", tag, (sh.x + sgn * 0.3, sh.y - 0.5, sh.z + 0.3), (0, 0, 1))
         hp = api.pb(f"hindUpper.{tag}").bone.head_local
         api.leg_ik("hind", tag, (hp.x + sgn * 0.3, hp.y + 0.5, hp.z + 0.25), (0, 0, 1))
-    for i, d in enumerate(tail_dirs(L, phase, pitch=30, sway=0.3)):
-        api.aim(f"tail{i}", d)
+    pose_tail_safe(L, api, phase, pitch=15, sway=.2)
     api.update()
 
 
@@ -705,8 +748,7 @@ def pose_celebrate(L, api, phase=0.0):
         lift = math.sin(phase * 2 + (0 if sgn > 0 else math.pi)) * 0.5 + 0.5
         sh = api.pb(f"frontUpper.{tag}").bone.head_local
         api.leg_ik("front", tag, (sh.x, sh.y - 0.30, sh.z + 0.10 + lift * 0.35), (0, 1, 0))
-    for i, d in enumerate(tail_dirs(L, phase, sway=0.30)):
-        api.aim(f"tail{i}", d)
+    pose_tail_safe(L, api, phase, pitch=-45, sway=.25)
 
 
 def pose_walk(L, api, phase):
@@ -767,25 +809,45 @@ def build_actions(arm_obj, L, api):
         actions[name] = action
         return action
 
-    two_cycles = tau * 2 / 30
-    render_pose("Stand", lambda f: pose_stand(L, api, phase=f * two_cycles), [0, 15, 30])
-    render_pose("Walk", lambda f: pose_walk(L, api, phase=f * two_cycles), [0, 7, 15, 22, 30])
-    render_pose("Sit", lambda f: pose_sit(L, api, phase=f * tau / 90), [0, 30, 60, 90])
+    # Dense samples retain the alternating foot beats and smooth tail curves;
+    # sparse quarter-cycle keys previously aliased the dance/walk to stillness.
+    render_pose("Stand", lambda f: pose_stand(L, api, phase=f * tau / 90), range(0, 91, 3))
+    render_pose("Walk", lambda f: pose_walk(L, api, phase=f * tau / 30), range(0, 31, 2))
+    render_pose("Sit", lambda f: pose_sit(L, api, phase=f * tau / 120), range(0, 121, 4))
     render_pose("Crouch", lambda f: pose_crouch(L, api), [0, 6, 10])
     render_pose("Jump", lambda f: pose_jump(L, api), [0, 4, 9])
-    render_pose("Land", lambda f: pose_crouch(L, api), [0, 5, 12])
-    render_pose("Fall", lambda f: pose_fall(L, api, phase=f * tau / 10), [0, 5, 10])
-    render_pose("Celebrate", lambda f: pose_celebrate(L, api, phase=f * tau * 2 / 30), [0, 10, 20, 30])
+    # Land absorbs then recovers to sit instead of looping a frozen crouch.
+    def land_at(f):
+        pose_crouch(L, api) if f < 8 else pose_sit(L, api)
+    render_pose("Land", land_at, [0, 4, 8, 16])
+    render_pose("Fall", lambda f: pose_fall(L, api, phase=f * tau / 30), range(0, 31, 3))
+    render_pose("Celebrate", lambda f: pose_celebrate(L, api, phase=f * tau / 60), range(0, 61, 2))
+    render_pose("Dance", lambda f: pose_celebrate(L, api, phase=f * tau / 60), range(0, 61, 2))
 
-    def blink_at(f):
-        pose_sit(L, api)
-        k = math.sin(min(max(f / 8.0, 0), 1) * math.pi)
+    def curious_at(f):
+        phase = f * tau / 150
+        pose_sit(L, api, phase)
+        api.aim("head", (math.sin(phase) * .24, -.45, .85 + .07 * math.cos(phase)))
+    render_pose("Curious", curious_at, range(0, 151, 5))
+
+    def sleepy_at(f):
+        phase = f * tau / 180
+        pose_sit(L, api, phase)
+        api.aim("head", (0, -.55, .80 - .13 * (1 - math.cos(phase))))
+    render_pose("Sleepy", sleepy_at, range(0, 181, 5))
+
+    # Blink is an eye-only overlay, never a second full-body sit action.
+    action = bpy.data.actions.new("Blink")
+    arm_obj.animation_data.action = action
+    reset_pose(arm_obj)
+    for f in [0, 2, 4, 6, 8]:
+        k = math.sin(f / 8 * math.pi)
         for tag in ("L", "R"):
             pb = arm_obj.pose.bones[f"eye.{tag}"]
-            pb.scale = (1, 1 - 0.94 * k, 1)
+            pb.scale = (1, 1 - .94 * k, 1)
             pb.keyframe_insert("scale", frame=f)
-
-    render_pose("Blink", blink_at, [0, 2, 4, 6, 8])
+    action.use_fake_user = True
+    actions["Blink"] = action
 
     arm_obj.animation_data.action = None
     reset_pose(arm_obj)
@@ -798,7 +860,7 @@ def build_actions(arm_obj, L, api):
 
 def build(stage):
     clear_scene()
-    L = LAYOUTS[stage]
+    L = dict(LAYOUTS[stage], adult=stage == "cat")
 
     mats = make_materials()
     arm_obj = build_armature(L)

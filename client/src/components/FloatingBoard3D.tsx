@@ -26,6 +26,7 @@ interface FloatingBoard3DProps {
   isViewingHistory?: boolean;
   fallenPieces: FallenPiece[];
   animationKey: number;
+  winningColor?: PlayerColor;
 }
 
 // Cells fill the quilt: 6 x 1.17 spans 7.02 of the 7.04 quilt top, so the outer
@@ -43,8 +44,9 @@ const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) *
 const BOARD_CAMERA = { position: [9.2, 10.8, 12] as [number, number, number], fov: 46 };
 const BOARD_GL = { antialias: true, alpha: true };
 
-interface InventoryFlight { id: number; piece: PieceData }
-type RequestInventoryFlight = (piece: PieceData) => void;
+interface FlightOrigin { x: number; y: number; width: number; height: number }
+interface InventoryFlight { id: number; piece: PieceData; origin: FlightOrigin }
+type RequestInventoryFlight = (piece: PieceData, origin: FlightOrigin) => void;
 const InventoryFlightContext = createContext<RequestInventoryFlight>(() => {});
 
 function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: PieceData; ghost?: boolean; clip?: string; seed?: number }) {
@@ -79,8 +81,12 @@ function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: Pie
     if (!next) return;
     const previous = mixer.clipAction(THREE.AnimationClip.findByName(animations, currentClip.current) ?? next);
     const action = mixer.clipAction(next);
-    action.reset().play();
-    action.crossFadeFrom(previous, .12, true);
+    action.reset().setEffectiveWeight(1).setEffectiveTimeScale(1);
+    if (['Crouch', 'Jump', 'Land', 'Fall'].includes(clip)) {
+      action.setLoop(THREE.LoopOnce, 1); action.clampWhenFinished = true;
+    } else action.setLoop(THREE.LoopRepeat, Infinity);
+    action.play();
+    action.crossFadeFrom(previous, .24, false);
     currentClip.current = clip;
   }, [clip, mixer, animations]);
   useEffect(() => () => {
@@ -109,10 +115,10 @@ function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: Pie
     if (rig.tail) rig.tail.rotation.y -= a.tail;
     if (rig.earL) rig.earL.rotation.z -= a.earL;
     if (rig.earR) rig.earR.rotation.z -= a.earR;
-    mixer.update(delta);
+    mixer.update(Math.min(delta, .05));
 
     const seconds = performance.now() / 1000;
-    const atEase = clip === 'Sit' || clip === 'Stand';
+    const atEase = ['Sit', 'Stand', 'Curious', 'Sleepy'].includes(clip);
     let headYaw = 0, headPitch = 0, tailYaw = 0, earL = 0, earR = 0;
     if (atEase) {
       const phase = seconds * .55 + seed * 11;
@@ -130,12 +136,13 @@ function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: Pie
     if (rig.earR) rig.earR.rotation.z += earR;
     a.head.set(headPitch, headYaw, 0); a.tail = tailYaw; a.earL = earL; a.earR = earR;
 
-    if (clip !== 'Sit' && clip !== 'Stand') return; // blink only while at ease
+    if (!atEase) return; // blink only while at ease
     nextBlink.current -= delta;
     if (blink && nextBlink.current <= 0 && (!blinkAction.current || !blinkAction.current.isRunning())) {
       const action = mixer.clipAction(blink);
       action.setLoop(THREE.LoopOnce, 1);
-      action.reset().play();
+      action.clampWhenFinished = false;
+      action.reset().setEffectiveWeight(1).play();
       blinkAction.current = action;
       nextBlink.current = 2.5 + Math.random() * 5;
     }
@@ -151,6 +158,7 @@ interface CatActorProps {
   isNew?: boolean;
   isGhost?: boolean;
   isGraduating?: boolean;
+  isWinner?: boolean;
   removing?: boolean;
   animationKey: number;
 }
@@ -182,8 +190,6 @@ const TROT_MAX_S = 3.6;
 // the frame and drop back in from above, which read as two separate journeys;
 // now the arrival is one direct hop.
 const LEAP_CROUCH_S = .16;
-const LEAP_RISE_S = .42;
-const LEAP_HEIGHT = 2.1; // world units up: enough to reach the pool card
 // Safety clamp for layouts where a pool sits above the canvas and its floor
 // ray would otherwise run off the far end of the room.
 const MAX_RUN = 16;
@@ -236,7 +242,23 @@ const easeOut = (t: number) => 1 - (1 - t) * (1 - t);
 const shortestTurn = (from: number, to: number) =>
   Math.atan2(Math.sin(to - from), Math.cos(to - from));
 
-function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removing, animationKey }: CatActorProps) {
+function flightOrigin(group: THREE.Group, camera: THREE.Camera, gl: THREE.WebGLRenderer): FlightOrigin {
+  group.updateWorldMatrix(true, true);
+  const bounds = new THREE.Box3().setFromObject(group);
+  const canvas = gl.domElement.getBoundingClientRect();
+  const points = [];
+  for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y])
+    for (const z of [bounds.min.z, bounds.max.z]) {
+      const p = new THREE.Vector3(x, y, z).project(camera);
+      points.push({x: canvas.left + (p.x + 1) * canvas.width / 2,
+        y: canvas.top + (1 - p.y) * canvas.height / 2});
+    }
+  const x = Math.min(...points.map(p => p.x)), y = Math.min(...points.map(p => p.y));
+  return {x, y, width: Math.max(...points.map(p => p.x)) - x,
+    height: Math.max(...points.map(p => p.y)) - y};
+}
+
+function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinner, removing, animationKey }: CatActorProps) {
   const group = useRef<THREE.Group>(null);
   const glow = useRef<THREE.PointLight>(null);
   const { camera, gl } = useThree();
@@ -286,7 +308,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
 
     if (isGhost) {
       nextClip = 'Sit';
-    } else if (boop) {
+    } else if (boop && (offBoard || elapsed < BOOP_DELAY_S + BOOP_S)) {
       // Real cat jump: crouch anticipation, airborne arc, landing absorb.
       const t = elapsed - BOOP_DELAY_S;
       const crouchEnd = CROUCH_F * BOOP_S;
@@ -366,14 +388,13 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
               nextClip = 'Land';
               squash = Math.sin((sinceStop / LEAP_CROUCH_S) * Math.PI) * .2;
             } else {
-              const p = Math.min(1, (sinceStop - LEAP_CROUCH_S) / LEAP_RISE_S);
-              y = FLOOR_Y + LEAP_HEIGHT * p * p;
+              y = FLOOR_Y;
               nextClip = 'Jump';
-              // Hand off only once the leap has actually left the frame, so the
-              // piece is never frozen in view waiting for the next step.
-              if (p >= 1 && !flightSent.current && g.parent) {
+              // Continue from the carpet as a viewport overlay; the opaque
+              // pool card and stacked layouts cannot occlude the last hop.
+              if (!flightSent.current && g.parent) {
                 flightSent.current = true;
-                requestFlight(piece);
+                requestFlight(piece, flightOrigin(g, camera, gl));
               }
               g.visible = !flightSent.current;
             }
@@ -399,14 +420,24 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
         y = target[1] + Math.sin(p * Math.PI) * .045; // small rebound
         nextClip = 'Land';
       }
+    } else if (isWinner) {
+      nextClip = 'Dance';
+      const beat = elapsed * Math.PI * 2;
+      y += Math.pow(Math.max(0, Math.sin(beat)), 2) * .10;
+      roll = Math.sin(beat) * .08;
+      desiredHeading = SETTLE_HEADING + Math.sin(beat * .5) * .22;
     } else if (isGraduating) {
       nextClip = 'Celebrate';
+    } else if (!isGhost) {
+      const idleTime = elapsed + seed * 37;
+      const part = idleTime % 24;
+      nextClip = part < 5 ? 'Curious' : part > 18 ? 'Sleepy' : 'Sit';
     }
 
     setClip(previous => (previous === nextClip ? previous : nextClip));
 
     // Ease the heading; never snap.
-    heading.current += shortestTurn(heading.current, desiredHeading) * Math.min(1, delta * 12);
+    heading.current += shortestTurn(heading.current, desiredHeading) * (1 - Math.exp(-12 * Math.min(delta, .05)));
     g.position.set(x, y, z);
     g.rotation.y = heading.current;
     g.rotation.z = roll;
@@ -464,22 +495,30 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, removin
  * and the pool card is opaque, so the last leg is DOM: the piece continues from
  * the card's bottom edge straight up into the portrait. It is above the card in
  * paint order, so the arrival lands visibly on top of the box. */
-function InventoryJump({piece}: {piece: PieceData}) {
+function InventoryJump({piece, origin}: {piece: PieceData; origin: FlightOrigin}) {
   const element = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const box = document.querySelector(`[data-pool-target="${piece.color}-${piece.type}"]`);
     const icon = box?.querySelector('.animated-piece-icon');
     if (!box || !icon || !element.current) return;
     const target = icon.getBoundingClientRect();
-    const card = box.getBoundingClientRect();
+    const node = element.current;
+    node.dataset.inventoryFlight = `${piece.color}-${piece.type}`;
+    // Explicit dimensions match the destination portrait, including phones.
+    node.style.width = `${target.width}px`;
+    node.style.height = `${target.height}px`;
     const x = target.left;
-    // One direct rise from the bottom edge of the card into the portrait.
-    const animation = element.current.animate([
-      { transform: `translate(${x}px, ${card.bottom - target.height * .5}px)`, opacity: 1 },
-      { transform: `translate(${x}px, ${target.top}px)`, opacity: 1 }
-    ], {duration: 300, easing: 'cubic-bezier(.3,.7,.4,1)', fill: 'forwards'});
+    const startX = origin.x + origin.width / 2 - target.width / 2;
+    const startY = origin.y + origin.height / 2 - target.height / 2;
+    const startScale = Math.max(.45, Math.min(1.8, origin.height / target.height));
+    const animation = node.animate([
+      { transform: `translate(${startX}px, ${startY}px) scale(${startScale})`, opacity: 1 },
+      { transform: `translate(${x}px, ${target.top - 9}px) scale(.97,1.04)`, opacity: 1, offset: .78 },
+      { transform: `translate(${x}px, ${target.top}px) scale(1.04,.96)`, opacity: 1, offset: .9 },
+      { transform: `translate(${x}px, ${target.top}px) scale(1)`, opacity: 1 }
+    ], {duration: 540, easing: 'cubic-bezier(.22,.65,.35,1)', fill: 'forwards'});
     return () => animation.cancel();
-  }, [piece.color, piece.type]);
+  }, [piece.color, piece.type, origin]);
   // Portal to <body> so viewport coordinates survive any transformed or
   // overflowing ancestor. Safe here: this runs in the react-dom tree.
   return createPortal(<div ref={element} style={{position: 'fixed', left: 0, top: 0, zIndex: 60, pointerEvents: 'none'}}><AnimatedPieceIcon piece={piece} /></div>, document.body);
@@ -492,11 +531,13 @@ function ReserveArrival({ color, index }: { color: PlayerColor; index: number })
   const { camera, gl } = useThree();
   const started = useRef(performance.now());
   const [clip, setClip] = useState('Jump');
+  const requestFlight = useContext(InventoryFlightContext);
+  const handedOff = useRef(false);
   useFrame(() => {
     const g = group.current;
     if (!g) return;
     const t = (performance.now() - started.current) / 1000 - .7 - index * .12;
-    g.visible = t >= 0 && t < 1.15;
+    g.visible = t >= 0 && !handedOff.current;
     if (t < 0) return;
     const destination = poolDestination(color, 'cat', camera, gl, g.parent);
     if (!destination) return;
@@ -507,8 +548,13 @@ function ReserveArrival({ color, index }: { color: PlayerColor; index: number })
     g.position.set(bx + offset, by + (1 - fall * fall) * 7 + (landed ? Math.sin(Math.min(1, (t - .65) / .2) * Math.PI) * .07 : 0), bz - .12);
     g.rotation.y = SETTLE_HEADING;
     const squash = landed ? Math.sin(Math.min(1, (t - .65) / .2) * Math.PI) * .15 : 0;
-    const settle = t > .95 ? Math.max(0, 1 - (t - .95) / .2) : 1;
+    const settle = 1;
     g.scale.set(.52 * (1 + squash) * settle, .52 * (1 - squash) * settle, .52 * (1 + squash) * settle);
+    if (t >= .85 && !handedOff.current) {
+      handedOff.current = true;
+      requestFlight({color, type: 'cat'}, flightOrigin(g, camera, gl));
+      g.visible = false;
+    }
     const next = landed ? 'Land' : 'Jump';
     setClip(previous => previous === next ? previous : next);
   });
@@ -1428,6 +1474,20 @@ function Scene(props: FloatingBoard3DProps & {
     fabric.map.dispose(); fabric.bumpMap.dispose(); fabric.patch.dispose(); fabric.stitches.dispose();
   }, [fabric]);
   useEffect(() => () => { document.body.style.cursor = ''; }, []);
+  const winners = new Set<string>();
+  if (props.winningColor && !props.isViewingHistory) {
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) {
+      for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+        const cells = [0, 1, 2].map(i => [r + dr * i, c + dc * i]);
+        if (cells.every(([rr, cc]) => props.board[rr]?.[cc]?.type === 'cat' && props.board[rr][cc]?.color === props.winningColor))
+          cells.forEach(([rr, cc]) => winners.add(`${rr}-${cc}`));
+      }
+    }
+    // Eight-cat victories have no mandatory row: celebrate all winning cats.
+    if (!winners.size) props.board.forEach((line, r) => line.forEach((p, c) => {
+      if (p?.type === 'cat' && p.color === props.winningColor) winners.add(`${r}-${c}`);
+    }));
+  }
   const boopTo = (row: number, col: number) => {
     const effect = props.boopedPieces.find(b => b.to?.row === row && b.to?.col === col);
     return effect ? { fromRow: effect.from.row, fromCol: effect.from.col } : undefined;
@@ -1463,7 +1523,7 @@ function Scene(props: FloatingBoard3DProps & {
             // ascent; only the removal phase adds the rise.
             const graduating = props.graduatingPieces.some(g => g.row === row && g.col === col);
             return <CatActor key={`${row}-${col}-${piece.color}-${piece.type}`} piece={piece} row={row} col={col}
-              boop={boopTo(row, col)} isNew={props.lastMove?.row === row && props.lastMove?.col === col && !boopTo(row, col)}
+              isWinner={winners.has(`${row}-${col}`)} boop={boopTo(row, col)} isNew={props.lastMove?.row === row && props.lastMove?.col === col && !boopTo(row, col)}
               isGraduating={graduating && (props.graduationPhase === 'highlighting' || props.graduationPhase === 'removing')}
               removing={graduating && props.graduationPhase === 'removing'}
               animationKey={props.animationKey} />;
@@ -1568,12 +1628,12 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   const [flights, setFlights] = useState<InventoryFlight[]>([]);
   const flightId = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const requestFlight = useCallback<RequestInventoryFlight>((piece) => {
+  const requestFlight = useCallback<RequestInventoryFlight>((piece, origin) => {
     const id = ++flightId.current;
-    setFlights(previous => [...previous, { id, piece }]);
+    setFlights(previous => [...previous, { id, piece, origin }]);
     timers.current.push(setTimeout(() => {
       setFlights(previous => previous.filter(flight => flight.id !== id));
-    }, 800));
+    }, 650));
   }, []);
   useEffect(() => () => { timers.current.forEach(clearTimeout); timers.current = []; }, []);
   return (
@@ -1591,7 +1651,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
         </Suspense>
       </Canvas>
       </BoardErrorBoundary>
-      {flights.map(flight => <InventoryJump key={flight.id} piece={flight.piece} />)}
+      {flights.map(flight => <InventoryJump key={flight.id} piece={flight.piece} origin={flight.origin} />)}
       <div className="board-cell-anchors" aria-hidden="true">
         {Array.from({ length: 36 }, (_, i) => <span key={i} data-cell={`${Math.floor(i / 6)}-${i % 6}`} />)}
       </div>

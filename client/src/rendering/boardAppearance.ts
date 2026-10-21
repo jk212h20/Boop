@@ -35,8 +35,8 @@ export function readQuiltColors(): QuiltColors {
 }
 
 const TEAM = {
-  orange: { fur: '#ed6b25', light: '#ffd09b', stripe: '#6e2415', eye: '#63bc58', rim: '#ffa24a' },
-  gray: { fur: '#64748b', light: '#dce7f2', stripe: '#222b3c', eye: '#48bfd1', rim: '#478ef5' },
+  orange: { fur: '#ed6b25', light: '#fffaf4', stripe: '#6e2415', eye: '#63bc58', rim: '#ffa24a' },
+  gray: { fur: '#64748b', light: '#fffaf4', stripe: '#222b3c', eye: '#48bfd1', rim: '#478ef5' },
 };
 
 /** Clone per-instance (independent skeletons for rigged models) and apply
@@ -99,6 +99,10 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
     const hasMask = Boolean((child.geometry as THREE.BufferGeometry).getAttribute('color'));
     const prepare = (source: THREE.MeshStandardMaterial) => {
       const material = source.clone();
+      if (source.name === 'GlassesAccent') {
+        material.color.set(ghost ? ghostColors.outline : colors.fur);
+        material.roughness = .3;
+      }
       if (source.name === 'Eyes' || source.name === 'Iris') {
         material.color.set(ghost ? ghostColors.eye : colors.eye);
       }

@@ -459,13 +459,18 @@ def build_accessories(arm_obj, L, mats, bvh):
             glint = co + n * head_r * .12 + up * sgn * head_r * .10 - Vector((side * head_r * .10, 0, 0))
             size = head_r * (.055 if sgn > 0 else .030)
             sphere(f"Glint{sgn}.{tag}", glint, (size, size, head_r * .05), mats["EyeGlints"], f"eye.{tag}", q)
-        for dz in (-1, 0, 1):
-            start = co + Vector((side * head_r * .18, -head_r * .30, dz * head_r * .16))
-            curve_mesh(f"Whisker.{tag}{dz}",
+        # Three close roots on the muzzle, all pointing outward with a shallow
+        # fan. Bind to head, not blinking eyes. Kittens get shorter, finer hairs.
+        cheek, normal = surface_point(bvh, head_c, Vector((side * .55, -1, -.25)))
+        length = head_r * (1.05 if L.get("adult") else .68)
+        thickness = head_r * (.007 if L.get("adult") else .004)
+        for index, fan in enumerate((-1, 0, 1)):
+            start = cheek + normal * .004 + Vector((0, 0, fan * head_r * .035))
+            curve_mesh(f"Whisker.{tag}{index}",
                        [start,
-                        start + Vector((side * head_r * .55, -head_r * .12, dz * head_r * .3)),
-                        start + Vector((side * head_r * 1.15, -head_r * .02, dz * head_r * .55))],
-                       head_r * .008, mats["Whiskers"], f"eye.{tag}")
+                        start + Vector((side * length * .5, -length * .06, fan * length * .10)),
+                        start + Vector((side * length, -length * .08, fan * length * .22))],
+                       thickness, mats["Whiskers"], "head")
 
     nose_dir = Euler((math.radians(-18), 0, 0), "XYZ").to_matrix() @ Vector((0, -1, 0))
     nco, nn = surface_point(bvh, head_c + Vector((0, 0, -0.12 * head_r)), nose_dir)
@@ -796,7 +801,11 @@ def pose_celebrate(L, api, phase=0.0):
 def pose_walk(L, api, phase):
     """Four-beat walk: long grounded stance, short eased swing, quiet torso."""
     pose_stand(L, api, phase * .5)
-    api.root_move((.008 * math.sin(phase), 0, .006 * math.cos(phase * 2)))
+    # Gentle weight-transfer wobble; solve paws afterward to keep stance grounded.
+    wobble = math.sin(phase)
+    api.root_move((.018 * L["H"] * wobble, 0, .006 * math.cos(phase * 2)))
+    api.set_world_rot("root", Quaternion((0, 1, 0), math.radians(2.0) * wobble)
+                      @ api.rest_pose["root"].to_quaternion())
     api.update()
     stride = .26 * L["H"]
     for limb, tag, offset in [('hind', 'L', 0), ('front', 'L', .25),

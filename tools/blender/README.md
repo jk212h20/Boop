@@ -99,3 +99,10 @@ deceleration; mixer cadence tracks path velocity with a bounded speed. The
 return budget is 12 seconds to preserve longer walks without removing the cat
 mid-trip; next turns remain independent. `client/tests/walk.browser.cjs` records
 45 encoded browser screenshots and advancing root transforms for visual review.
+
+Final character detail: Walk includes a two-degree side-to-side roll and small
+lateral weight shift, applied before paw IK. Whiskers are three near-black hairs
+per cheek, rooted together on the muzzle in a shallow outward fan and bound to
+head rather than blinking eye bones. Kittens use shorter (.68 vs 1.05 head-radius)
+and finer (.004 vs .007 head-radius) whiskers. Walk QA measures evaluated sole
+geometry (not elevated paw-bone pivots) and verifies loop closure.

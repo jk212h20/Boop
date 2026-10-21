@@ -26,6 +26,25 @@ for stage in ('kitten', 'cat'):
             bpy.context.scene.frame_set(frame)
             evaluated = mesh.evaluated_get(bpy.context.evaluated_depsgraph_get())
             minimum = min(minimum, min((evaluated.matrix_world @ evaluated.data.vertices[i].co).z for i in tail_vertices))
+        if name == 'Walk':
+            # Wobble must not tilt soles or lift every stance foot off support.
+            first = None
+            paw_groups = {g.index for g in mesh.vertex_groups if 'Paw.' in g.name}
+            paw_vertices = [v.index for v in mesh.data.vertices
+                            if any(g.group in paw_groups and g.weight > .99 for g in v.groups)]
+            for frame in range(37):
+                bpy.context.scene.frame_set(frame)
+                paws = [arm.pose.bones[f'{limb}Paw.{side}']
+                        for limb in ('front', 'hind') for side in ('L', 'R')]
+                evaluated = mesh.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                sole = min((evaluated.matrix_world @ evaluated.data.vertices[i].co).z for i in paw_vertices)
+                assert -.025 < sole < .04, f'{stage}: walk sole outside support tolerance: {sole}'
+                transforms = [arm.pose.bones['root'].matrix.copy()] + [p.matrix.copy() for p in paws]
+                if frame == 0:
+                    first = transforms
+                if frame == 36:
+                    assert max(abs(a[r][c] - b[r][c]) for a, b in zip(first, transforms)
+                               for r in range(4) for c in range(4)) < .001, f'{stage}: walk seam'
         print(stage, name, 'tail minimum', round(minimum, 4), flush=True)
         assert minimum > -.018, f'{stage}/{name} tail penetrates support plane: {minimum}'
 print('FLOOR_QA_OK', flush=True)

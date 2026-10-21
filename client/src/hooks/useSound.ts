@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 
-type SoundName = 'place' | 'boop' | 'graduate' | 'win' | 'lose';
+type SoundName = 'place' | 'boop' | 'graduate' | 'win' | 'lose' | 'meow';
 
 interface SoundOptions {
   volume?: number;
@@ -12,6 +12,7 @@ class SoundManager {
   private audioContext: AudioContext | null = null;
   private enabled: boolean = true;
   private volume: number = 0.5;
+  private lastMeow = -1;
 
   private getAudioContext(): AudioContext {
     if (!this.audioContext) {
@@ -50,6 +51,9 @@ class SoundManager {
         break;
       case 'lose':
         this.playSadSound(ctx, vol);
+        break;
+      case 'meow':
+        this.playMeow(ctx, vol);
         break;
     }
   }
@@ -175,7 +179,100 @@ class SoundManager {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.5);
   }
+
+  private playMeow(ctx: AudioContext, volume: number) {
+    let index = Math.floor(Math.random() * MEOWS.length);
+    if (index === this.lastMeow) index = (index + 1) % MEOWS.length;
+    this.lastMeow = index;
+    playMeow(ctx, volume, index);
+  }
 }
+
+// A cat meow. Nothing is sampled, so it is built the way a voice is: a
+// buzzing glottal source whose pitch rises and falls, shaped by two moving
+// formants, with a breathy edge. Each variant is a different cat, and the
+// same cat never meows twice in a row.
+export function playMeow(ctx: BaseAudioContext, volume: number, index: number) {
+  const meow = MEOWS[index % MEOWS.length];
+  const t0 = ctx.currentTime;
+  const dur = meow.duration;
+
+  const source = ctx.createOscillator();
+  source.type = 'sawtooth';
+  const pitch = meow.pitch * (0.96 + Math.random() * 0.08);
+  source.frequency.setValueAtTime(pitch * 0.9, t0);
+  source.frequency.linearRampToValueAtTime(pitch * meow.peak, t0 + dur * 0.28);
+  source.frequency.exponentialRampToValueAtTime(pitch * meow.tail, t0 + dur);
+
+  // A slow wobble on the pitch is most of what makes it sound alive.
+  const vibrato = ctx.createOscillator();
+  const vibratoDepth = ctx.createGain();
+  vibrato.frequency.value = 5.2 + Math.random();
+  vibratoDepth.gain.value = pitch * 0.02;
+  vibrato.connect(vibratoDepth);
+  vibratoDepth.connect(source.frequency);
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.linearRampToValueAtTime(volume * 0.5, t0 + 0.035);
+  env.gain.linearRampToValueAtTime(volume * 0.34, t0 + dur * 0.45);
+  env.gain.linearRampToValueAtTime(volume * 0.46, t0 + dur * 0.72);
+  env.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+  env.connect(ctx.destination);
+
+  // Two formants: the vowel closes on "mi" and opens into "aow".
+  const formants = [
+    { from: meow.f1[0], to: meow.f1[1], q: 7, gain: 1 },
+    { from: meow.f2[0], to: meow.f2[1], q: 11, gain: 0.55 },
+  ];
+  formants.forEach(({ from, to, q, gain }) => {
+    const filter = ctx.createBiquadFilter();
+    const level = ctx.createGain();
+    filter.type = 'bandpass';
+    filter.Q.value = q;
+    filter.frequency.setValueAtTime(from, t0);
+    filter.frequency.exponentialRampToValueAtTime(to, t0 + dur * 0.75);
+    level.gain.value = gain * 2.6;
+    source.connect(filter);
+    filter.connect(level);
+    level.connect(env);
+  });
+
+  // A little breath over the top so it is not a pure buzz.
+  const breathLength = Math.floor(ctx.sampleRate * dur);
+  const breathBuffer = ctx.createBuffer(1, breathLength, ctx.sampleRate);
+  const breathData = breathBuffer.getChannelData(0);
+  for (let i = 0; i < breathLength; i++) breathData[i] = (Math.random() * 2 - 1) * 0.16;
+  const breath = ctx.createBufferSource();
+  const breathFilter = ctx.createBiquadFilter();
+  const breathGain = ctx.createGain();
+  breath.buffer = breathBuffer;
+  breathFilter.type = 'bandpass';
+  breathFilter.frequency.value = 2400;
+  breathFilter.Q.value = 0.8;
+  breathGain.gain.value = volume * 0.35;
+  breath.connect(breathFilter);
+  breathFilter.connect(breathGain);
+  breathGain.connect(env);
+  breath.start(t0);
+  breath.stop(t0 + dur);
+
+  source.start(t0);
+  vibrato.start(t0);
+  source.stop(t0 + dur + 0.02);
+  vibrato.stop(t0 + dur + 0.02);
+}
+
+// The voices of a handful of cats: pitch, how far it climbs, how it falls
+// away, and the two formant pairs that shape the vowel.
+const MEOWS = [
+  { pitch: 430, peak: 1.5, tail: 0.72, duration: 0.62, f1: [640, 1000], f2: [2100, 1500] },
+  { pitch: 520, peak: 1.35, tail: 0.8, duration: 0.5, f1: [760, 1080], f2: [2400, 1750] },
+  { pitch: 360, peak: 1.65, tail: 0.66, duration: 0.78, f1: [560, 900], f2: [1850, 1300] },
+  { pitch: 610, peak: 1.25, tail: 0.85, duration: 0.42, f1: [880, 1200], f2: [2650, 1950] },
+  { pitch: 300, peak: 1.4, tail: 0.62, duration: 0.9, f1: [500, 820], f2: [1700, 1200] },
+  { pitch: 470, peak: 1.55, tail: 0.7, duration: 0.55, f1: [700, 1020], f2: [2250, 1600] },
+];
 
 // Singleton instance
 const soundManager = new SoundManager();

@@ -6,6 +6,7 @@ import assert from 'node:assert';
 import {
   createInitialGameState, executeMove, cloneGameState, resolveGraduationChoice,
 } from '../src/bot/LocalGame';
+import { MEOW_LIMIT, offBoardBoops } from '../src/animationTiming';
 import { applyBotGraduationChoice } from '../src/hooks/useBotGame';
 import type { GameState, Piece, PlayerColor } from '../src/types';
 
@@ -235,4 +236,18 @@ test('R06b: a resolved graduation choice carries its piece data', () => {
   for (const cell of sel.newState.graduatedPieces) {
     assert.deepEqual(cell.piece, K('orange'));
   }
+});
+
+// A meow belongs to the cats that leave the bed. A boop that only slides a
+// piece along the quilt must not yowl, and a double boop must not stack up
+// into a pile of meows.
+test('only boops that push a piece off the bed meow, two at most', () => {
+  const off = { from: { row: 0, col: 0 }, to: null };
+  const along = { from: { row: 1, col: 1 }, to: { row: 1, col: 2 } };
+  assert.deepEqual(offBoardBoops([along]), []);
+  assert.deepEqual(offBoardBoops([off, along]), [off]);
+  const third = { from: { row: 2, col: 2 }, to: null };
+  const fourth = { from: { row: 3, col: 3 }, to: null };
+  assert.deepEqual(offBoardBoops([off, third, fourth]), [off, third]);
+  assert.equal(MEOW_LIMIT, 2);
 });

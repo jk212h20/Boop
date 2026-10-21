@@ -999,33 +999,36 @@ function FrameBoard() {
 /** The room around the bed: a woven rug on the floor, a soft contact shadow,
  * and a little bedside furniture so the bed reads as furniture rather than a
  * floating slab. Everything here sits outside the playable quilt. */
-/** "How to Boop", written down the spine of the little book on the bedside
- * table. Drawn to a canvas instead of loaded: one texture, no extra fetch. */
+/** "How to Boop", written along the spine of the book lying on the bedside
+ * table. The book lies flat, so the spine is a horizontal strip facing the
+ * player and the title runs its length, the way a real spine does. Drawn to a
+ * canvas instead of loaded: one texture, no extra fetch. */
 function useSpineTexture(title: string) {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 96;
-    canvas.height = 512;
+    canvas.width = 640;
+    canvas.height = 184;
     const context = canvas.getContext('2d');
     if (!context) return null;
     context.fillStyle = '#b4553f';
     context.fillRect(0, 0, canvas.width, canvas.height);
-    // Two thin gilt rules, like a bound volume.
+    // Two thin gilt rules set in from the head and tail of the spine.
     context.fillStyle = '#d8b478';
-    context.fillRect(9, 0, 3, canvas.height);
-    context.fillRect(canvas.width - 12, 0, 3, canvas.height);
-    context.save();
-    context.translate(canvas.width / 2, canvas.height / 2);
-    context.rotate(Math.PI / 2); // the spine title runs down the book
+    context.fillRect(14, 0, 4, canvas.height);
+    context.fillRect(canvas.width - 18, 0, 4, canvas.height);
     context.fillStyle = '#f6e7c8';
-    context.font = 'bold 46px Georgia, serif';
+    // Long titles shrink to fit between the rules rather than running over.
+    let size = 96;
+    do {
+      context.font = `bold ${size}px Georgia, serif`;
+      size -= 4;
+    } while (size > 28 && context.measureText(title).width > canvas.width - 56);
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText(title, 0, 0);
-    context.restore();
+    context.fillText(title, canvas.width / 2, canvas.height / 2 + 4);
     const map = new THREE.CanvasTexture(canvas);
     map.colorSpace = THREE.SRGBColorSpace;
-    map.anisotropy = 4;
+    map.anisotropy = 8;
     return map;
   }, [title]);
   useEffect(() => () => { texture?.dispose(); }, [texture]);
@@ -1039,10 +1042,21 @@ function Room({ fabric, quiltColors, onOpenBook }: {
   // The lamp is the one thing in the room you can switch on.
   const [lampOn, setLampOn] = useState(false);
   const spine = useSpineTexture('How to Boop');
+  // The plush mouse's tail, swept back under the bed.
+  const mouseTail = useMemo(() => new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, .15, -.18),
+      new THREE.Vector3(.03, .12, -.3),
+      new THREE.Vector3(.14, .075, -.38),
+      new THREE.Vector3(.3, .06, -.36),
+    ]), 18, .014, 6, false,
+  ), []);
   const hoverPiece = (on: boolean) => { document.body.style.cursor = on ? 'pointer' : ''; };
   useEffect(() => () => shadow.dispose(), [shadow]);
+  useEffect(() => () => mouseTail.dispose(), [mouseTail]);
   const wood = '#6d4527';
   const woodLight = '#96633c';
+  const woodDark = '#4e3019';
   // Graphite pile with a silver cast: the page carpet is a silver weave now, so
   // the rug is the dark element on it rather than a green-grey floor.
   const slate = new THREE.Color('#5d6469');
@@ -1064,90 +1078,153 @@ function Room({ fabric, quiltColors, onOpenBook }: {
         <meshBasicMaterial map={shadow} transparent depthWrite={false} opacity={.85} />
       </mesh>
 
-      {/* Bedside table, left of the headboard. Scaled up from a drinks table to
-          a real nightstand so the lamp and the book are legible at the framing
-          the board uses. */}
-      <group position={[4.86, 0, -1.15]} scale={1.45}>
-        <mesh position={[0, -.52, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[.62, .58, .1, 24]} />
+      {/* Bedside drum table beside the headboard. It stands on the rug (its
+          foot is at the rug surface, not sunk under it) and is sized so the
+          lamp and the book survive the framing the board uses. */}
+      <group position={[4.95, FLOOR_Y - .012, -1.15]}>
+        {/* Contact shadow, so the drum reads as standing on the rug. */}
+        <mesh position={[0, .002, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>
+          <planeGeometry args={[1.45, 1.45]} />
+          <meshBasicMaterial map={shadow} transparent opacity={.85} depthWrite={false} />
+        </mesh>
+        <mesh position={[0, .51, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[.55, .58, 1.02, 28]} />
+          <meshStandardMaterial color={wood} roughness={.62} />
+        </mesh>
+        {/* A dark inlay band, so the drum reads as furniture rather than a post. */}
+        <mesh position={[0, .2, 0]}>
+          <cylinderGeometry args={[.565, .565, .05, 28]} />
+          <meshStandardMaterial color={woodDark} roughness={.7} />
+        </mesh>
+        <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[.99, .93, .16, 32]} />
           <meshStandardMaterial color={woodLight} roughness={.55} />
         </mesh>
-        <mesh position={[0, -.78, 0]} castShadow>
-          <cylinderGeometry args={[.09, .09, .44, 12]} />
-          <meshStandardMaterial color={wood} roughness={.62} />
-        </mesh>
-        <mesh position={[0, -1.0, 0]} castShadow>
-          <cylinderGeometry args={[.3, .3, .05, 20]} />
-          <meshStandardMaterial color={wood} roughness={.62} />
-        </mesh>
-        {/* Mug. */}
-        <mesh position={[.34, -.43, -.24]} castShadow>
-          <cylinderGeometry args={[.11, .1, .17, 18]} />
-          <meshStandardMaterial color={new THREE.Color(quiltColors[1]).lerp(new THREE.Color('#ffffff'), .35)} roughness={.6} />
-        </mesh>
+
+        {/* Mug, with a handle, so the top reads as lived-on. */}
+        <group position={[.5, 1.18, -.34]}>
+          {/* Open at the top, with coffee in it: a capped cylinder reads as a
+              disc from the one angle the player ever sees it from. */}
+          <mesh position={[0, .135, 0]} castShadow>
+            <cylinderGeometry args={[.175, .16, .27, 22, 1, true]} />
+            <meshStandardMaterial color={new THREE.Color(quiltColors[1]).lerp(new THREE.Color('#ffffff'), .35)}
+              roughness={.6} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[0, .235, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[.155, 22]} />
+            <meshStandardMaterial color="#4a2f1d" roughness={.3} />
+          </mesh>
+          <mesh position={[.19, .135, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <torusGeometry args={[.075, .022, 8, 18]} />
+            <meshStandardMaterial color={new THREE.Color(quiltColors[1]).lerp(new THREE.Color('#ffffff'), .2)} roughness={.6} />
+          </mesh>
+        </group>
 
         {/* A little lamp: click the shade to switch it. The glow is a point
             light inside the shade, so the table, the book and the near side of
             the bed all pick up the warm pool when it is on. */}
-        <group position={[-.28, -.47, -.2]}
+        <group position={[-.42, 1.18, -.28]}
           onPointerDown={event => { event.stopPropagation(); setLampOn(on => !on); }}
           onPointerOver={event => { event.stopPropagation(); hoverPiece(true); }}
           onPointerOut={() => hoverPiece(false)}>
-          <mesh position={[0, .02, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[.13, .15, .05, 20]} />
+          <mesh position={[0, .04, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[.21, .24, .08, 24]} />
             <meshStandardMaterial color="#3f4447" roughness={.5} metalness={.35} />
           </mesh>
-          <mesh position={[0, .18, 0]} castShadow>
-            <cylinderGeometry args={[.014, .014, .28, 10]} />
+          <mesh position={[0, .31, 0]} castShadow>
+            <cylinderGeometry args={[.022, .022, .46, 12]} />
             <meshStandardMaterial color="#a9aeb1" roughness={.35} metalness={.6} />
           </mesh>
-          <mesh position={[0, .36, 0]}>
-            <cylinderGeometry args={[.085, .135, .17, 24, 1, true]} />
+          {/* The shade is open at the bottom, so the bulb has to be a real
+              object inside it — you can see it from the bed. */}
+          <mesh position={[0, .46, 0]}>
+            <sphereGeometry args={[.09, 18, 14]} />
+            <meshStandardMaterial color={lampOn ? '#fff3d6' : '#f4efe4'} roughness={.35}
+              emissive={lampOn ? '#ffdf9f' : '#000000'} emissiveIntensity={lampOn ? 2.2 : 0} />
+          </mesh>
+          <mesh position={[0, .675, 0]}>
+            <cylinderGeometry args={[.136, .215, .27, 28, 1, true]} />
             <meshStandardMaterial color={lampOn ? '#ffe6bd' : '#efe4d2'} roughness={.85}
               side={THREE.DoubleSide} emissive={lampOn ? '#ffd79a' : '#000000'}
               emissiveIntensity={lampOn ? .85 : 0} />
           </mesh>
-          <pointLight position={[0, .3, 0]} color="#ffd9a3" intensity={lampOn ? 2.4 : 0}
-            distance={2.6} decay={2} />
+          <pointLight position={[0, .5, 0]} color="#ffd9a3" intensity={lampOn ? 2.6 : 0}
+            distance={3} decay={2} />
         </group>
 
-        {/* "How to Boop": a standing book you can open. It is the rules, and
-            clicking it says so. */}
-        <group position={[.02, -.26, .04]} rotation={[0, .55, 0]}
+        {/* "How to Boop", lying flat with its title down the spine, which faces
+            the player. Clicking it opens the rules. */}
+        <group position={[.16, 1.18, .3]} rotation={[0, .42, 0]}
           onPointerDown={event => { event.stopPropagation(); onOpenBook(); }}
           onPointerOver={event => { event.stopPropagation(); hoverPiece(true); }}
           onPointerOut={() => hoverPiece(false)}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[.34, .42, .1]} />
+          <mesh position={[0, .09, 0]} castShadow receiveShadow>
+            <boxGeometry args={[.62, .18, .42]} />
             <meshStandardMaterial color="#b4553f" roughness={.8} />
           </mesh>
-          {/* Page block, inset a hair on three sides so the cover reads as a cover. */}
-          <mesh position={[.008, 0, 0]}>
-            <boxGeometry args={[.324, .396, .086]} />
+          {/* Page block: inset at both ends and the fore-edge, so the boards
+              read as covers and the spine stays whole. */}
+          <mesh position={[0, .09, -.022]}>
+            <boxGeometry args={[.585, .135, .375]} />
             <meshStandardMaterial color="#e8dcc4" roughness={.95} />
           </mesh>
-          {/* The spine, turned toward the player so the title is legible. */}
-          <mesh position={[0, 0, .0505]}>
-            <planeGeometry args={[.1, .42]} />
+          <mesh position={[0, .09, .2105]}>
+            <planeGeometry args={[.62, .18]} />
             <meshStandardMaterial map={spine ?? undefined} color="#ffffff" roughness={.7} />
           </mesh>
         </group>
       </group>
 
-      {/* A toy mouse on the rug at the foot of the bed. */}
-      <group position={[2.5, FLOOR_Y + .05, 3.9]} rotation={[0, -.6, 0]}>
-        <mesh castShadow>
-          <sphereGeometry args={[.12, 16, 12]} />
-          <meshStandardMaterial color="#9aa6ad" roughness={.9} />
+      {/* A plush mouse half out from under the bed: nose and ears in the open,
+          the bulk of it in the bed's shadow. */}
+      <group position={[1.35, FLOOR_Y, 3.62]} rotation={[0, .22, 0]}>
+        <mesh position={[0, .17, 0]} scale={[1, .8, 1.35]} castShadow receiveShadow>
+          <sphereGeometry args={[.17, 20, 14]} />
+          <meshStandardMaterial color="#9aa6ad" roughness={.95} />
         </mesh>
-        <mesh position={[.12, .01, 0]} castShadow>
-          <sphereGeometry args={[.055, 12, 10]} />
-          <meshStandardMaterial color="#7f8b92" roughness={.9} />
+        <mesh position={[0, .155, .235]} scale={[1, .92, 1.08]} castShadow>
+          <sphereGeometry args={[.115, 18, 14]} />
+          <meshStandardMaterial color="#a6b1b7" roughness={.95} />
         </mesh>
-        <mesh position={[-.14, .01, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[.012, .006, .2, 6]} />
-          <meshStandardMaterial color="#c8b6a0" roughness={.9} />
+        <mesh position={[0, .135, .325]} scale={[1, .85, 1]} castShadow>
+          <sphereGeometry args={[.062, 14, 12]} />
+          <meshStandardMaterial color="#b3bdc2" roughness={.95} />
         </mesh>
+        <mesh position={[0, .14, .378]}>
+          <sphereGeometry args={[.024, 12, 10]} />
+          <meshStandardMaterial color="#dd9a9a" roughness={.7} />
+        </mesh>
+        {[-1, 1].map(side => (
+          <group key={`ear-${side}`} position={[side * .082, .315, .205]} rotation={[.35, 0, side * .5]}>
+            <mesh castShadow>
+              <cylinderGeometry args={[.078, .078, .016, 18]} />
+              <meshStandardMaterial color="#a6b1b7" roughness={.95} />
+            </mesh>
+            <mesh position={[0, .011, 0]}>
+              <cylinderGeometry args={[.052, .052, .008, 16]} />
+              <meshStandardMaterial color="#d9a5a2" roughness={.9} />
+            </mesh>
+          </group>
+        ))}
+        {[-1, 1].map(side => (
+          <mesh key={`eye-${side}`} position={[side * .055, .215, .318]}>
+            <sphereGeometry args={[.017, 10, 8]} />
+            <meshStandardMaterial color="#23282b" roughness={.35} />
+          </mesh>
+        ))}
+        {/* Whiskers. */}
+        {[-1, 1].flatMap(side => [0, 1].map(i => (
+          <mesh key={`whisker-${side}-${i}`} position={[side * .075, .13 + i * .022, .36]}
+            rotation={[0, 0, side * (.55 - i * .5)]}>
+            <cylinderGeometry args={[.003, .0015, .13, 4]} />
+            <meshStandardMaterial color="#e6e9ea" roughness={.6} />
+          </mesh>
+        )))}
+        {mouseTail && (
+          <mesh geometry={mouseTail} castShadow>
+            <meshStandardMaterial color="#d9b7ab" roughness={.85} />
+          </mesh>
+        )}
       </group>
     </group>
   );

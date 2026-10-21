@@ -22,6 +22,14 @@ export const GRADUATION_HIGHLIGHT_MS = 800;
 // 700ms ascent followed by staggered cats jumping down into the reserve.
 export const GRADUATION_REMOVAL_MS = 2100;
 
+// A meow is for the cats that actually leave the bed: a boop that slides a
+// piece along the quilt should not yowl. Two at most, so a double boop is a
+// small chorus instead of a pile-up.
+export const MEOW_LIMIT = 2;
+export function offBoardBoops<T extends { to: unknown }>(booped: readonly T[]): T[] {
+  return booped.filter(effect => effect.to === null).slice(0, MEOW_LIMIT);
+}
+
 export interface TimingEffects {
   graduatedPieces?: readonly { row: number; col: number }[];
   boopedPieces?: readonly { to: { row: number; col: number } | null }[];

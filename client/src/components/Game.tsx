@@ -7,7 +7,7 @@ import { useSound } from '../hooks/useSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
 import {
-  BOOP_DELAY_MS, FALLEN_TRIP_MS, GRADUATION_HIGHLIGHT_MS,
+  BOOP_DELAY_MS, FALLEN_TRIP_MS, GRADUATION_HIGHLIGHT_MS, offBoardBoops,
   animationDurationMs, graduationDelayMs,
 } from '../animationTiming';
 
@@ -370,6 +370,12 @@ export function Game({
       if (booped.length > 0) {
         timers.push(setTimeout(() => playSound('boop'), BOOP_DELAY));
       }
+
+      // A cat that gets shoved off the bed yowls on the way down, staggered so
+      // two of them sound like two cats rather than one louder cat.
+      offBoardBoops(booped).forEach((_, index) => {
+        timers.push(setTimeout(() => playSound('meow'), BOOP_DELAY + 430 + index * 240));
+      });
       
       // Clear animation state after all animations complete
       const totalAnimationTime = animationDurationMs({

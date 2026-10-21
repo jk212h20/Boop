@@ -1139,7 +1139,7 @@ function Room({ fabric, quiltColors, onOpenBook }: {
               object inside it — you can see it from the bed. */}
           <mesh position={[0, .46, 0]}>
             <sphereGeometry args={[.09, 18, 14]} />
-            <meshStandardMaterial color={lampOn ? '#fff3d6' : '#f4efe4'} roughness={.35}
+            <meshStandardMaterial color={lampOn ? '#fff3d6' : '#dfe4e2'} roughness={.28}
               emissive={lampOn ? '#ffdf9f' : '#000000'} emissiveIntensity={lampOn ? 2.2 : 0} />
           </mesh>
           <mesh position={[0, .675, 0]}>

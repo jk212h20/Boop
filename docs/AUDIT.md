@@ -289,3 +289,19 @@ the repaired behaviour; the remaining detectors still confirm the defects they
 document (28 engine/static + 12 browser). `tools/sol-vision.mjs` is the screenshot describer used for these
 visual checks (hosted Sol 6.1 via `PPQ_API_KEY`); the local vision model was
 misreading the board.
+
+
+## One-second search repair — 2026-10-21
+
+**B02 and B03 are repaired in the active local search.** The bot no longer
+constructs successors from the lossy `simulateMove` return value: it uses the
+live `executeMove` and `resolveGraduationChoice` transitions. Both inventories,
+retired kittens, opponent wins and pending choices are preserved. Choices are
+searched for their actual owner. The exported simulator remains for historical
+tournament/diagnostic consumers; this is not a claim to repair that API.
+
+Local play also moved to a deadline-bounded Web Worker with stale-result
+cancellation on reset/leave/unmount, replacing untracked animation timers and
+main-thread minimax. See [the implemented plan and evidence](BOT_PLAN.md) and
+`client/tests/bot.test.ts` / `client/tests/bot.browser.cjs`. This addendum does
+not close unrelated multiplayer, history, or experimental AlphaZero findings.

@@ -3,35 +3,22 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GameState, PlayerColor, PieceType, GameOverInfo } from '../types';
 import { checkWinCondition, createInitialGameState, executeMove, resolveGraduationChoice } from '../bot/LocalGame';
-import { createBot, BotAI } from '../bot/BotAI';
-import { DEFAULT_BOT_CONFIG, BotConfig } from '../bot/types';
+import { BotWorkerClient } from '../bot/BotWorkerClient';
+import { createBot } from '../bot/BotAI';
+import { BotConfig } from '../bot/types';
 
-// Resolve a pending graduation choice for the bot: execute the option that
-// graduates the most kittens (ties -> first listed). Mirrors the human path
-// in selectGraduation below. Without this, a bot move that ends in
-// selecting_graduation deadlocks the game: nothing else ever resolves it.
+// Synchronous rules/test entry point. Live play resolves choices in the worker.
 export function applyBotGraduationChoice(state: GameState, botColor: PlayerColor): GameState {
   const options = state.pendingGraduationOptions || [];
   if (!state.players[botColor] || options.length === 0) return state;
 
-  let bestIndex = 0;
-  let bestKittens = -1;
-  options.forEach((option, index) => {
-    const kittens = option.filter(cell => {
-      const piece = state.board[cell.row]?.[cell.col];
-      return piece && piece.color === botColor && piece.type === 'kitten';
-    }).length;
-    if (kittens > bestKittens) {
-      bestKittens = kittens;
-      bestIndex = index;
-    }
-  });
+  const bestIndex = createBot(botColor).findBestGraduation(state);
 
   const result = resolveGraduationChoice(state, bestIndex);
   return result.valid ? result.newState : state;
 }
 
-import { animationDurationMs } from '../animationTiming';
+
 
 interface UseBotGameReturn {
   gameState: GameState | null;
@@ -59,67 +46,28 @@ export function useBotGame(): UseBotGameReturn {
   const playerColor: PlayerColor = 'orange';
   const botColor: PlayerColor = 'gray';
   
-  const botRef = useRef<BotAI | null>(null);
-  const thinkingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const botRef = useRef<BotWorkerClient | null>(null);
+  const generationRef = useRef(0);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (thinkingTimeoutRef.current) {
-        clearTimeout(thinkingTimeoutRef.current);
-      }
-    };
-  }, []);
+  useEffect(() => () => { generationRef.current++; botRef.current?.dispose(); }, []);
 
-  // Make bot move
-  const executeBotMove = useCallback((state: GameState) => {
-    if (!botRef.current) return;
-    if (state.phase !== 'playing') return;
-    if (state.currentTurn !== botColor) return;
-
+  // Start computation immediately. Cosmetic animations must not add to reply time.
+  const executeBotMove = useCallback(async (state: GameState) => {
+    const bot = botRef.current;
+    if (!bot || state.phase === 'finished') return;
+    if (!(state.phase === 'selecting_graduation' && state.pendingGraduationPlayer === botColor) &&
+        !(state.phase === 'playing' && state.currentTurn === botColor)) return;
+    const generation = generationRef.current;
     setBotThinking(true);
-
-    // Add a slight delay to make it feel more natural
-    thinkingTimeoutRef.current = setTimeout(() => {
-      const bot = botRef.current;
-      if (!bot) {
-        setBotThinking(false);
-        return;
-      }
-
-      const move = bot.findBestMove(state);
-      
-      if (move) {
-        const result = executeMove(state, move.row, move.col, move.pieceType, botColor);
-        
-        if (result.valid) {
-          let resultingState = result.newState;
-
-          // If the bot's move left a pending graduation choice for the bot,
-          // resolve it here. Nothing else will — the human selector rejects
-          // bot selections — so this previously deadlocked the game.
-          if (resultingState.phase === 'selecting_graduation' &&
-              resultingState.pendingGraduationPlayer === botColor) {
-            resultingState = applyBotGraduationChoice(resultingState, botColor);
-          }
-
-          setGameState(resultingState);
-          
-          // Check for game over
-          if (resultingState.phase === 'finished' && resultingState.winner) {
-            const winCondition = checkWinCondition(resultingState.board, resultingState.winner)
-              ?? 'three_cats_in_row';
-            setGameOver({
-              winner: resultingState.winner,
-              winCondition,
-              gameState: resultingState,
-            });
-          }
-        }
-      }
-      
-      setBotThinking(false);
-    }, DEFAULT_BOT_CONFIG.thinkingDelayMs);
+    const resultingState = await bot.play(state);
+    if (generation !== generationRef.current || !resultingState) return;
+    setGameState(resultingState);
+    if (resultingState.phase === 'finished' && resultingState.winner) {
+      setGameOver({ winner: resultingState.winner,
+        winCondition: checkWinCondition(resultingState.board, resultingState.winner) ?? 'three_cats_in_row',
+        gameState: resultingState });
+    }
+    setBotThinking(false);
   }, [botColor]);
 
   // Store config for reset
@@ -127,6 +75,8 @@ export function useBotGame(): UseBotGameReturn {
 
   // Start a new bot game
   const startBotGame = useCallback((playerName: string = 'Player', botConfig: Partial<BotConfig> = {}) => {
+    generationRef.current++;
+    botRef.current?.dispose();
     const newState = createInitialGameState(playerName, '🤖 Bot');
     setGameState(newState);
     setGameOver(null);
@@ -140,7 +90,7 @@ export function useBotGame(): UseBotGameReturn {
     botConfigRef.current = botConfig;
     
     // Create bot instance with config
-    botRef.current = createBot(botColor, botConfig);
+    botRef.current = new BotWorkerClient(botColor, botConfig);
     
     console.log('[BotGame] Started new game with config:', botConfig);
   }, [botColor]);
@@ -169,14 +119,7 @@ export function useBotGame(): UseBotGameReturn {
       return false;
     }
 
-    // The move (or its boop) can leave the bot owing a graduation choice even
-    // though the human moved. Resolve it before showing the state, otherwise
-    // nothing ever does and the game deadlocks.
-    let newState = result.newState;
-    if (newState.phase === 'selecting_graduation' &&
-        newState.pendingGraduationPlayer === botColor) {
-      newState = applyBotGraduationChoice(newState, botColor);
-    }
+    const newState = result.newState;
 
     setGameState(newState);
     
@@ -192,13 +135,7 @@ export function useBotGame(): UseBotGameReturn {
       return true;
     }
 
-    // Trigger bot move if it's bot's turn - wait for animations to complete first
-    if (newState.currentTurn === botColor) {
-      // Delay bot move to allow animations to finish
-      setTimeout(() => {
-        executeBotMove(newState);
-      }, animationDurationMs(newState));
-    }
+    void executeBotMove(newState);
 
     return true;
   }, [gameState, playerColor, botColor, executeBotMove]);
@@ -233,13 +170,7 @@ export function useBotGame(): UseBotGameReturn {
       console.error('[BotGame] Graduation rejected:', result.error);
       return false;
     }
-    let newState = result.newState;
-
-    // If the opponent's graduation now needs a choice too, let the bot make it.
-    if (newState.phase === 'selecting_graduation' &&
-        newState.pendingGraduationPlayer === botColor) {
-      newState = applyBotGraduationChoice(newState, botColor);
-    }
+    const newState = result.newState;
 
     if (newState.phase === 'finished' && newState.winner) {
       const winCondition = checkWinCondition(newState.board, newState.winner)
@@ -255,10 +186,7 @@ export function useBotGame(): UseBotGameReturn {
 
     setGameState(newState);
 
-    // Let the chosen graduation finish before the bot's reply appears.
-    if (newState.currentTurn === botColor) {
-      setTimeout(() => executeBotMove(newState), animationDurationMs(newState));
-    }
+    void executeBotMove(newState);
 
     return true;
   }, [gameState, playerColor, botColor, executeBotMove]);
@@ -271,9 +199,8 @@ export function useBotGame(): UseBotGameReturn {
 
   // End bot game (return to lobby)
   const endBotGame = useCallback(() => {
-    if (thinkingTimeoutRef.current) {
-      clearTimeout(thinkingTimeoutRef.current);
-    }
+    generationRef.current++;
+    botRef.current?.dispose();
     setGameState(null);
     setGameOver(null);
     setBotThinking(false);

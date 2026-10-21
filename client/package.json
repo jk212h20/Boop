@@ -8,7 +8,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test:appearance": "tsx --tsconfig tests/tsconfig.json --test tests/boardAppearance.test.ts tests/playerPool.test.tsx",
-    "test": "tsx --tsconfig tests/tsconfig.json --test tests/rules.test.ts",
+    "test": "tsx --tsconfig tests/tsconfig.json --test tests/rules.test.ts tests/bot.test.ts",
+    "test:bot:browser": "node tests/bot.browser.cjs",
+    "bench:bot": "tsx tools/benchmarkBot.ts",
     "test:appearance:browser": "node tests/boardAppearance.browser.cjs",
     "test:rules-film": "tsx --tsconfig tests/tsconfig.json --test tests/rulesFilm.test.ts"
   },

@@ -37,7 +37,8 @@ export interface ThreatAnalysis {
 
 export interface BotConfig {
   // Tree search settings
-  searchDepth: number;            // How many moves to look ahead (2-3 recommended)
+  searchDepth: number;            // Iterative-deepening ceiling; deadline always wins
+  timeBudgetMs: number;           // Search budget, capped at 900ms
   
   // Static board evaluation weights (for tree search)
   pieceInCenter: number;          // Bonus for pieces in center 4 squares
@@ -53,13 +54,14 @@ export interface BotConfig {
   twoInRowKittens: number;        // Bonus for 2 kittens in a row
   
   // Timing & Output
-  thinkingDelayMs: number;
+  thinkingDelayMs: number;        // Legacy tournament configuration; live play adds no delay
   silent: boolean;                // Suppress console output (for tournaments)
 }
 
 export const DEFAULT_BOT_CONFIG: BotConfig = {
-  // Tree search - depth 2 = look at our move + opponent response
-  searchDepth: 2,
+  // Strongest adaptive setting; search stops at its deadline, not a fixed depth.
+  searchDepth: 12,
+  timeBudgetMs: 850,
   
   // Position values (per piece)
   pieceInCenter: 15,
@@ -74,7 +76,7 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
   twoInRowCats: 30,
   twoInRowKittens: 12,
   
-  thinkingDelayMs: 800,
+  thinkingDelayMs: 0,
   silent: false,
 };
 

@@ -5,18 +5,18 @@ import { WaitingPlayer, PlayerColor } from '../types';
 // Bot difficulty options.
 //
 // Most entries run entirely client-side: a minimax engine (see
-// src/bot/BotAI.ts) with a tuned search depth. The special 'alphazero'
+// src/bot/BotAI.ts) in a worker with a deadline and depth ceiling. The special 'alphazero'
 // entry is server-backed: the client creates a networked room against
 // a Python AZ service via the server's `create_az_game` socket event,
 // rather than instantiating a local bot. Callers should handle that
 // branch distinctly (see App.tsx::handlePlayBot).
 export const BOT_DIFFICULTIES = [
-  { id: 'easy', name: 'Easy', description: 'Depth 1 - Instant, beginner friendly', depth: 1 },
-  { id: 'normal', name: 'Normal', description: 'Depth 2 - Fast & balanced', depth: 2 },
-  { id: 'hard', name: 'Hard', description: 'Depth 3 - Strong (~0.5s/move)', depth: 3 },
-  { id: 'expert', name: 'Expert', description: 'Depth 4 - Very strong (~2s/move)', depth: 4 },
-  { id: 'master', name: 'Master', description: 'Depth 5 - Elite (~5-10s/move)', depth: 5 },
-  { id: 'grandmaster', name: 'Grandmaster', description: 'Depth 6 - Maximum (~15-30s/move)', depth: 6 },
+  { id: 'easy', name: 'Easy', description: 'Quick search, beginner friendly', depth: 1 },
+  { id: 'normal', name: 'Normal', description: 'Fast and balanced', depth: 2 },
+  { id: 'hard', name: 'Hard', description: 'Deeper tactical search, under 1s', depth: 3 },
+  { id: 'expert', name: 'Expert', description: 'Advanced search, under 1s', depth: 4 },
+  { id: 'master', name: 'Master', description: 'Deep search, under 1s', depth: 5 },
+  { id: 'grandmaster', name: 'Grandmaster', description: 'Strongest adaptive search, under 1s', depth: 12 },
   { id: 'alphazero', name: 'AlphaZero (experimental)', description: 'Neural net — online only', depth: 0 },
 ] as const;
 
@@ -50,7 +50,7 @@ export function Lobby({
   const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'bot' | 'quickmatch'>('menu');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('grandmaster');
 
   const handleCreate = async () => {
     if (!playerName.trim()) {
@@ -365,13 +365,16 @@ export function Lobby({
               >
                 {BOT_DIFFICULTIES.map((diff) => (
                   <option key={diff.id} value={diff.id}>
-                    {diff.name} - {diff.description}
+                    {diff.name}
                   </option>
                 ))}
               </select>
+              <p className="text-gray-500 text-xs mt-1">
+                {BOT_DIFFICULTIES.find(diff => diff.id === botDifficulty)?.description}
+              </p>
               {(botDifficulty === 'expert' || botDifficulty === 'master' || botDifficulty === 'grandmaster') && (
                 <p className="text-amber-600 text-xs mt-1">
-                  ⚠️ {botDifficulty === 'grandmaster' ? 'Grandmaster' : botDifficulty === 'master' ? 'Master' : 'Expert'} mode may take {botDifficulty === 'grandmaster' ? '15-30' : botDifficulty === 'master' ? '5-10' : 'a few'} seconds per move
+                  Adaptive search uses up to 0.85 seconds. The board stays responsive.
                 </p>
               )}
             </div>

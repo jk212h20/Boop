@@ -172,6 +172,18 @@ boop-game/
 └── README.md
 ```
 
+## One-second AI
+
+Local bot play now defaults to **Grandmaster**, an adaptive alpha-beta search in
+an independent Web Worker. It spends up to **850ms** on a reply, without the old
+artificial delay or animation wait. It searches real rule transitions, including
+both players' graduation choices, and keeps the board responsive. Other local
+difficulties have smaller depth ceilings; experimental online AlphaZero is separate.
+
+The new engine won **12/12 paired games against the previous Hard bot** in the
+initial benchmark. This demonstrates improvement, not unbeatable play. See the
+[implemented plan, measurements and test commands](docs/BOT_PLAN.md).
+
 ## Implementation audit
 
 The [2026-10-15 audit](docs/AUDIT.md) documents reproduced rules, multiplayer,

@@ -15,7 +15,7 @@ export const BOOP_DURATION_MS = 2900;
 // it runs on its own timer and never extends the move budget. The allowance
 // covers landing, a long carpet run, the leap and the drop — a slow trip must
 // not be cut off mid-run.
-export const FALLEN_TRIP_MS = 7500;
+export const FALLEN_TRIP_MS = 12000;
 // A breath after the last piece settles before the glow starts.
 export const GRADUATION_SETTLE_MS = 120;
 export const GRADUATION_HIGHLIGHT_MS = 800;

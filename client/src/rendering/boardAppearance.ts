@@ -101,7 +101,8 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
       const material = source.clone();
       // Mask is fur data, not accessory color. Joined GLBs carry it on every
       // primitive; zero mask values were multiplying eyes and frames to black.
-      if (source.name !== 'Fur') material.vertexColors = false;
+      const isFur = /^Fur(?:\.\d+)?$/.test(source.name);
+      if (!isFur) material.vertexColors = false;
       if (source.name === 'GlassesAccent') {
         material.color.set(ghost ? ghostColors.outline : colors.fur);
         material.roughness = .3;
@@ -109,7 +110,7 @@ export function createCatScene(sourceScene: THREE.Object3D, color: PlayerColor, 
       if (source.name === 'Eyes' || source.name === 'Iris') {
         material.color.set(ghost ? ghostColors.eye : colors.eye);
       }
-      if (source.name === 'Fur') {
+      if (isFur) {
         // Team coloring happens in the shader; the base stays white when the
         // model carries a mask, and is the flat fur color when it does not.
         const fur = ghost ? ghostFur : colors.fur;

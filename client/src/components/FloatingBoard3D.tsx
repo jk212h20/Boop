@@ -49,7 +49,7 @@ interface InventoryFlight { id: number; piece: PieceData; origin: FlightOrigin }
 type RequestInventoryFlight = (piece: PieceData, origin: FlightOrigin) => void;
 const InventoryFlightContext = createContext<RequestInventoryFlight>(() => {});
 
-function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: PieceData; ghost?: boolean; clip?: string; seed?: number }) {
+function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpeed }: { piece: PieceData; ghost?: boolean; clip?: string; seed?: number; gaitSpeed?: { current: number } }) {
   const { scene, animations } = useGLTF(`/assets/models/boop-${piece.type}.glb`);
   const cloned = useMemo(() => {
     const model = createCatScene(scene, piece.color, ghost);
@@ -115,6 +115,7 @@ function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0 }: { piece: Pie
     if (rig.tail) rig.tail.rotation.y -= a.tail;
     if (rig.earL) rig.earL.rotation.z -= a.earL;
     if (rig.earR) rig.earR.rotation.z -= a.earR;
+    mixer.timeScale = clip === 'Walk' ? gaitSpeed?.current ?? 1 : 1;
     mixer.update(Math.min(delta, .05));
 
     const seconds = performance.now() / 1000;
@@ -182,9 +183,9 @@ const CARPET_LAND_S = .24;
 // A trot on the carpet, paced by distance so a long run does not become a
 // sprint. The cat keeps going until it is on the carpet directly under the
 // box it belongs in, then hops in from there.
-const TROT_SPEED = 3.9; // world units per second
+const TROT_SPEED = .85; // world units per second
 const TROT_MIN_S = .9;
-const TROT_MAX_S = 3.6;
+const TROT_MAX_S = 8;
 // No sit-and-look-up at the end of the run: the trot flows into a crouch and
 // a single short leap that carries the kitten up into its box. It used to leave
 // the frame and drop back in from above, which read as two separate journeys;
@@ -283,6 +284,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinne
   }, [isGraduating, animationKey]);
 
   const [clip, setClip] = useState('Sit');
+  const gaitSpeed = useRef(1);
   const requestFlight = useContext(InventoryFlightContext);
   const flightSent = useRef(false);
   const settleHeading = SETTLE_HEADING + (seed - .5) * .7;
@@ -369,11 +371,14 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinne
             desiredHeading = Math.atan2(stopX - target[0], stopZ - landZ);
           } else {
             // Trot: ease out into the stop, with a four-beat stride bob.
-            const e = 1 - (1 - trot) * (1 - trot);
+            // Smooth acceleration/deceleration; cruise rather than slide.
+            const e = trot * trot * (3 - 2 * trot);
+            const velocity = runDistance / trotSeconds * 6 * trot * (1 - trot);
+            const strideLength = piece.type === 'cat' ? .65 * .26 * .6 * 2 : .55 * .26 * .4 * 2;
+            gaitSpeed.current = Math.max(.15, Math.min(3.5, velocity / (strideLength / 1.2)));
             x = target[0] + (stopX - target[0]) * e;
             z = landZ + (stopZ - landZ) * e;
-            const stride = t - BOOP_S - CARPET_LAND_S;
-            y = FLOOR_Y + Math.abs(Math.sin(stride * Math.PI * 2 * 1.6)) * .05 * (1 - trot * .6);
+            y = FLOOR_Y; // gait owns the small body bob, not a second bounce
             desiredHeading = Math.atan2(stopX - target[0], stopZ - landZ);
             nextClip = trot < 1 ? 'Walk' : 'Sit';
           }
@@ -479,7 +484,7 @@ function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, isWinne
   return (
     <><group ref={group} position={target} renderOrder={isGhost ? -1 : 1}
       userData={{ catProbe: isGhost ? 'ghost' : `${piece.color}-${piece.type}-${row}-${col}` }}>
-      <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} seed={seed} />
+      <CatModel piece={piece} ghost={isGhost} clip={isGhost ? 'Sit' : clip} seed={seed} gaitSpeed={gaitSpeed} />
       {isGraduating && (
         <pointLight ref={glow} color="#ffd76a" intensity={0} distance={2.4} position={[0, 1.25, 0]} />
       )}

@@ -180,3 +180,15 @@ test('fur masks never blacken glasses or eye accessories', () => {
     actual.dispose(); geometry.dispose(); material.dispose();
   }
 });
+
+test('joined leg fur retains team patch shader despite Blender material suffix', () => {
+  const geometry = new THREE.BoxGeometry();
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count * 3), 3));
+  const material = new THREE.MeshStandardMaterial(); material.name = 'Fur.001';
+  const source = new THREE.Group(); source.add(new THREE.Mesh(geometry, material));
+  const copy = createCatScene(source, 'orange', false);
+  const actual = (copy.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial;
+  assert.equal(actual.vertexColors, true);
+  assert.ok(actual.customProgramCacheKey().includes('boop-fur-orange'));
+  actual.dispose(); material.dispose(); geometry.dispose();
+});

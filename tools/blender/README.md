@@ -84,3 +84,18 @@ Foot review outcome: repaired seated/dancing close-ups show no detached paws or
 stretched membranes. Rounded articulated joints retain visible cartoon seams;
 they are not a seamless organic limb sculpt. Whiskers use an almost-black matte
 material to avoid gray specular glare, with the same fine strand radius.
+
+### Socks and walk home (2026-10-21)
+
+Both kitten and adult have two asymmetrical team-color paw/leg patches while
+retaining white socks. Patch masks are authored in each rigid mesh's local
+coordinates. Runtime recognizes Blender-suffixed Fur material names so joined
+accessory fur retains the same team-color shader.
+
+Walk is a dense 36-frame four-beat cycle (hind-left, front-left, hind-right,
+front-right), with a 65% planted stance and a short eased toe-clearance swing.
+The torso bob is minimal. The cosmetic walk-home path uses smooth acceleration /
+deceleration; mixer cadence tracks path velocity with a bounded speed. The
+return budget is 12 seconds to preserve longer walks without removing the cat
+mid-trip; next turns remain independent. `client/tests/walk.browser.cjs` records
+45 encoded browser screenshots and advancing root transforms for visual review.

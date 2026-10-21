@@ -503,7 +503,22 @@ def build_accessories(arm_obj, L, mats, bvh):
         vg.add(list(range(len(obj.data.vertices))), 1.0, "REPLACE")
         if obj.data.materials and obj.data.materials[0].name == "Fur":
             attr = obj.data.color_attributes.new(name="Mask", type="BYTE_COLOR", domain="CORNER")
-            attr.data.foreach_set("color", [1.0 if obj.name.startswith("Paw.") else 0.0, 0.0, 0.0, 1.0] * len(obj.data.loops))
+            colors = []
+            for loop in obj.data.loops:
+                local = obj.data.vertices[loop.vertex_index].co
+                # Two asymmetrical accent socks/patches, shared by both ages.
+                # Local sphere coordinates keep the spots attached in motion.
+                white = 0.0
+                if obj.name.startswith("Paw."):
+                    white = 1.0
+                    if obj.name in ("Paw.front.L", "Paw.hind.R"):
+                        white = smoothstep(local.x + .25 * local.y, -.25, .15)
+                elif obj.name.startswith("Leg."):
+                    white = .85
+                    if '.front.L.' in obj.name or '.hind.R.' in obj.name:
+                        white = smoothstep(local.z, -.10, .35)
+                colors.extend((white, 0, 0, 1))
+            attr.data.foreach_set("color", colors)
             attr.data.update()
     return parts
 
@@ -779,19 +794,27 @@ def pose_celebrate(L, api, phase=0.0):
 
 
 def pose_walk(L, api, phase):
-    pose_stand(L, api, phase)
-    api.root_move((0, 0, 0.015 * math.sin(2 * phase)))
+    """Four-beat walk: long grounded stance, short eased swing, quiet torso."""
+    pose_stand(L, api, phase * .5)
+    api.root_move((.008 * math.sin(phase), 0, .006 * math.cos(phase * 2)))
     api.update()
-    step = 0.34 * L["H"]
-    for tag in ("L", "R"):
-        ph = phase if tag == "L" else phase + math.pi
-        sh = api.pb(f"frontUpper.{tag}").bone.head_local
-        lift = max(0.0, math.sin(ph)) * 0.30 * L["H"]
-        api.leg_ik("front", tag, (sh.x, sh.y - math.sin(ph) * step, lift), (0, 1, -0.2))
-        hp = api.pb(f"hindUpper.{tag}").bone.head_local
-        ph2 = phase + math.pi if tag == "L" else phase
-        lift2 = max(0.0, math.sin(ph2)) * 0.28 * L["H"]
-        api.leg_ik("hind", tag, (hp.x, hp.y - 0.02 + math.sin(ph2) * step, lift2), (0, -1, -0.1))
+    stride = .26 * L["H"]
+    for limb, tag, offset in [('hind', 'L', 0), ('front', 'L', .25),
+                              ('hind', 'R', .5), ('front', 'R', .75)]:
+        t = (phase / math.tau + offset) % 1
+        ankle = L[limb][tag][2]
+        if t < .65:
+            u = t / .65
+            forward = stride * (1 - 2 * u)
+            lift = 0
+        else:
+            u = (t - .65) / .35
+            eased = u * u * (3 - 2 * u)
+            forward = stride * (-1 + 2 * eased)
+            lift = math.sin(u * math.pi) ** 2 * .12 * L["H"]
+        api.leg_ik(limb, tag, (ankle.x, ankle.y - forward, ankle.z + lift),
+                   (0, 1 if limb == 'front' else -1, -.2))
+    pose_tail_safe(L, api, phase * .5, sway=.06)
 
 
 # ---------------------------------------------------------------------------
@@ -839,7 +862,7 @@ def build_actions(arm_obj, L, api):
     # Dense samples retain the alternating foot beats and smooth tail curves;
     # sparse quarter-cycle keys previously aliased the dance/walk to stillness.
     render_pose("Stand", lambda f: pose_stand(L, api, phase=f * tau / 90), range(0, 91, 3))
-    render_pose("Walk", lambda f: pose_walk(L, api, phase=f * tau / 30), range(0, 31, 2))
+    render_pose("Walk", lambda f: pose_walk(L, api, phase=f * tau / 36), range(0, 37, 1))
     render_pose("Sit", lambda f: pose_sit(L, api, phase=f * tau / 120), range(0, 121, 4))
     render_pose("Crouch", lambda f: pose_crouch(L, api), [0, 6, 10])
     render_pose("Jump", lambda f: pose_jump(L, api), [0, 4, 9])

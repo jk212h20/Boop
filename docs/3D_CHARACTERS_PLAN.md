@@ -183,23 +183,33 @@ change.
 
 ## The television corner, a royal blue rug, and kitten-sized portraits (2026-10-21)
 
+- The screen is plain dark glass: an earlier diagonal highlight rectangle read
+  as a sticker rather than a reflection and was removed.
 - **Second table.** A mirrored drum table at `[-4.95, FLOOR_Y - .012, -1.15]`
-  carries an old box television: a walnut cabinet, a recessed tube with a glass
-  highlight, two pointer dials, a power lamp, speaker slots, and rabbit ears
+  carries an old box television: a walnut cabinet, a plain dark tube, two
+  pointer dials, a power lamp, speaker slots, and rabbit ears
   (a mount on the lid plus two splayed rods with ball tips). The set is turned
   `.55` rad on its table so its screen faces the bed and the player.
-- **The cord.** A single `TubeGeometry` leaves the back of the set, rounds the
-  near corner, crosses the table top, spills over the rim on the bed's side and
-  drops onto the rug, where it runs under the bed. It is drawn in room space,
-  not inside the rotated set, because the run ends nowhere near the set's axes.
-  Note the framing: the bed occludes the floor beyond roughly `x < -5.8`, so the
-  floor leg of the cord is only visible when the player orbits low. The visible
-  part is the run across the table, which is what makes the cable readable.
+- **The cord.** A single `TubeGeometry` over `TV_CORD_POINTS`. It enters the
+  cabinet's back panel, swings out behind the set, lies on the table top behind
+  it, spills over the back rim, drops down the far side of the drum to the floor
+  and runs away under the bed. It is drawn in room space, not inside the rotated
+  set, because the run ends nowhere near the set's axes. Behind the set, not
+  across its front: the earlier route rounded the near corner and crossed the
+  table where the player could see it, which read as clutter rather than as a
+  cable. `window.__cordProbe()` samples the same curve, and the browser test
+  measures that path against the table, the set and the bed's hem, because a
+  cord hidden behind the set cannot be judged from pixels. The points are chosen
+  so the tube clears the cabinet's back face (the only thing it enters is the
+  panel it plugs into), stays above the table top while it is over it and
+  outside the rim once it drops, and passes under the bed's hem rather than
+  through it; the spline was tuned so it does not undershoot into the rug.
 - **Rules explainer.** The screen is a click target with a pointer cursor and
   `userData.roomProp = 'tv'`. Clicking it opens `.rules-video`, a 16:9 popup
   player (`role="dialog"`, focus on the close button, Escape and backdrop both
-  close). `RULES_VIDEO_SRC` is `null` until the rendered explainer exists; set
-  it and the placeholder becomes a real `<video>`.
+  close). It plays `client/public/video/boop-rules.mp4` (1920x1080, 4:16).
+  `RULES_VIDEO_SRC` is the constant that names it; set it to `null` and the
+  panel falls back to a placeholder card instead of a broken video.
 - **Royal blue rug.** Pile `#3f57d8` with a `#16204d` rim, replacing graphite
   `#5d6469` / `#20282c`. The weave map multiplies over the base, so the base is
   more saturated than the blue that lands on screen; measured on-screen pile is

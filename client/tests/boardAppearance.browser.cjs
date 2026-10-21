@@ -166,6 +166,31 @@ const path = require('node:path');
     await page.waitForFunction(
       () => document.activeElement?.getAttribute('aria-label') === 'Close the video',
       null, { timeout: 2000 });
+    // The popup carries the real explainer, not the placeholder card.
+    const media = await page.evaluate(async () => {
+      const video = document.querySelector('.rules-video video');
+      if (!video) return { missing: true };
+      if (video.readyState < 1) {
+        await new Promise(resolve => {
+          video.addEventListener('loadedmetadata', resolve, { once: true });
+          setTimeout(resolve, 5000);
+        });
+      }
+      return {
+        src: video.getAttribute('src'), readyState: video.readyState,
+        duration: video.duration, w: video.videoWidth, h: video.videoHeight
+      };
+    });
+    assert.ok(!media.missing, 'The popup must render the explainer video itself');
+    assert.ok(media.src.endsWith('/video/boop-rules.mp4'), `Unexpected video source ${media.src}`);
+    assert.ok(media.readyState >= 1, 'The explainer must load its metadata');
+    assert.ok(media.duration > 200 && media.duration < 400, `Explainer duration ${media.duration}s`);
+    assert.equal(media.w, 1920, 'Explainer width');
+    assert.equal(media.h, 1080, 'Explainer height');
+    // And it plays: the click that opened the popup is the gesture autoplay needs.
+    await page.waitForFunction(
+      () => (document.querySelector('.rules-video video')?.currentTime ?? 0) > 0.4,
+      null, { timeout: 8000 });
     await page.screenshot({ path: path.join(out, 'rules-video.png') });
     await page.keyboard.press('Escape');
     await page.locator('.rules-video').waitFor({ state: 'detached' });
@@ -174,14 +199,12 @@ const path = require('node:path');
     await page.locator('.rules-video').waitFor();
     await page.mouse.click(24, 24);
     await page.locator('.rules-video').waitFor({ state: 'detached' });
-    console.log('PASS: the television opens the explainer video popup, and Escape or the backdrop closes it');
+    console.log('PASS: the television opens the real explainer video, which plays, and Escape or the backdrop closes it');
 
     // The room itself: a royal blue rug, and a cable that leaves the set and
     // heads for the bed instead of stopping at the table edge.
-    const points = await page.evaluate(() => window.__project([
-      [0, -1.026, 3.95], [1.5, -1.026, 3.7], [-1.5, -1.026, 3.7],
-      [-4.5, .17, -.5], [-4.85, .19, -.28],
-    ]));
+    const points = await page.evaluate(() => window.__project(
+      [[0, -1.026, 3.95], [1.5, -1.026, 3.7], [-1.5, -1.026, 3.7]]));
     const shot = (await page.screenshot()).toString('base64');
     const samples = await page.evaluate(async ({ shot, points }) => {
       const image = new Image();
@@ -203,13 +226,60 @@ const path = require('node:path');
         return patch;
       });
     }, { shot, points });
-    const rug = samples.slice(0, 3);
-    const blue = rug.filter(patch => patch.some(({ r, g, b }) => b - r > 60 && b > 120)).length;
+    const blue = samples.filter(patch => patch.some(({ r, g, b }) => b - r > 60 && b > 120)).length;
     assert.ok(blue >= 2, 'The circular rug is royal blue, not graphite');
-    const cables = samples.slice(3).filter(patch => patch.filter(({ r, g, b }) =>
-      Math.abs(r - g) < 16 && Math.abs(g - b) < 16 && r > 70).length >= 6).length;
-    assert.ok(cables >= 1, 'The power cord is visible on the table, heading for the bed');
-    console.log('PASS: royal blue rug and a visible power cord running to the bed');
+
+    // The power cord is tucked behind the set, where pixels cannot judge it, so
+    // measure its actual path against the furniture it has to miss. The probe
+    // samples the curve the tube is built from; the boxes below are the table,
+    // the set and the bed's hem, in the same room coordinates as the scene.
+    const cord = await page.evaluate(() => window.__cordProbe());
+    assert.ok(Array.isArray(cord) && cord.length >= 32, 'The cord probe must return its path');
+    const TABLE = [-4.95, -1.15];      // both tables stand here (mirrored in x)
+    const YAW = .55;                   // the set's own rotation on its table
+    const cos = Math.cos(YAW), sin = Math.sin(YAW);
+    const problems = [];
+    cord.forEach((point, index) => {
+      const radius = .024;
+      const localX = Math.abs((point.x + 4.95) * cos - (point.z + 1.15) * sin);
+      const localZ = Math.abs((point.x + 4.95) * sin + (point.z + 1.15) * cos);
+      const reach = Math.hypot(point.x - TABLE[0], point.z - TABLE[1]);
+      // 1. It must emerge from the back of the cabinet, not float off its side.
+      if (index === 0 && (localX > .47 || localZ > .33 || point.y < .2)) {
+        problems.push(`entry point is not in the back panel: ${JSON.stringify(point)}`);
+      }
+      // 2. Nothing but the plug itself may pass through the cabinet's box: a
+      //    connected cord does cross the back panel, and only there.
+      const plug = localX < .1 && localZ < .36
+        && Math.hypot(point.x - cord[0].x, point.y - cord[0].y, point.z - cord[0].z) < .12;
+      if (index > 0 && !plug && point.y + radius > .138 && point.y - radius < .918
+        && localX < .47 + radius && localZ < .33 + radius) {
+        problems.push(`cord inside the television: ${JSON.stringify(point)}`);
+      }
+      // 3. Above the table top while it is over it, outside the rim once it drops.
+      if (point.y + radius > -.022 && point.y - radius < .138 && reach < .99 - radius) {
+        problems.push(`cord below the table top: ${JSON.stringify(point)}`);
+      }
+      if (point.y + radius > -1.042 && point.y - radius < -.022 && reach < .58 + radius) {
+        problems.push(`cord inside the drum: ${JSON.stringify(point)}`);
+      }
+      // 4. Never under the rug, and never through the bed's hem.
+      if (point.y - radius < -1.043) problems.push(`cord under the floor: ${JSON.stringify(point)}`);
+      if (Math.abs(point.x) < 3.65 && Math.abs(point.z) < 3.65 && point.y + radius > -.39) {
+        problems.push(`cord through the bed's hem: ${JSON.stringify(point)}`);
+      }
+    });
+    assert.deepEqual(problems, [], 'The cord must not clip the furniture');
+    // And it does run behind the set: its table-top stretch sits behind the
+    // cabinet's back face, on the far side from the player.
+    const behind = cord.filter(point => point.y > 0 && point.y < .3);
+    assert.ok(behind.length >= 4, 'The cord must have a run above the table top');
+    assert.ok(behind.every(point =>
+      (point.x + 4.95) * sin + (point.z + 1.15) * cos < -.3),
+      'The cord must run behind the set, not across the front of the table');
+    assert.ok(cord[0].y > .3 && cord[0].y < .5, 'The cord leaves the set at its back panel');
+    assert.ok(cord.at(-1).x > -3.65 && cord.at(-1).y < -.9, 'The cord ends under the bed');
+    console.log('PASS: royal blue rug, and a cord tucked behind the set that clips nothing');
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(1000);

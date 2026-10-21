@@ -773,6 +773,11 @@ function CatProbe() {
       });
       return out;
     };
+    // The cord's real path, sampled from the curve the tube is built from, so a
+    // test can prove it misses the table, the set and the bed instead of
+    // inferring that from a handful of pixels.
+    (window as unknown as { __cordProbe?: () => { x: number; y: number; z: number }[] }).__cordProbe = () =>
+      TV_CORD_CURVE.getPoints(64).map(point => ({ x: +point.x.toFixed(3), y: +point.y.toFixed(3), z: +point.z.toFixed(3) }));
     (window as unknown as { __boardView?: () => { azimuth: number; polar: number; distance: number } }).__boardView = () => {
       const offset = camera.position.clone().sub(new THREE.Vector3(0, .18, 0));
       return { azimuth: +Math.atan2(offset.x, offset.z).toFixed(3),
@@ -785,8 +790,8 @@ function CatProbe() {
       return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
     };
     return () => {
-      const w = window as unknown as { __catProbe?: unknown; __cellScreen?: unknown; __boardView?: unknown };
-      delete w.__catProbe; delete w.__cellScreen; delete w.__boardView;
+      const w = window as unknown as { __catProbe?: unknown; __cellScreen?: unknown; __boardView?: unknown; __cordProbe?: unknown };
+      delete w.__catProbe; delete w.__cellScreen; delete w.__boardView; delete w.__cordProbe;
     };
   }, [scene, camera, size, gl]);
   return null;
@@ -1081,6 +1086,34 @@ function useSpineTexture(title: string) {
   return texture;
 }
 
+// The television's power cord, in room coordinates rather than in the set's
+// rotated frame, because the run ends far from the set's own axes. It leaves
+// the back of the cabinet, swings out behind it, lies on the table top behind
+// the set, spills over the back rim, drops down the far side of the drum to the
+// floor, and runs away under the bed. Nothing it passes is closer than a tube
+// radius: it clears the cabinet's back face, it is above the table top while it
+// is over it and outside its rim once it drops, and it passes under the bed's
+// hem rather than through it. `window.__cordProbe()` samples this same curve.
+const TV_CORD_RADIUS = .024;
+const TV_CORD_POINTS: [number, number, number][] = [
+  [-5.107, .398, -1.406], // in the back panel, so the tube emerges from the set
+  [-5.23, .30, -1.57],    // out behind the cabinet
+  [-5.35, .22, -1.68],    // down toward the table top, still behind the set
+  [-5.44, .165, -1.80],   // resting on the table top behind the cabinet
+  [-5.55, .17, -1.92],    // over to the back rim of the table
+  [-5.66, .05, -2.02],    // past the rim, clear of the tabletop
+  [-5.70, -.55, -2.05],   // down the far side of the drum
+  [-5.69, -.90, -2.07],
+  [-5.688, -1.01, -2.09],
+  [-5.60, -1.014, -2.11], // on the floor behind the table
+  [-5.10, -1.014, -2.15], // away along the floor
+  [-4.30, -1.014, -2.10],
+  [-3.60, -1.014, -2.00], // under the bed's left hem
+  [-3.00, -1.014, -1.95], // gone into the bed's shadow
+];
+const TV_CORD_CURVE = new THREE.CatmullRomCurve3(
+  TV_CORD_POINTS.map(([x, y, z]) => new THREE.Vector3(x, y, z)), false, 'catmullrom', .45);
+
 function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
   fabric: QuiltResources; quiltColors: QuiltColors;
   onOpenBook: () => void; onOpenVideo: () => void;
@@ -1098,24 +1131,8 @@ function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
       new THREE.Vector3(.3, .06, -.36),
     ]), 18, .014, 6, false,
   ), []);
-  // The television's power cord: out of the back of the set, over the rim of
-  // its table, down to the carpet and away under the bed. Drawn in room space
-  // rather than inside the (rotated) television group, because the run ends
-  // nowhere near the set's own axes.
-  const tvCord = useMemo(() => new THREE.TubeGeometry(
-    new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-5.12, .4, -1.43),    // out of the back of the set
-      new THREE.Vector3(-5.34, .36, -.9),     // round the near corner of the set
-      new THREE.Vector3(-5.15, .24, -.42),
-      new THREE.Vector3(-4.85, .19, -.28),    // down onto the table top
-      new THREE.Vector3(-4.5, .17, -.5),
-      new THREE.Vector3(-4.15, .12, -.68),
-      new THREE.Vector3(-3.9, -.1, -.8),      // over the rim, on the bed's side
-      new THREE.Vector3(-3.62, -.6, -.88),
-      new THREE.Vector3(-3.15, -1.018, -.95), // on the rug, under the bed
-      new THREE.Vector3(-2.6, -1.018, -1.02), // away into the bed's shadow
-    ], false, 'catmullrom', .45), 96, .024, 7, false,
-  ), []);
+  const tvCord = useMemo(
+    () => new THREE.TubeGeometry(TV_CORD_CURVE, 96, TV_CORD_RADIUS, 7, false), []);
   useEffect(() => () => tvCord.dispose(), [tvCord]);
   const hoverPiece = (on: boolean) => { document.body.style.cursor = on ? 'pointer' : ''; };
   useEffect(() => () => shadow.dispose(), [shadow]);
@@ -1287,11 +1304,6 @@ function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
                 emissive="#16303a" emissiveIntensity={.55} />
             </RoundedBox>
           </mesh>
-          {/* A cheap glass highlight across the top left of the tube. */}
-          <mesh position={[-.19, .55, .351]} rotation={[0, 0, -.34]}>
-            <planeGeometry args={[.3, .09]} />
-            <meshBasicMaterial color="#7d97a4" transparent opacity={.16} depthWrite={false} />
-          </mesh>
           {/* Two dials and a power lamp down the right-hand column. */}
           {[.55, .34].map((y, index) => (
             <group key={`dial-${index}`} position={[.31, y, .336]}>
@@ -1342,8 +1354,8 @@ function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
         </group>
       </group>
 
-      {/* The cord, from the back of the set, over the table rim, down to the
-          carpet and under the bed. */}
+      {/* The cord, tucked behind the set, then down to the floor and away
+          under the bed. */}
       <mesh geometry={tvCord} castShadow>
         <meshStandardMaterial color="#6c6e6d" roughness={.78} />
       </mesh>
@@ -1620,7 +1632,7 @@ function RulesBook({ onClose }: { onClose: () => void }) {
 
 // Drop the rendered explainer here when it exists and the panel becomes a real
 // player; with nothing set, the dialog explains itself and points at the book.
-const RULES_VIDEO_SRC: string | null = null;
+const RULES_VIDEO_SRC: string | null = '/video/boop-rules.mp4';
 
 /** The rules explainer, playing on the television across the bed. */
 function RulesVideo({ onClose }: { onClose: () => void }) {
@@ -1647,14 +1659,15 @@ function RulesVideo({ onClose }: { onClose: () => void }) {
         </div>
         <div className="rules-video-frame">
           {RULES_VIDEO_SRC
-            ? <video src={RULES_VIDEO_SRC} controls autoPlay playsInline />
+            ? <video src={RULES_VIDEO_SRC} controls autoPlay playsInline preload="auto" />
             : <>
               <span className="rules-video-play" aria-hidden="true">▶</span>
               <p className="rules-video-note">The explainer is still in the cutting room.</p>
             </>}
         </div>
         <p className="rules-video-foot">
-          Until it lands, the whole game is in the book on the other table, or press <kbd>?</kbd>.
+          Four minutes, start to finish. The book on the other table has the same
+          rules in writing, and <kbd>?</kbd> opens it at any time.
         </p>
       </div>
     </div>,

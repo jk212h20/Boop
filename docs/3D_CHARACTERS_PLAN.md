@@ -227,3 +227,30 @@ television's projected screen point and closes the popup both ways, samples the
 rendered rug for royal blue, and samples the cord's table run for the grey
 cable. `window.__project` and `window.__roomProbe` expose world→page projection
 and the tagged clickable props, so the test never guesses pixel coordinates.
+
+## Four pastel diagonals, filling the quilt (2026-10-21)
+
+- The quilt was a two-colour grey checkerboard. It is now four light pastels —
+  mint `#8dd2ae`, butter `#eed583`, blush `#f2a3b0`, sky `#93b8ec` — assigned by
+  `row + col`, so a diagonal is one colour, the diagonals repeat every four, and
+  no neighbour across or down shares a colour. `quiltCellColor()` is the single
+  place that rule lives, so the cells, the placement ripple and the tests cannot
+  drift apart. `QuiltColors` is a four-tuple; `parseQuiltColors` accepts four
+  hexes and treats a stored pair as legacy (the picker is gone, so a pair is not
+  a preference any more).
+- The colours look lighter on screen than their hex values: the cloth `map`
+  multiplies over them and the key light is warm, which lifts the red channel.
+  The palette is therefore set by what the render measured, not by the swatch —
+  roughly mint `(196,224,208)`, butter `(233,225,185)`, blush `(237,203,207)`,
+  sky `(195,212,229)` at cell centres.
+- Cells now fill the quilt: `CELL` 1.06 → 1.17 and `PATCH_WIDTH` 1.04 → 1.15, so
+  six squares span 7.02 of the 7.04 quilt top and the outer row and column stand
+  on the rim with about a 2cm border. The stitches take their inset from
+  `PATCH_WIDTH`, and the `__cellScreen` probe uses `CELL` instead of repeating
+  the number. Edge pieces were checked in the render: they sit on the quilt, not
+  over the hem.
+- Regressions: the unit suite asserts the diagonal rule (same diagonal, one
+  colour; every neighbour different; all four present; each stays light) and
+  that six squares fill the quilt. The browser suite samples an unoccupied cell
+  from each diagonal and classifies the rendered pixel, so a palette that washes
+  out — or a board that goes back to a checkerboard — fails.

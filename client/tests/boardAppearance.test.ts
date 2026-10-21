@@ -2,13 +2,51 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as THREE from 'three';
 import { createCatScene, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
-  DEFAULT_QUILT_COLORS, ghostPalette, parseQuiltColors, quiltColor } from '../src/rendering/boardAppearance';
+  DEFAULT_QUILT_COLORS, ghostPalette, parseQuiltColors, quiltCellColor, quiltColor } from '../src/rendering/boardAppearance';
 
-test('quilt preferences accept two hex colors and recover from invalid storage', () => {
-  assert.deepEqual(parseQuiltColors('["#556677","#778899"]'), ['#556677', '#778899']);
-  for (const input of [null, '', 'broken', '{}', '[]', '["red","blue"]', '["#123456"]', '["#123456",null]']) {
+test('quilt preferences accept four hex colors and recover from invalid storage', () => {
+  assert.deepEqual(parseQuiltColors('["#556677","#778899","#aabbcc","#ddeeff"]'),
+    ['#556677', '#778899', '#aabbcc', '#ddeeff']);
+  // The two-colour checkerboard layout is gone, so an old pair is not a
+  // preference any more: it falls back to the diagonal pastels.
+  for (const input of [null, '', 'broken', '{}', '[]', '["red","blue"]', '["#123456"]',
+    '["#123456","#234567"]', '["#123456","#234567","#345678"]',
+    '["#123456","#234567","#345678",null]']) {
     assert.deepEqual(parseQuiltColors(input), DEFAULT_QUILT_COLORS);
   }
+});
+
+test('the quilt reads as four pastel diagonals, not a two-colour checkerboard', () => {
+  const colors = DEFAULT_QUILT_COLORS;
+  const used = new Set<string>();
+  for (let row = 0; row < 6; row++) {
+    for (let col = 0; col < 6; col++) {
+      const color = quiltCellColor(colors, row, col);
+      used.add(color);
+      // A diagonal is one colour, whichever way it is walked.
+      assert.equal(color, quiltCellColor(colors, row + 1, col - 1));
+      // Every neighbour across or down is a different pastel.
+      if (col + 1 < 6) assert.notEqual(color, quiltCellColor(colors, row, col + 1));
+      if (row + 1 < 6) assert.notEqual(color, quiltCellColor(colors, row + 1, col));
+    }
+  }
+  assert.equal(used.size, 4, 'all four pastels are on the board');
+  // All four are light: pastel cloth, not team colours.
+  for (const color of colors) {
+    const [r, g, b] = [1, 3, 5].map(index => parseInt(color.slice(index, index + 2), 16));
+    assert.ok((Math.max(r, g, b) + Math.min(r, g, b)) / 2 > 165, `${color} is light`);
+    assert.ok(Math.max(r, g, b) - Math.min(r, g, b) < 125, `${color} stays pastel, not saturated`);
+  }
+});
+
+test('the six squares reach the bedspread rim instead of leaving a wide border', () => {
+  const geometry = createQuiltPatchGeometry();
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+  const width = box.max.x - box.min.x;
+  // The quilt top is 7.04 wide; six squares have to fill it.
+  assert.ok(width * 6 > 6.85, `six squares span ${(width * 6).toFixed(2)} of the 7.04 quilt top`);
+  assert.ok(width < 1.2, `each square stays under the cell pitch, got ${width.toFixed(2)}`);
 });
 
 function makeSkinnedCat(materialName: string) {

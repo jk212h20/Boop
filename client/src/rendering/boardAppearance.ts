@@ -2,26 +2,31 @@ import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { PlayerColor } from '../types';
 
-export type QuiltColors = [string, string];
-// Two clearly separated values: the cells have to read as a grid at a glance,
-// and the previous pair differed mostly in hue, not lightness.
-export const DEFAULT_QUILT_COLORS: QuiltColors = ['#b7c4c7', '#5f7d88'];
-const LEGACY_QUILT_COLORS: QuiltColors = ['#8c9199', '#849b92'];
+export type QuiltColors = [string, string, string, string];
+/** Four light pastels, one per diagonal, the way the rules film shows the
+ * quilt: mint, butter, blush and sky. They are deliberately close in lightness
+ * so the board reads as soft fabric, and separated in hue so the diagonals
+ * still give the eye a grid to count cells on. */
+export const DEFAULT_QUILT_COLORS: QuiltColors = ['#8dd2ae', '#eed583', '#f2a3b0', '#93b8ec'];
 export const QUILT_STORAGE_KEY = 'boop.quilt-colors.v1';
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 export function parseQuiltColors(saved: string | null): QuiltColors {
   try {
     const value: unknown = saved === null ? null : JSON.parse(saved);
-    if (Array.isArray(value) && value.length === 2 && value.every(color =>
+    if (Array.isArray(value) && value.length === 4 && value.every(color =>
       typeof color === 'string' && HEX_COLOR.test(color))) {
-      // Anyone still on the old defaults gets the new contrast; an explicit
-      // choice is never overwritten.
-      const isLegacyDefault = value[0] === LEGACY_QUILT_COLORS[0] && value[1] === LEGACY_QUILT_COLORS[1];
-      return isLegacyDefault ? [...DEFAULT_QUILT_COLORS] : [value[0], value[1]];
+      return [value[0], value[1], value[2], value[3]];
     }
   } catch { /* Old or damaged preferences should not prevent a game loading. */ }
   return [...DEFAULT_QUILT_COLORS];
+}
+
+/** The colour of one square: the diagonals of the quilt run through cells with
+ * the same `row + col`, so `row + col` picks the pastel. Neighbouring cells are
+ * always different, up, down, or across. */
+export function quiltCellColor(colors: QuiltColors, row: number, col: number): string {
+  return colors[(((row + col) % colors.length) + colors.length) % colors.length];
 }
 
 export function readQuiltColors(): QuiltColors {
@@ -239,7 +244,10 @@ export function quiltColor(base: string, hovered: boolean, active: boolean) {
   return new THREE.Color(base).lerp(new THREE.Color('#c2d0cb'), hovered ? .07 : active ? .10 : 0);
 }
 
-const PATCH_WIDTH = 1.04;
+// Every square reaches the quilt's own edge: 6 x 1.15 leaves a 2cm border inside
+// the 7.04 quilt top, so the outer row and column sit on the rim rather than
+// inside a wide margin.
+const PATCH_WIDTH = 1.15;
 function loft(x: number, z: number) {
   const u = (x + PATCH_WIDTH / 2) / PATCH_WIDTH;
   const v = (z + PATCH_WIDTH / 2) / PATCH_WIDTH;
@@ -262,7 +270,7 @@ export function createQuiltPatchGeometry() {
 
 export function createQuiltStitches() {
   const vertices: number[] = [];
-  const edge = .47;
+  const edge = PATCH_WIDTH / 2 - .05;
   for (let side = 0; side < 4; side++) {
     for (let i = 0; i < 15; i++) {
       const start = -edge + (i + .22) * (edge * 2 / 15);

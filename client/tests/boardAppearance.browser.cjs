@@ -203,6 +203,57 @@ const path = require('node:path');
 
     // The room itself: a royal blue rug, and a cable that leaves the set and
     // heads for the bed instead of stopping at the table edge.
+    // The quilt itself: four pastels on the diagonals, reaching the rim. Each
+    // diagonal (same row + col) must show one colour, and the four diagonals
+    // sampled here must show four different ones. Occupied cells are skipped,
+    // so a piece in the way cannot pass for a quilt colour.
+    const occupied = new Set((await page.evaluate(() => window.__catProbe()))
+      .map(cat => cat.cat.split('-').slice(-2).join('-')));
+    const diagonalCells = await page.evaluate(occupiedList => {
+      const taken = new Set(occupiedList);
+      const chosen = {};
+      for (let row = 0; row < 6 && Object.keys(chosen).length < 4; row++) {
+        for (let col = 0; col < 6; col++) {
+          const diagonal = (row + col) % 4;
+          if (chosen[diagonal] || taken.has(`${row}-${col}`)) continue;
+          chosen[diagonal] = { row, col, ...window.__cellScreen(row, col) };
+        }
+      }
+      return chosen;
+    }, [...occupied]);
+    assert.equal(Object.keys(diagonalCells).length, 4, 'All four quilt diagonals must be sampleable');
+    const quiltShot = (await page.screenshot()).toString('base64');
+    const quiltSamples = await page.evaluate(async ({ quiltShot, diagonalCells }) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${quiltShot}`;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0);
+      const out = {};
+      for (const [diagonal, point] of Object.entries(diagonalCells)) {
+        const data = context.getImageData(Math.round(point.x) - 4, Math.round(point.y) - 4, 9, 9).data;
+        const patch = [];
+        for (let i = 0; i < data.length; i += 4) patch.push([data[i], data[i + 1], data[i + 2]]);
+        patch.sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]));
+        out[diagonal] = patch[Math.floor(patch.length / 2)];
+      }
+      return out;
+    }, { quiltShot, diagonalCells });
+    // Mint reads greenest, butter is the red-dominant one with less blue than
+    // green, blush is red-dominant with more blue than green, sky is bluest.
+    const pastel = ([r, g, b]) => {
+      if (g >= r && g >= b) return 'mint';
+      if (b > r) return 'sky';
+      return g > b ? 'butter' : 'blush';
+    };
+    const classes = Object.entries(quiltSamples).map(([diagonal, rgb]) => [diagonal, pastel(rgb), rgb]);
+    const found = new Set(classes.map(([, name]) => name));
+    assert.equal(found.size, 4,
+      `The quilt must show four pastels on its diagonals, got ${JSON.stringify(classes)}`);
+    console.log(`PASS: four pastel diagonals on the quilt (${[...found].join(', ')})`);
     const points = await page.evaluate(() => window.__project(
       [[0, -1.026, 3.95], [1.5, -1.026, 3.7], [-1.5, -1.026, 3.7]]));
     const shot = (await page.screenshot()).toString('base64');

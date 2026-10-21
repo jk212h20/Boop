@@ -8,7 +8,7 @@ import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, Pl
 import { GraduatingPiece, FallenPiece } from './Board';
 import { ensurePortraits, portraitUrl, subscribePortraits } from '../rendering/portraits';
 import { createCatScene, createContactShadowTexture, createRadialAlphaTexture, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
-  QuiltColors, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
+  QuiltColors, quiltCellColor, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
 import { BOOP_DELAY_MS, GRADUATION_HIGHLIGHT_MS, PLACEMENT_DROP_MS } from '../animationTiming';
 import { prefersReducedMotion } from '../rendering/motion';
 
@@ -28,7 +28,9 @@ interface FloatingBoard3DProps {
   animationKey: number;
 }
 
-const CELL = 1.06;
+// Cells fill the quilt: 6 x 1.17 spans 7.02 of the 7.04 quilt top, so the outer
+// pieces stand on the rim instead of inside a wide border.
+const CELL = 1.17;
 const at = (row: number, col: number) => [(col - 2.5) * CELL, .49, (row - 2.5) * CELL] as [number, number, number];
 
 // The last hop into an inventory portrait is a DOM overlay. It must be
@@ -563,7 +565,7 @@ function SheetRipple({ row, col, colors }: { row: number; col: number; colors: Q
   const [x, , z] = at(row, col);
   return (
     <mesh ref={mesh} geometry={geometry} position={[x, .468, z]} visible={false} raycast={() => {}}>
-      <meshStandardMaterial color={colors[(row + col) % 2]} alphaMap={alpha} transparent opacity={0}
+      <meshStandardMaterial color={quiltCellColor(colors, row, col)} alphaMap={alpha} transparent opacity={0}
         depthWrite={false} roughness={.98} />
     </mesh>
   );
@@ -575,7 +577,7 @@ function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, onClick
   onClick: () => void; onHover: (value: boolean) => void;
 }) {
   const [x, , z] = at(row, col);
-  const shade = colors[(row + col) % 2];
+  const shade = quiltCellColor(colors, row, col);
   const color = quiltColor(shade, hovered && enabled, active);
   const threadColor = new THREE.Color(shade).multiplyScalar(.66);
   return (
@@ -786,7 +788,7 @@ function CatProbe() {
     };
     (window as unknown as { __cellScreen?: (row: number, col: number) => { x: number; y: number } }).__cellScreen = (row, col) => {
       const rect = gl.domElement.getBoundingClientRect();
-      const v = new THREE.Vector3((col - 2.5) * 1.06, .42, (row - 2.5) * 1.06).project(camera);
+      const v = new THREE.Vector3((col - 2.5) * CELL, .42, (row - 2.5) * CELL).project(camera);
       return { x: rect.left + (v.x + 1) / 2 * rect.width, y: rect.top + (1 - v.y) / 2 * rect.height };
     };
     return () => {
@@ -803,7 +805,9 @@ function CatProbe() {
 function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fabric: QuiltResources }) {
   const quilt = new THREE.Color(quiltColors[0]);
   const quiltShade = quilt.clone().multiplyScalar(.82);
-  const trim = new THREE.Color(quiltColors[1]).multiplyScalar(.58);
+  // The hem takes the coolest pastel darkened toward the grey frame, so the
+  // drapes finish in something quiet instead of a fourth bright colour.
+  const trim = new THREE.Color(quiltColors[3]).lerp(new THREE.Color('#6a7074'), .45).multiplyScalar(.86);
   const cushion = new THREE.Color(quiltColors[1]).lerp(new THREE.Color('#f3e9da'), .55);
   // A neutral medium grey frame: it separates the bed from the room without
   // competing with the quilt or the team colors the pieces are read by.

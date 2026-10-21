@@ -91,8 +91,10 @@ The game board is rendered with React Three Fiber as a grounded oak-framed quilt
 bed, with drag-to-orbit (zoom is deliberately off: the bed is framed to fill its
 shell), a shadow-casting key light, a self-contained environment map (no CDN
 fetch at runtime), a royal blue woven rug with contact occlusion, a bedside
-table and its mirror across the bed, and responsive framing. The quilt palette
-is fixed (there is no colour control). The kitten and grown-cat GLBs are authored locally in Blender and
+table and its mirror across the bed, and responsive framing. The quilt is a
+fixed palette of four light pastels — mint, butter, blush and sky — laid on the
+diagonals so `row + col` picks the colour and no neighbour matches; the squares
+run out to the bedspread's rim (there is no colour control). The kitten and grown-cat GLBs are authored locally in Blender and
 recolored for each team at runtime. Kittens have enlarged baby heads; adults are visibly larger. The bed has an
 upholstered headboard, side rails, legs, and a floor beneath it. Booped pieces
 hop off the edge, land on the rug, trot to their team’s inventory selector at

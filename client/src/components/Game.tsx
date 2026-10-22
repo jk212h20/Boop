@@ -403,20 +403,8 @@ export function Game({
         timers.push(setTimeout(() => playSound('meow'), BOOP_DELAY + 430 + index * 240));
       });
       
-      // Clear animation state after all animations complete
-      const totalAnimationTime = animationDurationMs({
-        graduatedPieces: graduated,
-        boopedPieces: booped,
-        lastMove: gameState.lastMove,
-      });
-
-      timers.push(setTimeout(() => {
-        setAnimatedMove(null);
-        setAnimatingBoops([]);
-        setAnimatingGraduations([]);
-        setGraduationPhase(null);
-        setGhostPieces([]);
-      }, totalAnimationTime));
+      // Overlays retire on the renderer's completion acknowledgement, not a
+      // throttled timer that can run before the final boop frame is drawn.
 
       // Update previous board reference. Must happen on every effect run —
       // including the boop/graduation branch — otherwise `prevBoardRef`
@@ -434,8 +422,7 @@ export function Game({
       playSound('place');
       setGhostPieces([]);
       prevBoardRef.current = gameState.board;
-      const timer = setTimeout(() => setAnimatedMove(null), animationDurationMs(gameState));
-      return () => clearTimeout(timer);
+      return;
     }
 
     // Update previous board reference (no-boop / no-graduation path).
@@ -460,10 +447,9 @@ export function Game({
     setAmbiguousCell(null);
     setHighlightedOption(null);
     if (!isSelectingGraduation || !pageVisible) return;
-    // A pending choice is already known, but let its preceding move land.
-    const timer = setTimeout(() => setPromotionReady(true), animationDurationMs(gameState));
-    return () => clearTimeout(timer);
-  }, [gameState.board, isSelectingGraduation, pageVisible]);
+    // The renderer acknowledges settlement after drawing the full move.
+    if (settledAfterHide) setPromotionReady(true);
+  }, [gameState.board, isSelectingGraduation, pageVisible, settledAfterHide]);
 
   const selectPromotion = async (index: number) => {
     if (!promotionReady || promotionLock.current || !onSelectGraduation) return;
@@ -637,13 +623,22 @@ export function Game({
           )}
 
           {/* Board */}
-          <div className="game-board">
+          <div className={`game-board${gameState.phase === 'selecting_graduation' ? ' has-promotion' : ''}`}>
             <FloatingBoard3D
               board={displayBoard}
               winningColor={gameOver && !gameHistory.isViewingHistory ? gameOver.winner : undefined}
               onCellClick={handleCellClick}
               isMyTurn={isMyTurn && gameState.phase !== 'selecting_graduation' && !gameHistory.isViewingHistory}
-              promotionOptions={isSelectingGraduation && !gameHistory.isViewingHistory ? graduationOptions : []}
+              moveDuration={animationDurationMs(gameState)}
+              onMoveSettled={() => {
+                setAnimatedMove(null);
+                setAnimatingBoops([]);
+                setAnimatingGraduations([]);
+                setGraduationPhase(null);
+                setGhostPieces([]);
+                setPromotionReady(true);
+              }}
+              promotionOptions={isSelectingGraduation && promotionReady && !gameHistory.isViewingHistory ? graduationOptions : []}
               promotionEnabled={promotionReady && !promotionBusy}
               promotionHighlight={highlightedOption}
               onPromotionHighlight={setHighlightedOption}
@@ -661,18 +656,30 @@ export function Game({
               fallenPieces={historyAnimationData.fallen}
               animationKey={animationKey}
             />
-            {gameState.phase === 'selecting_graduation' && !gameHistory.isViewingHistory && (
-              <section className="promotion-strip" aria-label="Promotion choices" aria-busy={promotionBusy}>
-                <p role="status">{!isSelectingGraduation ? 'Opponent choosing a promotion…' : promotionBusy ? 'Promoting…' : !promotionReady ? 'Letting the pieces settle…' : graduationOptions.some(o => o.length === 1) && graduationOptions.some(o => o.length === 3) ? 'Choose a kitten to promote, or a line of three.' : graduationOptions.some(o => o.length === 3) ? 'Choose a line of three to promote.' : 'Choose a kitten to promote.'}</p>
-                {isSelectingGraduation && <div className="promotion-choices">{graduationOptions.map((cells, index) => (
-                  <button key={index} type="button" disabled={!promotionReady || promotionBusy}
-                    className={highlightedOption === index ? 'selected' : ''}
-                    onFocus={() => setHighlightedOption(index)} onBlur={() => setHighlightedOption(null)}
-                    onMouseEnter={() => setHighlightedOption(index)} onMouseLeave={() => setHighlightedOption(null)}
-                    onClick={() => selectPromotion(index)}>{promotionLabel(cells)}</button>
-                ))}</div>}
+            {gameState.phase === 'selecting_graduation' && promotionReady && !gameHistory.isViewingHistory && (
+              <aside className="promotion-strip" aria-label="Promotion choices" aria-busy={promotionBusy}>
+                <span className="promotion-eyebrow">A little growth</span>
+                <h3>{!isSelectingGraduation ? 'Their choice' : graduationOptions.some(o => o.length === 3) ? 'Collect your three' : 'Promote a kitten'}</h3>
+                <p role="status">{!isSelectingGraduation ? 'Opponent choosing…' : promotionBusy ? 'Collecting…' : graduationOptions.some(o => o.length === 3) ? 'Your line is ready. Collect it to grow your cats.' : 'Choose a kitten on the quilt.'}</p>
+                {isSelectingGraduation && <>
+                  <div className="promotion-choices">{graduationOptions.map((cells, index) => cells.length === 3 && (
+                    <button key={index} type="button" disabled={promotionBusy} className={`promotion-primary ${highlightedOption === index ? 'selected' : ''}`}
+                      onFocus={() => setHighlightedOption(index)} onBlur={() => setHighlightedOption(null)}
+                      onMouseEnter={() => setHighlightedOption(index)} onMouseLeave={() => setHighlightedOption(null)}
+                      onClick={() => selectPromotion(index)}><strong>Collect three</strong><span>{promotionLabel(cells)}</span></button>
+                  ))}</div>
+                  {graduationOptions.some(o => o.length === 1) && <details className="promotion-alternatives" open={!graduationOptions.some(o => o.length === 3)}>
+                    <summary>{graduationOptions.some(o => o.length === 3) ? 'Or promote one kitten' : 'Choose a kitten'}</summary>
+                    <div className="promotion-choices">{graduationOptions.map((cells, index) => cells.length === 1 && (
+                      <button key={index} type="button" disabled={promotionBusy} className={highlightedOption === index ? 'selected' : ''}
+                        onFocus={() => setHighlightedOption(index)} onBlur={() => setHighlightedOption(null)}
+                        onMouseEnter={() => setHighlightedOption(index)} onMouseLeave={() => setHighlightedOption(null)}
+                        onClick={() => selectPromotion(index)}>{promotionLabel(cells)}</button>
+                    ))}</div>
+                  </details>}
+                </>}
                 {error && <p role="alert">{error}</p>}
-              </section>
+              </aside>
             )}
           </div>
 
@@ -700,7 +707,7 @@ export function Game({
           ) : gameOver ? (
             <p>Game complete — start a rematch when you’re ready.</p>
           ) : gameState.phase === 'selecting_graduation' ? (
-            <p>{isSelectingGraduation ? 'Choose on the board, or use the promotion buttons above.' : 'Waiting for the opponent’s promotion choice.'}</p>
+            <p>{isSelectingGraduation ? 'Choose on the board, or use the choice card beside it.' : 'Waiting for the opponent’s promotion choice.'}</p>
           ) : isMyTurn ? (
             <p>
               Select a piece from your pool, then click an empty cell to place it.

@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { Component, Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, Suspense, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { usePageVisible } from '../hooks/usePageVisible';
@@ -29,6 +29,8 @@ interface FloatingBoard3DProps {
   fallenPieces: FallenPiece[];
   animationKey: number;
   winningColor?: PlayerColor;
+  moveDuration?: number;
+  onMoveSettled?: () => void;
   promotionOptions?: Cell[][];
   promotionEnabled?: boolean;
   promotionHighlight?: number | null;
@@ -1529,6 +1531,22 @@ export function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
   );
 }
 
+/** Only acknowledge after the move has had its full visible render budget.
+ * No background timer may expose choices before the actors have landed. */
+function MoveSettlement({ animationKey, duration = 800, onSettled }: { animationKey: number; duration?: number; onSettled?: () => void }) {
+  const remaining = useRef(duration / 1000);
+  const done = useRef(false);
+  const callback = useRef(onSettled);
+  callback.current = onSettled;
+  useLayoutEffect(() => { remaining.current = duration / 1000; done.current = false; }, [animationKey, duration]);
+  useFrame((_, delta) => {
+    if (document.hidden || done.current) return;
+    remaining.current -= Math.min(delta, .05);
+    if (remaining.current <= 0) { done.current = true; callback.current?.(); }
+  });
+  return null;
+}
+
 function Scene(props: FloatingBoard3DProps & {
   quiltColors: QuiltColors; onOpenBook: () => void; onOpenVideo: () => void;
 }) {
@@ -1559,6 +1577,7 @@ function Scene(props: FloatingBoard3DProps & {
   return (
     <>
       <FrameBoard />
+      <MoveSettlement animationKey={props.animationKey} duration={props.moveDuration} onSettled={props.onMoveSettled} />
       <ambientLight intensity={1.5} />
       {/* One shadow-casting key light, scoped to the bed so the map stays crisp. */}
       <directionalLight position={[-5, 9, 4]} intensity={2.1} color="#fff6e8" castShadow

@@ -241,9 +241,9 @@ devports-verified Vite server.
 
 Promotion selection leaves the board visible. Eligible kittens have gold rings;
 line connectors select an entire three-piece group. Clicking a kitten/square
-with multiple eligible options opens a small local chooser. The compact strip
-below the board provides the same options for keyboard users; focus previews
-its group, Enter selects. Choices enable after the preceding animation budget,
+with multiple eligible options opens a small local chooser. The side card emphasizes collecting a completed line, with single-kitten choices
+in a secondary disclosure. Keyboard focus previews its group; Enter selects.
+Choices appear only after the renderer acknowledges the full visible move budget,
 reject duplicate submissions, and leave failures visible and retryable. Opponent
 choices display a waiting status. Browser regression:
 `client/tests/promotion.browser.cjs` with a verified `BOOP_TEST_URL`.

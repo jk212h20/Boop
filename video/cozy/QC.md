@@ -47,3 +47,13 @@ nine actors, eight airborne neighbors, and all pieces landing at quilt height.
 Replacement-font headings and captions were measured against their safe columns.
 
 CRT repair retains the same narration, music mix and 124.291667-second timing.
+
+## Scene-matched viewer controls
+
+The enlarged player face now matches the scene set's dark walnut shell (#4a3826),
+lighter face panel (#5a4530), silver/charcoal right-hand dials, red power lamp,
+and four speaker slots beneath the glass. The upper dial toggles playback, the
+lower dial toggles mute, the volume slider sets the actual media volume, and the
+power lamp closes the viewer. Native controls remain available for seeking and
+fullscreen. Tests exercise actual paused/muted/volume state and power dismissal
+at all nine responsive viewer widths, not just button presence.

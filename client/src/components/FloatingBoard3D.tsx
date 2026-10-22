@@ -1748,6 +1748,21 @@ const RULES_VIDEO_SRC: string | null = '/video/boop-cozy-rules.mp4';
 
 /** The rules explainer, playing on the television across the bed. */
 function RulesVideo({ onClose }: { onClose: () => void }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [playError, setPlayError] = useState('');
+  const togglePlay = async () => {
+    const media = video.current;
+    if (!media) return;
+    if (!media.paused) { media.pause(); return; }
+    try { await media.play(); setPlayError(''); }
+    catch { setPlayError('Playback could not start. Try the screen’s play control.'); }
+  };
+  const setSound = (value: number) => {
+    if (video.current) { video.current.volume = value; video.current.muted = value === 0; }
+    setVolume(value);
+  };
   const close = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     close.current?.focus();
@@ -1769,14 +1784,24 @@ function RulesVideo({ onClose }: { onClose: () => void }) {
           <button ref={close} type="button" className="rules-close" onClick={onClose}
             aria-label="Close the video">✕</button>
         </div>
+        <div className="rules-tv-face">
         <div className="rules-video-frame">
           {RULES_VIDEO_SRC
-            ? <video src={RULES_VIDEO_SRC} controls autoPlay playsInline preload="auto" />
+            ? <video ref={video} src={RULES_VIDEO_SRC} controls autoPlay playsInline preload="auto" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} onVolumeChange={() => { if (video.current) setVolume(video.current.muted ? 0 : video.current.volume); }} />
             : <>
               <span className="rules-video-play" aria-hidden="true">▶</span>
               <p className="rules-video-note">The explainer is still in the cutting room.</p>
             </>}
         </div>
+        <div className="rules-tv-dials">
+          <button type="button" className="rules-tv-dial" onClick={togglePlay} aria-label={playing ? 'Pause video' : 'Play video'} aria-pressed={playing}><i style={{transform: `rotate(${playing ? 35 : -35}deg)`}}/><span>{playing ? 'PAUSE' : 'PLAY'}</span></button>
+          <button type="button" className="rules-tv-dial" onClick={() => setSound(volume > 0 ? 0 : .7)} aria-label={volume > 0 ? 'Mute video' : 'Unmute video'} aria-pressed={volume === 0}><i style={{transform: `rotate(${-60 + volume * 120}deg)`}}/><span>SOUND</span></button>
+          <label className="rules-tv-volume">VOLUME<input aria-label="Video volume" type="range" min="0" max="1" step="0.05" value={volume} onChange={event => setSound(Number(event.target.value))}/></label>
+          <button type="button" className="rules-tv-power" onClick={onClose} aria-label="Turn off TV"><i/>POWER</button>
+        </div>
+        <div className="rules-tv-speaker" aria-hidden="true"><i/><i/><i/><i/></div>
+        </div>
+        {playError && <p role="alert">{playError}</p>}
         <p className="rules-video-foot">
           About two minutes, start to finish. The book on the other table has the same
           rules in writing, and <kbd>?</kbd> opens it at any time.

@@ -358,3 +358,21 @@ body:has(.game-page) .game-instructions > p { display: inline-block; background:
 .rules-video-frame video { border-radius: 7% / 11%; }
 .rules-video-frame::after { content: ''; position: absolute; inset: 0 0 2.8rem; border-radius: 8% / 12%; pointer-events: none; background: radial-gradient(ellipse at center,transparent 55%,rgba(10,6,15,.14) 100%),linear-gradient(125deg,rgba(255,244,214,.08),transparent 40%); }
 @media(max-width:600px) { .rules-tv-cabinet { margin-top: 2.8rem; } .rules-video { padding:.65rem; } .rules-video-frame { border-width:.3rem; } }
+
+/* Match the scene TV: walnut shell, lighter face, right-hand silver dials. */
+.rules-video { background: #5a4530; border-color: #4a3826; box-shadow: 0 18px 0 -8px #30251b,0 24px 60px #0009,inset 0 1px 0 #a18460; }
+.rules-tv-face { display:grid; grid-template-columns:minmax(0,1fr) 5.5rem; column-gap:1rem; align-items:start; }
+.rules-tv-face .rules-video-frame { margin-top:.85rem; }
+.rules-tv-dials { grid-column:2; grid-row:1 / span 2; display:flex; flex-direction:column; align-items:center; gap:1rem; padding-top:1rem; }
+.rules-tv-dial { position:relative; width:3.5rem; height:3.5rem; border-radius:50%; border:.45rem solid #2b2724; background:radial-gradient(circle at 35% 25%,#b0a99e,#8b8378 55%,#605c55); box-shadow:0 3px 4px #0006; color:#eee8dd; flex-shrink:0; }
+.rules-tv-dial i { position:absolute; width:.16rem; height:1.6rem; top:.35rem; left:calc(50% - .08rem); background:#d9d3c6; border-radius:.1rem; transform-origin:50% 1rem; }
+.rules-tv-dial span { position:absolute; top:calc(100% + .45rem); left:50%; transform:translateX(-50%); font-size:.55rem; letter-spacing:.1em; }
+.rules-tv-dial + .rules-tv-dial { margin-top:.6rem; }
+.rules-tv-volume { margin-top:.45rem; width:100%; color:#e5d7be; font-size:.55rem; text-align:center; letter-spacing:.08em; }
+.rules-tv-volume input { display:block; width:100%; min-width:0; margin-top:.35rem; accent-color:#c4bbae; }
+.rules-tv-power { display:flex; flex-direction:column; align-items:center; gap:.3rem; color:#e5d7be; font-size:.55rem; background:transparent; padding:.3rem; }
+.rules-tv-power i { width:.8rem; height:.8rem; border-radius:50%; background:#a62e24; border:2px solid #35271e; box-shadow:0 0 5px #d64632; }
+.rules-tv-speaker { grid-column:1; display:grid; gap:.25rem; width:65%; justify-self:center; margin-top:.7rem; }
+.rules-tv-speaker i { height:.22rem; border-radius:1rem; background:#241c15; box-shadow:0 1px 0 #8c7053; }
+.rules-tv-dial:focus-visible,.rules-tv-power:focus-visible { outline:3px solid #ffe9c2; outline-offset:4px; }
+@media(max-width:600px) { .rules-tv-face { grid-template-columns:minmax(0,1fr) 3.1rem; column-gap:.45rem; } .rules-tv-dials { gap:.65rem; padding-top:.8rem; } .rules-tv-dial { width:2.2rem; height:2.2rem; border-width:.3rem; } .rules-tv-dial i { height:.95rem; top:.15rem; transform-origin:50% .65rem; } .rules-tv-dial span { font-size:.45rem; } .rules-tv-volume,.rules-tv-power { font-size:.45rem; } }

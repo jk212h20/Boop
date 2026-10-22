@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 
-type SoundName = 'place' | 'boop' | 'graduate' | 'win' | 'lose' | 'meow';
+type SoundName = 'place' | 'boop' | 'graduate' | 'win' | 'lose' | 'meow' | 'winVoice';
 
 interface SoundOptions {
   volume?: number;
@@ -13,12 +13,30 @@ class SoundManager {
   private enabled: boolean = true;
   private volume: number = 0.5;
   private lastMeow = -1;
+  private winVoice: Promise<AudioBuffer> | null = null;
+
+  private loadWinVoice(ctx: AudioContext): Promise<AudioBuffer> {
+    if (!this.winVoice) {
+      this.winVoice = fetch('/assets/audio/win-meow.mp3')
+        .then(response => {
+          if (!response.ok) throw new Error(`Win voice: HTTP ${response.status}`);
+          return response.arrayBuffer();
+        })
+        .then(bytes => ctx.decodeAudioData(bytes))
+        .catch(error => { this.winVoice = null; throw error; });
+    }
+    return this.winVoice;
+  }
 
   private getAudioContext(): AudioContext {
     if (!this.audioContext) {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     return this.audioContext;
+  }
+
+  preloadWinVoice() {
+    void this.loadWinVoice(this.getAudioContext()).catch(error => console.warn('Could not load win voice', error));
   }
 
   setEnabled(enabled: boolean) {
@@ -34,9 +52,23 @@ class SoundManager {
     if (!this.enabled) return;
 
     const ctx = this.getAudioContext();
+    if (ctx.state === 'suspended') void ctx.resume().catch(console.warn);
     const vol = (options.volume ?? 1) * this.volume;
 
     switch (name) {
+      case 'winVoice':
+        void this.loadWinVoice(ctx).then(buffer => {
+          if (!this.enabled) return;
+          const source = ctx.createBufferSource();
+          const gain = ctx.createGain();
+          source.buffer = buffer;
+          gain.gain.value = vol;
+          source.connect(gain);
+          gain.connect(ctx.destination);
+          source.onended = () => { source.disconnect(); gain.disconnect(); };
+          source.start();
+        }).catch(error => console.warn('Could not play win voice', error));
+        break;
       case 'place':
         this.playPlop(ctx, vol);
         break;
@@ -284,6 +316,8 @@ export function useSound() {
   useEffect(() => {
     if (initialized.current) return;
 
+    // Warm the recording before the win; Web Audio is unlocked by the gesture.
+    soundManager.preloadWinVoice();
     const initAudio = () => {
       soundManager.play('place', { volume: 0 }); // Silent play to init
       initialized.current = true;

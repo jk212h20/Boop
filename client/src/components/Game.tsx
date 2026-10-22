@@ -4,6 +4,7 @@ import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece, BoopEffec
 import { PlayerPool, calculateFallenPosition, GraduatingPiece, FallenPiece } from './Board';
 import { FloatingBoard3D } from './FloatingBoard3D';
 import { useSound } from '../hooks/useSound';
+import { useWinSound } from '../hooks/useWinSound';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
 import {
@@ -412,17 +413,7 @@ export function Game({
     prevBoardRef.current = gameState.board;
   }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, playSound, gameHistory.isViewingHistory]);
 
-  // Handle game over sound
-  useEffect(() => {
-    if (gameOver) {
-      const isWinner = gameOver.winner === playerColor;
-      const timer = setTimeout(() => {
-        playSound(isWinner ? 'win' : 'lose');
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [gameOver, playerColor, playSound]);
+  useWinSound(gameOver?.winner, playSound);
 
   // Auto-select available piece type
   useEffect(() => {

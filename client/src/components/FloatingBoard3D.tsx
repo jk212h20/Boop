@@ -1802,10 +1802,6 @@ function RulesVideo({ onClose }: { onClose: () => void }) {
         <div className="rules-tv-speaker" aria-hidden="true"><i/><i/><i/><i/></div>
         </div>
         {playError && <p role="alert">{playError}</p>}
-        <p className="rules-video-foot">
-          About two minutes, start to finish. The book on the other table has the same
-          rules in writing, and <kbd>?</kbd> opens it at any time.
-        </p>
       </div></div>
     </div>,
     document.body

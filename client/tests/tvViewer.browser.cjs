@@ -21,6 +21,15 @@ for(const width of [1440,1280,1279,1024,768,601,600,390,320]){
  assert.equal(await p.locator('video').evaluate(v=>v.muted),false);
  await p.getByLabel('Video volume',{exact:true}).evaluate(el=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'0.35');el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));});
  assert.ok(Math.abs(await p.locator('video').evaluate(v=>v.volume)-.35)<.01);
+ assert.equal(await p.locator('.rules-video-foot').count(),0);
+ const antenna=await p.locator('.rules-tv-antenna i').evaluateAll(rods=>rods.map(rod=>{
+   const style=getComputedStyle(rod), tip=getComputedStyle(rod,'::after');
+   const root=parseFloat(getComputedStyle(document.documentElement).fontSize);
+   const r=rod.getBoundingClientRect();
+   return {length:parseFloat(style.height)/root,tipWidth:parseFloat(tip.width),tipHeight:parseFloat(tip.height),content:tip.content,radius:tip.borderRadius,x:r.x,y:r.y,right:r.right,bottom:r.bottom};
+ }));
+ assert.equal(antenna.length,2);
+ antenna.forEach(a=>{assert.ok(a.length>=7);assert.ok(a.tipWidth>=10&&a.tipWidth===a.tipHeight);assert.equal(a.radius,'50%');assert.notEqual(a.content,'none');assert.ok(a.x>=6&&a.right<=width-6&&a.y>=6&&a.bottom<=1100);});
  const boxes=await p.evaluate(()=>['.rules-tv-cabinet','.rules-video','.rules-video-frame','.rules-tv-antenna'].map(q=>{const r=document.querySelector(q).getBoundingClientRect();return {q,x:r.x,y:r.y,right:r.right,bottom:r.bottom}}));
  boxes.forEach(r=>{assert.ok(r.x>=-1&&r.right<=width+1,r.q+' horizontal clipping');assert.ok(r.y>=-1&&r.bottom<=1101,r.q+' vertical clipping');});
  await p.screenshot({path:out+'/'+width+'.png',fullPage:true});await p.getByRole('button',{name:'Turn off TV',exact:true}).click();await p.locator('.rules-video').waitFor({state:'detached'});

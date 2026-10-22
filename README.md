@@ -236,3 +236,14 @@ The 3D render loop stops while hidden, and idle rig motion uses bounded rendered
 time rather than elapsed wall time. Game rules and bot state remain unchanged.
 Regression: `client/tests/visibility.browser.cjs` with `BOOP_TEST_URL` set to a
 devports-verified Vite server.
+
+### Board-first promotion choices
+
+Promotion selection leaves the board visible. Eligible kittens have gold rings;
+line connectors select an entire three-piece group. Clicking a kitten/square
+with multiple eligible options opens a small local chooser. The compact strip
+below the board provides the same options for keyboard users; focus previews
+its group, Enter selects. Choices enable after the preceding animation budget,
+reject duplicate submissions, and leave failures visible and retryable. Opponent
+choices display a waiting status. Browser regression:
+`client/tests/promotion.browser.cjs` with a verified `BOOP_TEST_URL`.

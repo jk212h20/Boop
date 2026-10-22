@@ -6,6 +6,7 @@ import { FloatingBoard3D } from './FloatingBoard3D';
 import { useSound } from '../hooks/useSound';
 import { useWinSound } from '../hooks/useWinSound';
 import { usePageVisible } from '../hooks/usePageVisible';
+import { optionsAt, promotionLabel } from '../graduationChoices';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
 import {
@@ -52,6 +53,10 @@ export function Game({
 }: GameProps) {
   const [selectedPieceType, setSelectedPieceType] = useState<PieceType>('kitten');
   const [error, setError] = useState<string | null>(null);
+  const [promotionBusy, setPromotionBusy] = useState(false);
+  const promotionLock = useRef(false);
+  const [ambiguousCell, setAmbiguousCell] = useState<Cell | null>(null);
+  const [promotionReady, setPromotionReady] = useState(false);
   const [highlightedOption, setHighlightedOption] = useState<number | null>(null);
   
   // Animation state - tracks the current move's effects for animation
@@ -450,6 +455,34 @@ export function Game({
     }
   }, [myPlayer, selectedPieceType]);
 
+  useEffect(() => {
+    setPromotionReady(false);
+    setAmbiguousCell(null);
+    setHighlightedOption(null);
+    if (!isSelectingGraduation || !pageVisible) return;
+    // A pending choice is already known, but let its preceding move land.
+    const timer = setTimeout(() => setPromotionReady(true), animationDurationMs(gameState));
+    return () => clearTimeout(timer);
+  }, [gameState.board, isSelectingGraduation, pageVisible]);
+
+  const selectPromotion = async (index: number) => {
+    if (!promotionReady || promotionLock.current || !onSelectGraduation) return;
+    promotionLock.current = true;
+    setPromotionBusy(true);
+    setError(null);
+    try {
+      const accepted = await onSelectGraduation(index);
+      if (!accepted) throw new Error('Promotion was not accepted. Please try again.');
+      setAmbiguousCell(null);
+      setHighlightedOption(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to select promotion');
+    } finally {
+      promotionLock.current = false;
+      setPromotionBusy(false);
+    }
+  };
+
   const handleCellClick = async (row: number, col: number) => {
     // If viewing history, return to current game
     if (gameHistory.isViewingHistory) {
@@ -457,6 +490,13 @@ export function Game({
       return;
     }
     
+    if (gameState.phase === 'selecting_graduation') {
+      if (!isSelectingGraduation || !promotionReady || promotionBusy) return;
+      const choices = optionsAt(graduationOptions, row, col);
+      if (choices.length === 1) await selectPromotion(choices[0]);
+      else if (choices.length > 1) setAmbiguousCell({row, col});
+      return;
+    }
     if (!isMyTurn) return;
     
     setError(null);
@@ -602,7 +642,14 @@ export function Game({
               board={displayBoard}
               winningColor={gameOver && !gameHistory.isViewingHistory ? gameOver.winner : undefined}
               onCellClick={handleCellClick}
-              isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
+              isMyTurn={isMyTurn && gameState.phase !== 'selecting_graduation' && !gameHistory.isViewingHistory}
+              promotionOptions={isSelectingGraduation && !gameHistory.isViewingHistory ? graduationOptions : []}
+              promotionEnabled={promotionReady && !promotionBusy}
+              promotionHighlight={highlightedOption}
+              onPromotionHighlight={setHighlightedOption}
+              onPromotionSelect={selectPromotion}
+              promotionCell={ambiguousCell}
+              onPromotionDismiss={() => setAmbiguousCell(null)}
               lastMove={gameHistory.isViewingHistory || settledAfterHide || !pageVisible ? null : animatedMove}
               selectedPieceType={isMyTurn && !gameHistory.isViewingHistory ? selectedPieceType : null}
               myColor={playerColor}
@@ -614,6 +661,19 @@ export function Game({
               fallenPieces={historyAnimationData.fallen}
               animationKey={animationKey}
             />
+            {gameState.phase === 'selecting_graduation' && !gameHistory.isViewingHistory && (
+              <section className="promotion-strip" aria-label="Promotion choices" aria-busy={promotionBusy}>
+                <p role="status">{!isSelectingGraduation ? 'Opponent choosing a promotion…' : promotionBusy ? 'Promoting…' : !promotionReady ? 'Letting the pieces settle…' : graduationOptions.some(o => o.length === 1) && graduationOptions.some(o => o.length === 3) ? 'Choose a kitten to promote, or a line of three.' : graduationOptions.some(o => o.length === 3) ? 'Choose a line of three to promote.' : 'Choose a kitten to promote.'}</p>
+                {isSelectingGraduation && <div className="promotion-choices">{graduationOptions.map((cells, index) => (
+                  <button key={index} type="button" disabled={!promotionReady || promotionBusy}
+                    className={highlightedOption === index ? 'selected' : ''}
+                    onFocus={() => setHighlightedOption(index)} onBlur={() => setHighlightedOption(null)}
+                    onMouseEnter={() => setHighlightedOption(index)} onMouseLeave={() => setHighlightedOption(null)}
+                    onClick={() => selectPromotion(index)}>{promotionLabel(cells)}</button>
+                ))}</div>}
+                {error && <p role="alert">{error}</p>}
+              </section>
+            )}
           </div>
 
           {/* My pool (bottom/right) */}
@@ -639,6 +699,8 @@ export function Game({
             <p className="text-blue-600">📜 Viewing move history - click board or "Return to game" to continue playing</p>
           ) : gameOver ? (
             <p>Game complete — start a rematch when you’re ready.</p>
+          ) : gameState.phase === 'selecting_graduation' ? (
+            <p>{isSelectingGraduation ? 'Choose on the board, or use the promotion buttons above.' : 'Waiting for the opponent’s promotion choice.'}</p>
           ) : isMyTurn ? (
             <p>
               Select a piece from your pool, then click an empty cell to place it.
@@ -670,114 +732,6 @@ export function Game({
         />
       </div>
 
-      {/* Graduation Selection Modal */}
-      <AnimatePresence>
-        {isSelectingGraduation && graduationOptions.length > 1 && onSelectGraduation && (
-          <GraduationSelectionModal
-            options={graduationOptions}
-            board={gameState.board}
-            playerColor={playerColor}
-            highlightedOption={highlightedOption}
-            onHighlight={setHighlightedOption}
-            onSelect={async (index) => {
-              try {
-                await onSelectGraduation(index);
-                setHighlightedOption(null);
-              } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to select graduation');
-              }
-            }}
-          />
-        )}
-      </AnimatePresence>
     </div>
-  );
-}
-
-interface GraduationSelectionModalProps {
-  options: Cell[][];
-  board: (import('../types').Piece | null)[][];
-  playerColor: PlayerColor;
-  highlightedOption: number | null;
-  onHighlight: (index: number | null) => void;
-  onSelect: (index: number) => void;
-}
-
-function GraduationSelectionModal({ 
-  options, 
-  board, 
-  playerColor,
-  highlightedOption, 
-  onHighlight, 
-  onSelect 
-}: GraduationSelectionModalProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-    >
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.8, opacity: 0 }}
-        className="card max-w-lg w-full"
-      >
-        <h2 className="font-display text-2xl font-bold text-center mb-4 text-boop-orange-600">
-          🎓 Choose What to Graduate!
-        </h2>
-        
-        <p className="text-gray-600 text-center mb-4">
-          Select which group to graduate: a line of three, or a single kitten
-          when all 8 of your pieces are on the bed.
-        </p>
-
-        <div className="space-y-3">
-          {options.map((option, index) => (
-            <motion.button
-              key={index}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onMouseEnter={() => onHighlight(index)}
-              onMouseLeave={() => onHighlight(null)}
-              onClick={() => onSelect(index)}
-              className={`
-                w-full p-3 rounded-xl border-2 transition-all
-                ${highlightedOption === index 
-                  ? 'border-yellow-400 bg-yellow-50 shadow-lg' 
-                  : 'border-gray-200 bg-white hover:border-yellow-300 hover:bg-yellow-50/50'
-                }
-              `}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-gray-700">
-                  Option {index + 1}
-                </span>
-                <div className="flex gap-2">
-                  {option.map((cell, cellIndex) => {
-                    const piece = board[cell.row][cell.col];
-                    return (
-                      <div 
-                        key={cellIndex}
-                        className={`
-                          w-10 h-10 rounded-lg flex items-center justify-center text-xl
-                          ${playerColor === 'orange' ? 'bg-boop-orange-200' : 'bg-boop-gray-200'}
-                        `}
-                      >
-                        {piece?.type === 'kitten' ? '🐱' : '😼'}
-                      </div>
-                    );
-                  })}
-                </div>
-                <span className="text-sm text-gray-500">
-                  ({option.map(c => `${c.row+1},${c.col+1}`).join(' → ')})
-                </span>
-              </div>
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
-    </motion.div>
   );
 }

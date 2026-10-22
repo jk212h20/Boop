@@ -11,6 +11,7 @@ import { ensurePortraits, portraitUrl, subscribePortraits } from '../rendering/p
 import { createCatScene, createContactShadowTexture, createRadialAlphaTexture, createFabricTextures, createQuiltPatchGeometry, createQuiltStitches,
   QuiltColors, quiltCellColor, quiltColor, readQuiltColors } from '../rendering/boardAppearance';
 import { BOOP_DELAY_MS, GRADUATION_HIGHLIGHT_MS, PLACEMENT_DROP_MS } from '../animationTiming';
+import { optionsAt, promotionLabel } from '../graduationChoices';
 import { prefersReducedMotion } from '../rendering/motion';
 
 interface FloatingBoard3DProps {
@@ -28,6 +29,13 @@ interface FloatingBoard3DProps {
   fallenPieces: FallenPiece[];
   animationKey: number;
   winningColor?: PlayerColor;
+  promotionOptions?: Cell[][];
+  promotionEnabled?: boolean;
+  promotionHighlight?: number | null;
+  onPromotionHighlight?: (index: number | null) => void;
+  onPromotionSelect?: (index: number) => void;
+  promotionCell?: Cell | null;
+  onPromotionDismiss?: () => void;
 }
 
 // Cells fill the quilt: 6 x 1.17 spans 7.02 of the 7.04 quilt top, so the outer
@@ -1565,7 +1573,7 @@ function Scene(props: FloatingBoard3DProps & {
           <BedShell quiltColors={props.quiltColors} fabric={fabric} />
           {Array.from({ length: 6 }, (_, row) => Array.from({ length: 6 }, (_, col) => {
             const piece = props.board[row][col];
-            const enabled = !piece && props.isMyTurn && !!props.selectedPieceType && !props.isViewingHistory;
+            const enabled = (props.promotionEnabled && optionsAt(props.promotionOptions ?? [], row, col).length > 0) || (!piece && props.isMyTurn && !!props.selectedPieceType && !props.isViewingHistory);
             return <QuiltCell key={`${row}-${col}`} row={row} col={col} enabled={enabled}
               active={(props.lastMove?.row === row && props.lastMove?.col === col) || (props.highlightedCell?.row === row && props.highlightedCell?.col === col)}
               hovered={hover?.row === row && hover?.col === col}
@@ -1573,16 +1581,46 @@ function Scene(props: FloatingBoard3DProps & {
               onHover={value => setHover(previous => value ? { row, col } : previous?.row === row && previous?.col === col ? null : previous)}
               onClick={() => props.onCellClick(row, col)} />;
           }))}
+          {(props.promotionOptions ?? []).map((cells, index) => {
+            const lit = props.promotionHighlight === index;
+            const color = lit ? '#fff4b0' : '#e6b744';
+            const ordered = [...cells].sort((a,b) => a.row-b.row || a.col-b.col);
+            const a = at(ordered[0].row, ordered[0].col), b = at(ordered[ordered.length-1].row, ordered[ordered.length-1].col);
+            const length = Math.hypot(b[0]-a[0], b[2]-a[2]);
+            const click = (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); if (props.promotionEnabled) props.onPromotionSelect?.(index); };
+            return <group key={`choice-${index}`}>
+              {cells.map(cell => <mesh key={`${cell.row}-${cell.col}`} position={[at(cell.row,cell.col)[0],.505,at(cell.row,cell.col)[2]]} rotation={[-Math.PI/2,0,0]}
+                onClick={e => {e.stopPropagation(); if(props.promotionEnabled) props.onCellClick(cell.row,cell.col);}}>
+                <ringGeometry args={[.43,.49,48]} /><meshBasicMaterial color={color} transparent opacity={props.promotionEnabled ? 1 : .4} depthWrite={false} />
+              </mesh>)}
+              {cells.length > 1 && <group position={[(a[0]+b[0])/2,.53,(a[2]+b[2])/2]} rotation={[0,-Math.atan2(b[2]-a[2],b[0]-a[0]),0]}>
+                <mesh onClick={click} onPointerOver={e=>{e.stopPropagation();props.onPromotionHighlight?.(index);}} onPointerOut={()=>props.onPromotionHighlight?.(null)}>
+                  <boxGeometry args={[length,.03,.25]} /><meshBasicMaterial color={color} transparent opacity={props.promotionEnabled ? (lit ? .85 : .5) : .2} depthWrite={false}/>
+                </mesh>
+              </group>}
+            </group>;
+          })}
+          {props.promotionCell && <Html position={at(props.promotionCell.row,props.promotionCell.col)} center zIndexRange={[20,10]}>
+            <div className="promotion-local" role="group" aria-label="Choices for this kitten" onPointerDown={e=>e.stopPropagation()}>
+              {optionsAt(props.promotionOptions ?? [],props.promotionCell.row,props.promotionCell.col).map(index => <button key={index} type="button" disabled={!props.promotionEnabled}
+                onFocus={()=>props.onPromotionHighlight?.(index)} onMouseEnter={()=>props.onPromotionHighlight?.(index)}
+                onBlur={()=>props.onPromotionHighlight?.(null)} onMouseLeave={()=>props.onPromotionHighlight?.(null)}
+                onClick={()=>props.onPromotionSelect?.(index)}>{props.promotionOptions?.[index].length === 1 ? 'This kitten' : promotionLabel(props.promotionOptions![index])}</button>)}
+              <button type="button" onClick={props.onPromotionDismiss}>Cancel</button>
+            </div>
+          </Html>}
           {props.board.map((line, row) => line.map((piece, col) => {
             if (!piece) return null;
             // The glow begins with the highlight and stays lit through the
             // ascent; only the removal phase adds the rise.
             const graduating = props.graduatingPieces.some(g => g.row === row && g.col === col);
-            return <CatActor key={`${row}-${col}-${piece.color}-${piece.type}`} piece={piece} row={row} col={col}
+            return <group key={`${row}-${col}-${piece.color}-${piece.type}`} onClick={e => {
+              if (props.promotionOptions?.length) { e.stopPropagation(); if(props.promotionEnabled) props.onCellClick(row,col); }
+            }}><CatActor piece={piece} row={row} col={col}
               isWinner={winners.has(`${row}-${col}`)} boop={boopTo(row, col)} isNew={props.lastMove?.row === row && props.lastMove?.col === col && !boopTo(row, col)}
               isGraduating={graduating && (props.graduationPhase === 'highlighting' || props.graduationPhase === 'removing')}
               removing={graduating && props.graduationPhase === 'removing'}
-              animationKey={props.animationKey} />;
+              animationKey={props.animationKey} /></group>;
           }))}
           {hover && props.isMyTurn && !props.isViewingHistory && props.myColor && props.selectedPieceType && !props.board[hover.row][hover.col] && (
             <CatActor piece={{ color: props.myColor, type: props.selectedPieceType }} row={hover.row} col={hover.col}

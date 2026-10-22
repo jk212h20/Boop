@@ -377,3 +377,12 @@ body:has(.game-page) .game-instructions > p { display: inline-block; background:
 .rules-tv-speaker i { height:.22rem; border-radius:1rem; background:#241c15; box-shadow:0 1px 0 #8c7053; }
 .rules-tv-dial:focus-visible,.rules-tv-power:focus-visible { outline:3px solid #ffe9c2; outline-offset:4px; }
 @media(max-width:600px) { .rules-tv-face { grid-template-columns:minmax(0,1fr) 3.1rem; column-gap:.45rem; } .rules-tv-dials { gap:.65rem; padding-top:.8rem; } .rules-tv-dial { width:2.2rem; height:2.2rem; border-width:.3rem; } .rules-tv-dial i { height:.95rem; top:.15rem; transform-origin:50% .65rem; } .rules-tv-dial span { font-size:.45rem; } .rules-tv-volume,.rules-tv-power { font-size:.45rem; } }
+
+/* Board-first promotion: no scrim, no obstruction of the quilt. */
+.promotion-strip { margin: .6rem auto; max-width: 48rem; padding: .65rem; border: 1px solid #d8b45c; border-radius: 12px; background: #fff8e9; color: #443522; }
+.promotion-strip p { margin: 0 0 .4rem; text-align: center; font-weight: 600; }
+.promotion-choices { display: flex; flex-wrap: wrap; justify-content: center; gap: .35rem; }
+.promotion-choices button, .promotion-local button { min-height: 44px; padding: .45rem .65rem; border: 1px solid #cbb374; border-radius: 8px; background: #fffdf6; font-size: .8rem; color: #443522; }
+.promotion-choices button.selected, .promotion-choices button:focus-visible, .promotion-local button:focus-visible { background: #ffe59a; outline: 2px solid #9b6b16; outline-offset: 2px; }
+.promotion-choices button:disabled, .promotion-local button:disabled { opacity: .55; cursor: wait; }
+.promotion-local { display: grid; gap: .3rem; padding: .45rem; width: 180px; max-height: 240px; overflow: auto; border-radius: 10px; border: 2px solid #d8b45c; background: #fff8e9; box-shadow: 0 4px 14px #0004; }

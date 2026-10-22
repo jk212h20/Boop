@@ -174,6 +174,11 @@ boop-game/
 
 ## One-second AI
 
+The home screen's primary **Play vs Bot** button starts a game in one click,
+using your saved name or “Player”; no server connection or setup form is needed.
+**Bot settings** keeps the optional name/difficulty setup available, with
+multiplayer as secondary actions.
+
 Local bot play now defaults to **Grandmaster**, an adaptive alpha-beta search in
 an independent Web Worker. It spends up to **850ms** on a reply, without the old
 artificial delay or animation wait. It searches real rule transitions, including

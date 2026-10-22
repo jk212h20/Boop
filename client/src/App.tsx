@@ -138,7 +138,7 @@ function MainApp() {
 
   const handlePlayBot = useCallback(async (name: string, difficulty: BotDifficulty) => {
     // The 'alphazero' option takes the networked path (server-backed AZ
-    // service). Every other difficulty runs the client-side minimax bot.
+    // service). Every other difficulty runs the deadline-bounded worker bot.
     if (difficulty === 'alphazero') {
       setGameMode('online');
       setRejoinError(null);
@@ -154,7 +154,7 @@ function MainApp() {
       return;
     }
     const diffConfig = BOT_DIFFICULTIES.find(d => d.id === difficulty);
-    const searchDepth = diffConfig?.depth ?? 2;
+    const searchDepth = diffConfig?.depth ?? 12;
     setGameMode('bot');
     setRejoinError(null);
     startBotGame(name, { searchDepth });
@@ -333,7 +333,7 @@ function MainApp() {
       {/* Connection status indicator */}
       {!connecting && !connected && gameMode !== 'bot' && (
         <div className="fixed bottom-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm shadow-lg">
-          ⚠️ Disconnected - Reconnecting...
+          {gameMode === 'online' ? '⚠️ Disconnected - Reconnecting...' : 'Multiplayer offline · Bot play ready'}
         </div>
       )}
     </div>

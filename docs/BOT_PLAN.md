@@ -26,6 +26,9 @@ local engine; the separately hosted experimental AlphaZero option is unchanged.
    search up to depth 12, not an unbounded fixed-depth promise. Existing easier
    levels retain smaller depth ceilings with the same maximum time. The selector
    shows a short name with its description below, avoiding clipped phone labels.
+   The home screen's primary Play vs Bot action starts Grandmaster immediately,
+   with a saved name or Player; optional setup remains under Bot settings.
+   Server connecting/error state does not block either local entry point.
 
 ## Evidence — 2026-10-21
 

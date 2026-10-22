@@ -114,7 +114,7 @@ export function Lobby({
 
   const displayError = localError || error;
 
-  if (connecting) {
+  if (connecting && mode !== 'menu' && mode !== 'bot') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="card text-center">
@@ -147,7 +147,7 @@ export function Lobby({
         </div>
 
         {/* Error display */}
-        {displayError && (
+        {displayError && (localError || (mode !== 'menu' && mode !== 'bot')) && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -201,8 +201,23 @@ export function Lobby({
             )}
 
             <button
-              onClick={() => setMode('create')}
+              onClick={() => onPlayBot(playerName.trim() || 'Player', 'grandmaster')}
               className="btn-primary w-full text-xl"
+            >
+              🤖 Play vs Bot
+            </button>
+            <p className="text-center text-sm text-gray-600">
+              You vs our strongest bot · Replies in under 1 second · No connection needed
+            </p>
+            <button
+              onClick={() => setMode('bot')}
+              className="w-full text-gray-500 hover:text-gray-700"
+            >
+              Bot settings
+            </button>
+            <button
+              onClick={() => setMode('create')}
+              className="btn-secondary w-full text-xl"
             >
               🎮 Create Game
             </button>
@@ -211,12 +226,6 @@ export function Lobby({
               className="btn-secondary w-full text-xl"
             >
               🔗 Join Game
-            </button>
-            <button
-              onClick={() => setMode('bot')}
-              className="btn-secondary w-full text-xl bg-gray-100 hover:bg-gray-200 border-gray-300"
-            >
-              🤖 Play vs Bot
             </button>
             <button
               onClick={() => setMode('quickmatch')}

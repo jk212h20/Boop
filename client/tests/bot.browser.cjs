@@ -48,7 +48,14 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(url);
       await page.waitForTimeout(700); // let connection and entry animation settle
-      await page.getByRole('button', { name: '🤖 Play vs Bot' }).click();
+      await page.screenshot({ path: `/tmp/boop-ai-qa/menu-${width}.png`, fullPage: true });
+      const playButton = page.getByRole('button', { name: '🤖 Play vs Bot' });
+      assert.ok(await playButton.isVisible());
+      const playBox = await playButton.boundingBox();
+      const settingsBox = await page.getByRole('button', { name: 'Bot settings', exact: true }).boundingBox();
+      assert.ok(playBox.width >= Math.min(width - 100, 300), `play button squeezed at ${width}`);
+      assert.ok(playBox.y + playBox.height <= settingsBox.y, `menu controls overlap at ${width}`);
+      await page.getByRole('button', { name: 'Bot settings', exact: true }).click();
       await page.locator('select').waitFor();
       await page.waitForTimeout(500);
       await page.screenshot({ path: `/tmp/boop-ai-qa/lobby-${width}.png`, fullPage: true });
@@ -58,6 +65,16 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
       assert.ok(box.width >= Math.min(width - 100, 300), `selector squeezed at ${width}`);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `overflow at ${width}`);
     }
+    // Full App wiring: one click, no name entry or server required.
+    await page.goto(url);
+    await page.getByRole('button', { name: '🤖 Play vs Bot' }).click();
+    await page.waitForFunction(() => document.querySelector('canvas'));
+    await page.waitForTimeout(1500);
+    assert.equal(await page.getByPlaceholder('Enter your name').count(), 0);
+    assert.ok(await page.getByRole('region', { name: "Player's pieces", exact: true }).isVisible());
+    assert.ok(await page.getByRole('region', { name: "🤖 Bot's pieces", exact: true }).isVisible());
+    await page.screenshot({ path: '/tmp/boop-ai-qa/one-click-game.png', fullPage: true });
+    console.log('One-click default starts the actual local game without a server or name form');
     // Exercise the real React hook, including stale replies after reset/leave.
     await page.route('**/bot-hook-harness', r => r.fulfill({ contentType: 'text/html', body: `<div id="root"></div><script type="module">
       import RefreshRuntime from '/@react-refresh';

@@ -6,6 +6,7 @@ import { checkWinCondition, createInitialGameState, executeMove, resolveGraduati
 import { BotWorkerClient } from '../bot/BotWorkerClient';
 import { createBot } from '../bot/BotAI';
 import { BotConfig } from '../bot/types';
+import { BOT_PAUSE_MS, botReplyDelayMs } from '../animationTiming';
 
 // Synchronous rules/test entry point. Live play resolves choices in the worker.
 export function applyBotGraduationChoice(state: GameState, botColor: PlayerColor): GameState {
@@ -49,18 +50,33 @@ export function useBotGame(): UseBotGameReturn {
   const botRef = useRef<BotWorkerClient | null>(null);
   const generationRef = useRef(0);
 
-  useEffect(() => () => { generationRef.current++; botRef.current?.dispose(); }, []);
+  const waitsRef = useRef(new Map<ReturnType<typeof setTimeout>, () => void>());
+  const cancelWaits = useCallback(() => {
+    for (const [timer, resolve] of waitsRef.current) { clearTimeout(timer); resolve(); }
+    waitsRef.current.clear();
+  }, []);
+  const wait = useCallback((ms: number) => new Promise<void>(resolve => {
+    const timer = setTimeout(() => { waitsRef.current.delete(timer); resolve(); }, Math.max(0, ms));
+    waitsRef.current.set(timer, resolve);
+  }), []);
+  useEffect(() => () => { generationRef.current++; cancelWaits(); botRef.current?.dispose(); }, [cancelWaits]);
 
-  // Start computation immediately. Cosmetic animations must not add to reply time.
+  // Pause before search; publish only after the prior board animation settles.
+  // Off-board walks retain their independent cosmetic lifetime.
   const executeBotMove = useCallback(async (state: GameState) => {
     const bot = botRef.current;
     if (!bot || state.phase === 'finished') return;
     if (!(state.phase === 'selecting_graduation' && state.pendingGraduationPlayer === botColor) &&
         !(state.phase === 'playing' && state.currentTurn === botColor)) return;
     const generation = generationRef.current;
+    const publishAfter = performance.now() + botReplyDelayMs(state);
     setBotThinking(true);
+    await wait(BOT_PAUSE_MS);
+    if (generation !== generationRef.current) return;
     const resultingState = await bot.play(state);
     if (generation !== generationRef.current || !resultingState) return;
+    await wait(publishAfter - performance.now());
+    if (generation !== generationRef.current) return;
     setGameState(resultingState);
     if (resultingState.phase === 'finished' && resultingState.winner) {
       setGameOver({ winner: resultingState.winner,
@@ -68,7 +84,7 @@ export function useBotGame(): UseBotGameReturn {
         gameState: resultingState });
     }
     setBotThinking(false);
-  }, [botColor]);
+  }, [botColor, wait]);
 
   // Store config for reset
   const botConfigRef = useRef<Partial<BotConfig>>({});
@@ -76,6 +92,7 @@ export function useBotGame(): UseBotGameReturn {
   // Start a new bot game
   const startBotGame = useCallback((playerName: string = 'Player', botConfig: Partial<BotConfig> = {}) => {
     generationRef.current++;
+    cancelWaits();
     botRef.current?.dispose();
     const newState = createInitialGameState(playerName, '🤖 Bot');
     setGameState(newState);
@@ -93,7 +110,7 @@ export function useBotGame(): UseBotGameReturn {
     botRef.current = new BotWorkerClient(botColor, botConfig);
     
     console.log('[BotGame] Started new game with config:', botConfig);
-  }, [botColor]);
+  }, [botColor, cancelWaits]);
 
   // Place a piece (human player move)
   const placePiece = useCallback(async (row: number, col: number, pieceType: PieceType): Promise<boolean> => {
@@ -200,12 +217,13 @@ export function useBotGame(): UseBotGameReturn {
   // End bot game (return to lobby)
   const endBotGame = useCallback(() => {
     generationRef.current++;
+    cancelWaits();
     botRef.current?.dispose();
     setGameState(null);
     setGameOver(null);
     setBotThinking(false);
     botRef.current = null;
-  }, []);
+  }, [cancelWaits]);
 
   return {
     gameState,

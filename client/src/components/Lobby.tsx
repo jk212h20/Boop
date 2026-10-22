@@ -13,10 +13,10 @@ import { WaitingPlayer, PlayerColor } from '../types';
 export const BOT_DIFFICULTIES = [
   { id: 'easy', name: 'Easy', description: 'Quick search, beginner friendly', depth: 1 },
   { id: 'normal', name: 'Normal', description: 'Fast and balanced', depth: 2 },
-  { id: 'hard', name: 'Hard', description: 'Deeper tactical search, under 1s', depth: 3 },
-  { id: 'expert', name: 'Expert', description: 'Advanced search, under 1s', depth: 4 },
-  { id: 'master', name: 'Master', description: 'Deep search, under 1s', depth: 5 },
-  { id: 'grandmaster', name: 'Grandmaster', description: 'Strongest adaptive search, under 1s', depth: 12 },
+  { id: 'hard', name: 'Hard', description: 'Deeper tactical search, 850ms search', depth: 3 },
+  { id: 'expert', name: 'Expert', description: 'Advanced search, 850ms search', depth: 4 },
+  { id: 'master', name: 'Master', description: 'Deep search, 850ms search', depth: 5 },
+  { id: 'grandmaster', name: 'Grandmaster', description: 'Strongest adaptive search, 850ms search', depth: 12 },
   { id: 'alphazero', name: 'AlphaZero (experimental)', description: 'Neural net — online only', depth: 0 },
 ] as const;
 
@@ -207,7 +207,7 @@ export function Lobby({
               🤖 Play vs Bot
             </button>
             <p className="text-center text-sm text-gray-600">
-              You vs our strongest bot · Replies in under 1 second · No connection needed
+              You vs our strongest bot · Fast search, animation-safe turns · No connection needed
             </p>
             <button
               onClick={() => setMode('bot')}
@@ -383,7 +383,7 @@ export function Lobby({
               </p>
               {(botDifficulty === 'expert' || botDifficulty === 'master' || botDifficulty === 'grandmaster') && (
                 <p className="text-amber-600 text-xs mt-1">
-                  Adaptive search uses up to 0.85 seconds. The board stays responsive.
+                  Search uses up to 0.85 seconds after a 400ms pause. Moves wait for animations.
                 </p>
               )}
             </div>

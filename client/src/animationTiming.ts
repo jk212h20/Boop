@@ -2,6 +2,12 @@
 // A newly placed piece drops straight down onto its square and settles, and a
 // booped cat performs a full crouch→air→land jump.
 export const PLACEMENT_DROP_MS = 700;
+// Bot search starts after this pause; publishing also leaves this margin after
+// the preceding move's shared animation budget so React's cleanup can finish.
+export const BOT_PAUSE_MS = 400;
+export function botReplyDelayMs(effects: TimingEffects): number {
+  return animationDurationMs(effects) + BOT_PAUSE_MS;
+}
 // How long the board waits before a boop starts: the drop has landed by then.
 export const DROP_DURATION_MS = 400;
 export const BOOP_DELAY_MS = DROP_DURATION_MS + 100;

@@ -180,8 +180,8 @@ using your saved name or “Player”; no server connection or setup form is nee
 multiplayer as secondary actions.
 
 Local bot play now defaults to **Grandmaster**, an adaptive alpha-beta search in
-an independent Web Worker. It spends up to **850ms** on a reply, without the old
-artificial delay or animation wait. It searches real rule transitions, including
+an independent Web Worker. It spends up to **850ms** searching after a **400ms pause**, then waits for the
+preceding board animation plus a 400ms settling margin before showing its move. It searches real rule transitions, including
 both players' graduation choices, and keeps the board responsive. Other local
 difficulties have smaller depth ceilings; experimental online AlphaZero is separate.
 

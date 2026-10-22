@@ -2,7 +2,7 @@
 
 ## Goal and implemented plan
 
-Reply within one second on the tested foreground browser, use the available time
+Search within one second on the tested foreground browser, use the available time
 for stronger play, and keep rendering/input responsive. This belongs to Boop's
 local engine; the separately hosted experimental AlphaZero option is unchanged.
 
@@ -17,8 +17,9 @@ local engine; the separately hosted experimental AlphaZero option is unchanged.
    publish only completed iterations. Keep a legal static fallback. Evaluate
    permanent cat inventory, position, and unblocked three-cell line potential.
 3. **Bounded, responsive execution.** Warm a module Web Worker at game creation.
-   Start it immediately when the bot owes a move/choice: no artificial 800ms delay
-   and no waiting for cosmetic animations. Share an 850ms budget across a reply's
+   After the 400ms pause, search in parallel with the previous animation. Publish
+   only after its shared animation budget plus a 400ms margin. Off-board walks
+   remain independently cosmetic; drops, boops and graduations finish first. Share an 850ms budget across a reply's
    placement/choices. Search checks a monotonic clock between nodes and children;
    the client watchdog falls back at 950ms on worker failure/overrun. Reset,
    leave and unmount terminate the worker and invalidate stale responses.
@@ -30,7 +31,7 @@ local engine; the separately hosted experimental AlphaZero option is unchanged.
    with a saved name or Player; optional setup remains under Bot settings.
    Server connecting/error state does not block either local entry point.
 
-## Evidence — 2026-10-21
+## Original search evidence — 2026-10-21
 
 - Seven bot regressions: immediate cat-line win, blocking the opponent, avoiding
   booping an opponent into victory, all-eight-cats win, choosing a graduation,
@@ -47,7 +48,8 @@ local engine; the separately hosted experimental AlphaZero option is unchanged.
   850–851ms, main-thread 10ms timer advanced 510 times. Cancellation and failed
   worker creation verified. Responsive lobby checked at 1440, 1024, 896, 768,
   640, 639 and 390px. Actual React-hook reply: **856.8ms**; reset and leave
-  during thinking both prevented stale board updates.
+  during thinking both prevented stale board updates. These original hook times
+  precede the requested 400ms pause/animation gate; worker search times remain valid.
 
 This is evidence of a large improvement over the previous bot, not solved Boop,
 a human rating, or an exhaustive tactical guarantee. Ordinary browser scheduling
@@ -73,3 +75,16 @@ Further strength work should first optimize measured transition/evaluation costs
 and test a larger tactical corpus, then compare selective extensions, symmetry
 caching or learned evaluation on paired matches. Do not conflate a larger depth
 ceiling or "Grandmaster" label with established grandmaster strength.
+
+## Animation handoff adjustment
+
+Requested after observing interrupted animations: a tracked, cancellable 400ms
+pause precedes worker search. Publishing uses `animationDurationMs` plus a 400ms
+margin so the Game component can finish cleanup before new effects replace old
+ones. Reset, leave and unmount cancel both waiting and searching. Visible replies
+can now exceed one second, deliberately; the search budget is unchanged. Browser
+regression covers a fast depth-1 reply with boops as well as reset/leave.
+
+Validated handoff: opening reply 1255.9ms with the pause, and a boop reply
+4007.9ms against its 4000ms animation-plus-margin gate. Build, 29 client tests,
+Chrome worker/hook/cancellation and responsive lobby checks passed.

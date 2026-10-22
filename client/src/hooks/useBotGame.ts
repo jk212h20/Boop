@@ -6,7 +6,7 @@ import { checkWinCondition, createInitialGameState, executeMove, resolveGraduati
 import { BotWorkerClient } from '../bot/BotWorkerClient';
 import { createBot } from '../bot/BotAI';
 import { BotConfig } from '../bot/types';
-import { BOT_PAUSE_MS, botReplyDelayMs } from '../animationTiming';
+import { botReplyDelayMs } from '../animationTiming';
 
 // Synchronous rules/test entry point. Live play resolves choices in the worker.
 export function applyBotGraduationChoice(state: GameState, botColor: PlayerColor): GameState {
@@ -61,7 +61,7 @@ export function useBotGame(): UseBotGameReturn {
   }), []);
   useEffect(() => () => { generationRef.current++; cancelWaits(); botRef.current?.dispose(); }, [cancelWaits]);
 
-  // Pause before search; publish only after the prior board animation settles.
+  // Search immediately; publish after the minimum elapsed time and prior animation.
   // Off-board walks retain their independent cosmetic lifetime.
   const executeBotMove = useCallback(async (state: GameState) => {
     const bot = botRef.current;
@@ -71,8 +71,6 @@ export function useBotGame(): UseBotGameReturn {
     const generation = generationRef.current;
     const publishAfter = performance.now() + botReplyDelayMs(state);
     setBotThinking(true);
-    await wait(BOT_PAUSE_MS);
-    if (generation !== generationRef.current) return;
     const resultingState = await bot.play(state);
     if (generation !== generationRef.current || !resultingState) return;
     await wait(publishAfter - performance.now());

@@ -383,7 +383,7 @@ export function Lobby({
               </p>
               {(botDifficulty === 'expert' || botDifficulty === 'master' || botDifficulty === 'grandmaster') && (
                 <p className="text-amber-600 text-xs mt-1">
-                  Search uses up to 0.85 seconds after a 400ms pause. Moves wait for animations.
+                  Search starts immediately. Moves wait at least 400ms and until animations finish.
                 </p>
               )}
             </div>

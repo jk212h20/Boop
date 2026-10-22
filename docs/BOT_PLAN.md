@@ -17,8 +17,8 @@ local engine; the separately hosted experimental AlphaZero option is unchanged.
    publish only completed iterations. Keep a legal static fallback. Evaluate
    permanent cat inventory, position, and unblocked three-cell line potential.
 3. **Bounded, responsive execution.** Warm a module Web Worker at game creation.
-   After the 400ms pause, search in parallel with the previous animation. Publish
-   only after its shared animation budget plus a 400ms margin. Off-board walks
+   Search immediately in parallel with the previous animation. Publish when
+   search is ready and elapsed time reaches max(400ms, shared animation budget). Off-board walks
    remain independently cosmetic; drops, boops and graduations finish first. Share an 850ms budget across a reply's
    placement/choices. Search checks a monotonic clock between nodes and children;
    the client watchdog falls back at 950ms on worker failure/overrun. Reset,
@@ -49,7 +49,7 @@ local engine; the separately hosted experimental AlphaZero option is unchanged.
   worker creation verified. Responsive lobby checked at 1440, 1024, 896, 768,
   640, 639 and 390px. Actual React-hook reply: **856.8ms**; reset and leave
   during thinking both prevented stale board updates. These original hook times
-  precede the requested 400ms pause/animation gate; worker search times remain valid.
+  precede the animation gate; worker search times remain valid.
 
 This is evidence of a large improvement over the previous bot, not solved Boop,
 a human rating, or an exhaustive tactical guarantee. Ordinary browser scheduling
@@ -76,15 +76,17 @@ and test a larger tactical corpus, then compare selective extensions, symmetry
 caching or learned evaluation on paired matches. Do not conflate a larger depth
 ceiling or "Grandmaster" label with established grandmaster strength.
 
-## Animation handoff adjustment
+## Animation handoff adjustment (clarified)
 
-Requested after observing interrupted animations: a tracked, cancellable 400ms
-pause precedes worker search. Publishing uses `animationDurationMs` plus a 400ms
-margin so the Game component can finish cleanup before new effects replace old
-ones. Reset, leave and unmount cancel both waiting and searching. Visible replies
-can now exceed one second, deliberately; the search budget is unchanged. Browser
-regression covers a fast depth-1 reply with boops as well as reset/leave.
+The 400ms requirement is a minimum TOTAL elapsed time, not an added pause.
+Worker search starts immediately. Publishing waits until search is ready and
+`max(400, animationDurationMs(previousMove))` has elapsed. Search, minimum wait
+and animation overlap; there is no pre-search pause or post-animation margin.
+Off-board walks remain independent. Reset, leave and unmount cancel pending
+publication and searching. Longer boop/graduation animations can still make the
+visible reply exceed one second. Tests reject adding 400ms to normal replies
+or animation budgets.
 
-Validated handoff: opening reply 1255.9ms with the pause, and a boop reply
-4007.9ms against its 4000ms animation-plus-margin gate. Build, 29 client tests,
-Chrome worker/hook/cancellation and responsive lobby checks passed.
+Corrected browser measurements: normal reply 856.7ms (no added 400ms),
+boop handoff 3607.7ms against its 3600ms animation gate. Build, 29 client
+tests and browser lifecycle checks passed.

@@ -60,7 +60,7 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
       await page.waitForTimeout(500);
       await page.screenshot({ path: `/tmp/boop-ai-qa/lobby-${width}.png`, fullPage: true });
       assert.equal(await page.locator('select').inputValue(), 'grandmaster');
-      assert.ok(await page.getByText('Search uses up to 0.85 seconds after a 400ms pause. Moves wait for animations.', { exact: true }).isVisible());
+      assert.ok(await page.getByText('Search starts immediately. Moves wait at least 400ms and until animations finish.', { exact: true }).isVisible());
       const box = await page.locator('select').boundingBox();
       assert.ok(box.width >= Math.min(width - 100, 300), `selector squeezed at ${width}`);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `overflow at ${width}`);
@@ -104,14 +104,14 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
       });
       return performance.now() - start;
     });
-    assert.ok(hookTime >= 1200 && hookTime < 2500, `pause + search + animation-safe reply ${hookTime}ms`);
+    assert.ok(hookTime >= 800 && hookTime < 1100, `concurrent search + animation-safe reply ${hookTime}ms`);
     // A boop has a longer animation budget. Easy search must not publish early.
     await page.evaluate(() => window.botHook.startBotGame('Animation test', { searchDepth: 1 }));
     await page.waitForTimeout(100);
     await page.evaluate(() => window.botHook.placePiece(2, 2, 'kitten'));
     await page.waitForFunction(() => !window.botHook.botThinking && window.botHook.gameState.currentTurn === 'orange');
     const boopTiming = await page.evaluate(async () => {
-      const { animationDurationMs, BOT_PAUSE_MS } = await import('/src/animationTiming.ts');
+      const { botReplyDelayMs } = await import('/src/animationTiming.ts');
       const s = window.botHook.gameState;
       const emptyAdjacent = [];
       for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) {
@@ -122,7 +122,7 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
       await window.botHook.placePiece(...emptyAdjacent[0], 'kitten');
       await new Promise(r => setTimeout(r, 50));
       const previous = window.botHook.gameState;
-      const expected = animationDurationMs(previous) + BOT_PAUSE_MS;
+      const expected = botReplyDelayMs(previous);
       const hasBoop = previous.boopedPieces.length > 0;
       await new Promise(resolve => {
         const timer = setInterval(() => { if (!window.botHook.botThinking) { clearInterval(timer); resolve(); } }, 5);
@@ -131,7 +131,7 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
     });
     assert.ok(boopTiming.hasBoop);
     assert.ok(boopTiming.elapsed >= boopTiming.expected - 10, JSON.stringify(boopTiming));
-    assert.ok(boopTiming.elapsed < boopTiming.expected + 500, JSON.stringify(boopTiming));
+    assert.ok(boopTiming.elapsed < boopTiming.expected + 250, JSON.stringify(boopTiming));
     console.log('Boop animation-safe handoff:', JSON.stringify(boopTiming));
     await page.evaluate(() => window.botHook.placePiece(0, 0, 'kitten'));
     await page.waitForFunction(() => window.botHook.botThinking);

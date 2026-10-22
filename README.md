@@ -226,3 +226,13 @@ celebrate all winning adults. A compact top-center result replaces the old
 layout-pushing banner, and finished games no longer invite placement.
 Return hops end precisely on the matching inventory portrait, including mobile.
 See `tools/blender/README.md` for implementation and regression entry points.
+
+### Background tabs
+
+Hiding the page cancels cosmetic phase timers and clears boop, graduation,
+ghost, fallen-cat and inventory-flight overlays. Moves received while hidden
+settle directly onto the canonical board; returning never replays those moves.
+The 3D render loop stops while hidden, and idle rig motion uses bounded rendered
+time rather than elapsed wall time. Game rules and bot state remain unchanged.
+Regression: `client/tests/visibility.browser.cjs` with `BOOP_TEST_URL` set to a
+devports-verified Vite server.

@@ -5,6 +5,7 @@ import { PlayerPool, calculateFallenPosition, GraduatingPiece, FallenPiece } fro
 import { FloatingBoard3D } from './FloatingBoard3D';
 import { useSound } from '../hooks/useSound';
 import { useWinSound } from '../hooks/useWinSound';
+import { usePageVisible } from '../hooks/usePageVisible';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { HistorySlider } from './HistorySlider';
 import {
@@ -80,6 +81,9 @@ export function Game({
     fallenTimersRef.current = [];
   }, []);
   const [animationKey, setAnimationKey] = useState(0);
+  const pageVisible = usePageVisible();
+  const hiddenBoard = useRef<GameState['board'] | null>(null);
+  const [settledAfterHide, setSettledAfterHide] = useState(!pageVisible);
   
   // Track previous board state to get piece data for ghosts
   const prevBoardRef = useRef(gameState.board);
@@ -266,6 +270,18 @@ export function Game({
     // Fallen pieces are deliberately not cleared here: a cat still walking
     // home belongs to its own trip, not to this update.
 
+    // Never replay a hidden move or the interrupted move on tab return.
+    // Visibility is a dependency so hiding also cancels every phase timer.
+    const alreadyConsumed = hiddenBoard.current === gameState.board;
+    if (!pageVisible || alreadyConsumed) {
+      hiddenBoard.current = gameState.board;
+      clearFallen();
+      setSettledAfterHide(true);
+      prevBoardRef.current = gameState.board;
+      return;
+    }
+    hiddenBoard.current = null;
+    setSettledAfterHide(false);
     // Don't animate during history viewing - that's handled separately
     if (gameHistory.isViewingHistory) {
       clearFallen();
@@ -411,7 +427,7 @@ export function Game({
 
     // Update previous board reference (no-boop / no-graduation path).
     prevBoardRef.current = gameState.board;
-  }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, playSound, gameHistory.isViewingHistory]);
+  }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, playSound, gameHistory.isViewingHistory, pageVisible]);
 
   useWinSound(gameOver?.winner, playSound);
 
@@ -579,7 +595,7 @@ export function Game({
               winningColor={gameOver && !gameHistory.isViewingHistory ? gameOver.winner : undefined}
               onCellClick={handleCellClick}
               isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
-              lastMove={gameHistory.isViewingHistory ? null : gameState.lastMove}
+              lastMove={gameHistory.isViewingHistory || settledAfterHide || !pageVisible ? null : gameState.lastMove}
               selectedPieceType={isMyTurn && !gameHistory.isViewingHistory ? selectedPieceType : null}
               myColor={playerColor}
               boopedPieces={historyAnimationData.boops}

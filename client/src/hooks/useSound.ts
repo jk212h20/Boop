@@ -49,7 +49,7 @@ class SoundManager {
 
   // Generate simple synthesized sounds
   play(name: SoundName, options: SoundOptions = {}) {
-    if (!this.enabled) return;
+    if (!this.enabled || document.hidden) return;
 
     const ctx = this.getAudioContext();
     if (ctx.state === 'suspended') void ctx.resume().catch(console.warn);
@@ -58,7 +58,7 @@ class SoundManager {
     switch (name) {
       case 'winVoice':
         void this.loadWinVoice(ctx).then(buffer => {
-          if (!this.enabled) return;
+          if (!this.enabled || document.hidden) return;
           const source = ctx.createBufferSource();
           const gain = ctx.createGain();
           source.buffer = buffer;

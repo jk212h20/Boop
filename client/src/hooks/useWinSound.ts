@@ -6,6 +6,7 @@ export function useWinSound(winner: string | undefined, playSound: (name: SoundN
   const announced = useRef(false);
   useEffect(() => {
     if (!winner) { announced.current = false; return; }
+    if (document.hidden) { announced.current = true; return; }
     if (announced.current) return;
     const timer = setTimeout(() => {
       announced.current = true;

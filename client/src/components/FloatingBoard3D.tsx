@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { Component, Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Canvas, ThreeEvent, useFrame, useThree } from '@react-three/fiber';
+import { usePageVisible } from '../hooks/usePageVisible';
 import { Environment, Html, Lightformer, OrbitControls, RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { Board as BoardType, BoopEffect, Cell, Piece as PieceData, PieceType, PlayerColor } from '../types';
@@ -144,6 +145,7 @@ export function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpe
     earR: cloned.getObjectByName('ear.R') ?? null,
   }), [cloned]);
   const applied = useRef({ head: new THREE.Vector3(), tail: 0, earL: 0, earR: 0 });
+  const idleTime = useRef(0);
 
   useFrame((_, delta) => {
     if (!mixer) return;
@@ -158,7 +160,9 @@ export function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpe
     if (filmTime !== undefined) mixer.setTime(filmTime);
     else mixer.update(Math.min(delta, .05));
 
-    const seconds = filmTime ?? performance.now() / 1000;
+    // Idle motion advances by rendered time, not hidden-tab wall time.
+    idleTime.current += Math.min(delta, .05);
+    const seconds = filmTime ?? idleTime.current;
     const atEase = ['Sit', 'Stand', 'Curious', 'Sleepy'].includes(clip);
     let headYaw = 0, headPitch = 0, tailYaw = 0, earL = 0, earR = 0;
     if (atEase) {
@@ -179,7 +183,7 @@ export function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpe
 
     if (!atEase) return; // blink only while at ease
     if (filmTime !== undefined) return;
-    nextBlink.current -= delta;
+    nextBlink.current -= Math.min(delta, .05);
     if (blink && nextBlink.current <= 0 && (!blinkAction.current || !blinkAction.current.isRunning())) {
       const action = mixer.clipAction(blink);
       action.setLoop(THREE.LoopOnce, 1);
@@ -1622,6 +1626,7 @@ function Scene(props: FloatingBoard3DProps & {
 }
 
 export function FloatingBoard3D(props: FloatingBoard3DProps) {
+  const pageVisible = usePageVisible();
   useEffect(() => {
     const update = () => {
       const pools = [...document.querySelectorAll('[data-pool-target]')];
@@ -1637,7 +1642,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   // A short camera-shake on impact, tied to the boop itself.
   useEffect(() => {
-    if (prefersReducedMotion() || props.boopedPieces.length === 0) return;
+    if (!pageVisible || prefersReducedMotion() || props.boopedPieces.length === 0) return;
     let knock: ReturnType<typeof setTimeout> | undefined;
     const start = setTimeout(() => {
       const shell = shellRef.current;
@@ -1650,7 +1655,7 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
       if (knock) clearTimeout(knock);
       shellRef.current?.classList.remove('board-shake');
     };
-  }, [props.animationKey, props.boopedPieces.length]);
+  }, [props.animationKey, props.boopedPieces.length, pageVisible]);
   // One quilt, chosen for the room. There is no colour picker any more, so the
   // fabric no longer has a preference to read or write; a previously stored
   // palette is honoured so nobody's board changes under them.
@@ -1677,18 +1682,24 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   const flightId = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const requestFlight = useCallback<RequestInventoryFlight>((piece, origin) => {
+    if (document.hidden) return;
     const id = ++flightId.current;
     setFlights(previous => [...previous, { id, piece, origin }]);
     timers.current.push(setTimeout(() => {
       setFlights(previous => previous.filter(flight => flight.id !== id));
     }, 650));
   }, []);
+  useEffect(() => {
+    if (!pageVisible) {
+      timers.current.forEach(clearTimeout); timers.current = []; setFlights([]);
+    }
+  }, [pageVisible]);
   useEffect(() => () => { timers.current.forEach(clearTimeout); timers.current = []; }, []);
   return (
     <div className="floating-board-area">
     <div className="floating-board-shell" ref={shellRef}>
       <BoardErrorBoundary>
-      <Canvas shadows dpr={[1, 1.7]} camera={BOARD_CAMERA} gl={BOARD_GL}>
+      <Canvas frameloop={pageVisible ? 'always' : 'never'} shadows dpr={[1, 1.7]} camera={BOARD_CAMERA} gl={BOARD_GL}>
         <Suspense fallback={null}>
           <CatProbe />
           <Precompile />

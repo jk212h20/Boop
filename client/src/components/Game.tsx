@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState, PlayerColor, PieceType, GameOverInfo, Cell, Piece, BoopEffect } from '../types';
 import { PlayerPool, calculateFallenPosition, GraduatingPiece, FallenPiece } from './Board';
@@ -81,6 +81,7 @@ export function Game({
     fallenTimersRef.current = [];
   }, []);
   const [animationKey, setAnimationKey] = useState(0);
+  const [animatedMove, setAnimatedMove] = useState<Cell | null>(null);
   const pageVisible = usePageVisible();
   const hiddenBoard = useRef<GameState['board'] | null>(null);
   const [settledAfterHide, setSettledAfterHide] = useState(!pageVisible);
@@ -258,8 +259,9 @@ export function Game({
   const BOOP_DELAY = BOOP_DELAY_MS;
   const GRADUATION_HIGHLIGHT_DURATION = GRADUATION_HIGHLIGHT_MS;
 
-  // Handle game state updates - trigger animations and sounds (live game only)
-  useEffect(() => {
+  // Commit the new board and its effects before any frame can see the old
+  // move's overlays attached to the new board.
+  useLayoutEffect(() => {
     // Retire every overlay belonging to the previous update, even when its
     // timer was cancelled by a fast reply, history navigation, or a reset.
     // Otherwise displayBoard restores already-graduated kittens indefinitely.
@@ -267,6 +269,7 @@ export function Game({
     setAnimatingGraduations([]);
     setGraduationPhase(null);
     setGhostPieces([]);
+    setAnimatedMove(null);
     // Fallen pieces are deliberately not cleared here: a cat still walking
     // home belongs to its own trip, not to this update.
 
@@ -292,6 +295,7 @@ export function Game({
     const booped = gameState.boopedPieces || [];
     const graduated = gameState.graduatedPieces || [];
     
+    setAnimatedMove(gameState.lastMove);
     // Increment animation key for new animations
     setAnimationKey(prev => prev + 1);
     
@@ -402,6 +406,7 @@ export function Game({
       });
 
       timers.push(setTimeout(() => {
+        setAnimatedMove(null);
         setAnimatingBoops([]);
         setAnimatingGraduations([]);
         setGraduationPhase(null);
@@ -423,6 +428,9 @@ export function Game({
       // Just a placement with no boops
       playSound('place');
       setGhostPieces([]);
+      prevBoardRef.current = gameState.board;
+      const timer = setTimeout(() => setAnimatedMove(null), animationDurationMs(gameState));
+      return () => clearTimeout(timer);
     }
 
     // Update previous board reference (no-boop / no-graduation path).
@@ -595,7 +603,7 @@ export function Game({
               winningColor={gameOver && !gameHistory.isViewingHistory ? gameOver.winner : undefined}
               onCellClick={handleCellClick}
               isMyTurn={isMyTurn && !gameHistory.isViewingHistory}
-              lastMove={gameHistory.isViewingHistory || settledAfterHide || !pageVisible ? null : gameState.lastMove}
+              lastMove={gameHistory.isViewingHistory || settledAfterHide || !pageVisible ? null : animatedMove}
               selectedPieceType={isMyTurn && !gameHistory.isViewingHistory ? selectedPieceType : null}
               myColor={playerColor}
               boopedPieces={historyAnimationData.boops}

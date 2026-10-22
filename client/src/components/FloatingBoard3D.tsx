@@ -319,7 +319,11 @@ export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, 
   const target = at(row, col);
   const origin = boop ? at(boop.fromRow, boop.fromCol) : target;
   // Coordinate values, not freshly allocated boop prop objects, own the clock.
-  useEffect(() => { born.current = performance.now(); }, [animationKey, boop?.fromRow, boop?.fromCol, isNew]);
+  // Retiring a boop/isNew flag is not a new animation. In particular a
+  // completed placement must not drop again when another piece is booped.
+  useEffect(() => {
+    if (boop || isNew) born.current = performance.now();
+  }, [animationKey, boop?.fromRow, boop?.fromCol, isNew]);
   useEffect(() => {
     removalStarted.current = removing ? performance.now() : null;
   }, [removing, animationKey]);

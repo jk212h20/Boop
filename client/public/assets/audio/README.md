@@ -1,19 +1,13 @@
 # Win voice
 
-`win-meow.mp3` is the bundled celebratory deep-voice “Meow! Meow! Meow!”
-recording. It replaces the perspective-dependent win/lose tones for every win.
-Three emphatic calls with short pauses and wider pitch modulation make it a
-cheer rather than a flat announcement. Pitch is baked into the recording so the
-browser does not need an installed speech voice or a speech service.
+`win-meow.mp3` is one long female “Meeeeoooow” recorded with the macOS
+Samantha voice at 90 words/minute. FFmpeg processing uses `atempo=0.5,atempo=0.65`
+(to elongate without lowering the female pitch) and
+`loudnorm=I=-16:TP=-1.5:LRA=7`, encoded as 128kbps MP3.
+It replaces the earlier triple-meow cheer. No runtime speech service is needed.
 
-Generated on macOS with the Alex voice at 155 words/minute, using speech
-commands `pbas 45`, `pmod 65`, `emph +` before each call and 100ms pauses.
-Source sample rate: 22050Hz. FFmpeg processing: `asetrate=17640`,
-`aresample=44100`, `atempo=1.2`, `loudnorm=I=-16:TP=-1.5:LRA=7`.
-Encoded as 128kbps MP3. No external voice service or runtime TTS dependency.
-
-The sound manager preloads and decodes the asset, unlocks Web Audio on user
-interaction, and uses the existing mute and volume settings. `useWinSound`
-announces either winner once after 500ms, re-arms when game-over clears, and
-cancels pending playback on reset/unmount. Browser regression coverage is in
-`client/tests/winSound.browser.cjs` (set `BOOP_TEST_URL` to a verified Vite server).
+The sound manager preloads and decodes the recording, unlocks Web Audio on
+user interaction, respects mute/volume and suppresses hidden-tab sounds.
+`useWinSound` announces either winner once after 500ms, re-arms on rematch,
+and cancels pending playback on reset/unmount. Browser regression coverage:
+`client/tests/winSound.browser.cjs` with a devports-verified `BOOP_TEST_URL`.

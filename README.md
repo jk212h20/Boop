@@ -252,5 +252,10 @@ choices display a waiting status. Browser regression:
 `client/tests/promotion.browser.cjs` with a verified `BOOP_TEST_URL`.
 
 The browser regression `client/tests/stockAndDrop.browser.cjs` samples a real
-worker bot's placement drop and verifies both kitten and cat stock become
+worker bot's placement drop under a forced 700ms main-thread stall and verifies
+both kitten and cat stock become
 available while their cosmetic return walks are still running.
+
+Live placement and boop clocks advance by rendered frames (at most 50ms per
+frame), matching move settlement. Rendering stalls cannot consume the drop
+before the player sees it; hidden-tab updates still settle without replay.

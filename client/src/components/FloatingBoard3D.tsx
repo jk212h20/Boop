@@ -320,7 +320,7 @@ export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, 
   const group = useRef<THREE.Group>(null);
   const glow = useRef<THREE.PointLight>(null);
   const { camera, gl } = useThree();
-  const born = useRef(performance.now());
+  const renderedElapsed = useRef(0);
   const removalStarted = useRef<number | null>(null);
   const graduationStarted = useRef<number | null>(null);
   const heading = useRef(SETTLE_HEADING);
@@ -331,8 +331,8 @@ export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, 
   // Coordinate values, not freshly allocated boop prop objects, own the clock.
   // Retiring a boop/isNew flag is not a new animation. In particular a
   // completed placement must not drop again when another piece is booped.
-  useEffect(() => {
-    if (boop || isNew) born.current = performance.now();
+  useLayoutEffect(() => {
+    if (boop || isNew) renderedElapsed.current = 0;
   }, [animationKey, boop?.fromRow, boop?.fromCol, isNew]);
   useEffect(() => {
     removalStarted.current = removing ? performance.now() : null;
@@ -363,7 +363,11 @@ export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, 
       setClip('Sit');
       return;
     }
-    const elapsed = filmElapsed ?? (performance.now() - born.current) / 1000;
+    // Animation time is visible rendered time, not time spent stalled on JS,
+    // model/shader work or a busy GPU. A delayed first frame still starts at
+    // the top of the drop; the move settlement gate uses the same delta cap.
+    const elapsed = filmElapsed ?? renderedElapsed.current;
+    if (!document.hidden) renderedElapsed.current += Math.min(delta, .05);
     let x = target[0], y = target[1], z = target[2];
     let desiredHeading = settleHeading;
     let nextClip = 'Sit';

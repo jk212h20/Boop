@@ -104,7 +104,8 @@ mirrored table opposite carries a box television whose screen opens the rules
 explainer in a popup. A silver diamond-and-weave carpet begins just below the inventory selectors and extends
 to the left, right, and bottom screen edges, not the top. Booped pieces
 walk below their matching selector, then jump to its projected portrait center;
-returned stock is held back until the return animation finishes. The transparent
+returned stock is available immediately when it leaves the bed; the return
+walk and inventory flight never hold back the cat/kitten count. The transparent
 canvas has no separate floor rectangle. On desktop the
 scene spans beneath both inventories instead of being clipped to the board
 column; soft white fill lighting replaces heavy cast/contact shadows. After a removed row ascends, three animated cats
@@ -249,3 +250,7 @@ Choices appear only after the renderer acknowledges the full visible move budget
 reject duplicate submissions, and leave failures visible and retryable. Opponent
 choices display a waiting status. Browser regression:
 `client/tests/promotion.browser.cjs` with a verified `BOOP_TEST_URL`.
+
+The browser regression `client/tests/stockAndDrop.browser.cjs` samples a real
+worker bot's placement drop and verifies both kitten and cat stock become
+available while their cosmetic return walks are still running.

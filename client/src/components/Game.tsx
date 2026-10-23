@@ -162,13 +162,10 @@ export function Game({
       orange: { kittensInPool: gameState.players.orange?.kittensInPool ?? 0, catsInPool: gameState.players.orange?.catsInPool ?? 0 },
       gray: { kittensInPool: gameState.players.gray?.kittensInPool ?? 0, catsInPool: gameState.players.gray?.catsInPool ?? 0 }
     };
-    // Returned stock appears only after the actor joins its inventory portrait.
-    fallenPieces.forEach(({piece}) => {
-      const key = piece.type === 'kitten' ? 'kittensInPool' : 'catsInPool';
-      pools[piece.color][key] = Math.max(0, pools[piece.color][key] - 1);
-    });
+    // Canonical stock is available as soon as a piece leaves the bed. The
+    // carpet walk / inventory flight is cosmetic and must not reserve it.
     return pools;
-  }, [gameHistory.isViewingHistory, gameHistory.viewingMove, gameState.players, fallenPieces]);
+  }, [gameHistory.isViewingHistory, gameHistory.viewingMove, gameState.players]);
 
   // Get highlighted cell (the placed piece) when viewing history
   const historyHighlightedCell = useMemo(() => {

@@ -4,14 +4,15 @@ const {chromium}=require('playwright'); const assert=require('node:assert/strict
  await p.goto(process.env.BOOP_TEST_URL);
  await p.evaluate(async()=>{
   const {default:R}=await import('/node_modules/.vite/deps/react.js');const {default:D}=await import('/node_modules/.vite/deps/react-dom_client.js');
-  const {Game}=await import('/src/components/Game.tsx');const {createInitialGameState}=await import('/src/bot/LocalGame.ts');
+  const {Game}=await import('/src/components/Game.tsx');const {createInitialGameState,resolveGraduationChoice,executeMove}=await import('/src/bot/LocalGame.ts');
   const s=createInitialGameState();s.phase='selecting_graduation';s.pendingGraduationPlayer='orange';s.currentTurn='orange';
   s.board[2][1]={color:'orange',type:'kitten'};s.board[2][2]={color:'orange',type:'kitten'};s.board[2][3]={color:'orange',type:'kitten'};
-  s.lastMove={row:2,col:3};s.boopedPieces=[{from:{row:1,col:1},to:{row:2,col:1},piece:{color:'orange',type:'kitten'}},{from:{row:1,col:2},to:{row:2,col:2},piece:{color:'orange',type:'kitten'}}];
+  s.board[4][4]={color:'orange',type:'kitten'};s.lastMove={row:4,col:4};s.boopedPieces=[{from:{row:1,col:1},to:{row:2,col:1},piece:{color:'orange',type:'kitten'}},{from:{row:1,col:2},to:{row:2,col:2},piece:{color:'orange',type:'kitten'}}];
+  s.boopedPieces.push({from:{row:4,col:3},to:{row:4,col:4},piece:{color:'orange',type:'kitten'}});
   s.pendingGraduationOptions=[[{row:2,col:1}],[{row:2,col:2}],[{row:2,col:3}],[{row:2,col:1},{row:2,col:2},{row:2,col:3}]];
   window.calls=[];window.accept=false;
-  function Harness(){const [state,set]=R.useState(s);window.next=()=>set({...s,board:s.board.map(r=>r.slice())});
-   return R.createElement(Game,{gameState:state,playerColor:'orange',roomCode:'TEST',onPlacePiece:async()=>true,onLeave:()=>{},gameOver:null,opponentDisconnected:false,isBotGame:true,onSelectGraduation:async i=>{window.calls.push(i);await new Promise(r=>setTimeout(r,150));return window.accept;}});}
+  function Harness(){const [state,set]=R.useState(s);window.next=()=>set({...s,board:s.board.map(r=>r.slice())});window.reply=()=>set(executeMove(state,0,0,'kitten','gray').newState);
+   return R.createElement(Game,{gameState:state,playerColor:'orange',roomCode:'TEST',onPlacePiece:async()=>true,onLeave:()=>{},gameOver:null,opponentDisconnected:false,isBotGame:true,onSelectGraduation:async i=>{window.calls.push(i);await new Promise(r=>setTimeout(r,150));if(window.accept && window.resolve){const result=resolveGraduationChoice(state,i);set(result.newState);return result.valid;}return window.accept;}});}
   D.createRoot(document.getElementById('root')).render(R.createElement(Harness));
  });
  await p.waitForTimeout(1500);
@@ -44,5 +45,38 @@ const {chromium}=require('playwright'); const assert=require('node:assert/strict
   assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow '+width);
   assert.ok(await p.locator('canvas').isVisible());
  }
- assert.deepEqual(errors,[]);console.log('PASS board-first choices, ambiguous kitten, rejected submission, keyboard line selection and nine responsive widths');
+
+ // Exercise accepted choices through canonical resolution, including cloned
+ // lastMove/boop metadata. The surviving placed/booped actor must never restart.
+ await p.setViewportSize({width:1440,height:1000});
+ for (const option of [0,3]) {
+  await p.evaluate(()=>{window.resolve=true;window.next();});
+  await p.getByRole('complementary',{name:'Promotion choices'}).waitFor();
+  const before=await p.evaluate(()=>window.__catProbe().find(c=>c.cat==='orange-kitten-4-4'));
+  assert.ok(before);
+  if(option===0) {
+   await p.locator('.promotion-alternatives summary').click();
+   await p.getByRole('button',{name:'Kitten B3',exact:true}).click();
+  } else await p.getByRole('button',{name:'Collect three',exact:false}).click();
+  await p.waitForTimeout(180);
+  for(let frame=0;frame<12;frame++) {
+   const after=await p.evaluate(()=>window.__catProbe().find(c=>c.cat==='orange-kitten-4-4'));
+   assert.ok(after);
+   for(const axis of ['x','y','z']) assert.ok(Math.abs(after[axis]-before[axis])<.04,`old ${axis} animation replayed after option ${option}: ${JSON.stringify(after)}`);
+   await p.waitForTimeout(80);
+  }
+  await p.waitForTimeout(3000);
+  assert.equal(await p.locator('.promotion-strip').count(),0);
+  const actors=await p.evaluate(()=>window.__catProbe());
+  assert.ok(!actors.some(c=>c.cat==='orange-kitten-2-1'),'chosen kitten should complete graduation');
+  assert.ok(actors.some(c=>c.cat==='orange-kitten-2-2') === (option===0));
+  await p.evaluate(()=>window.reply());
+  await p.waitForTimeout(150);
+  const replyActors=await p.evaluate(()=>window.__catProbe());
+  assert.ok(replyActors.some(c=>c.cat==='gray-kitten-0-0'),'next move should animate normally');
+  const survivor=replyActors.find(c=>c.cat==='orange-kitten-4-4');
+  for(const axis of ['x','y','z']) assert.ok(Math.abs(survivor[axis]-before[axis])<.04,'old move replayed on next handoff');
+
+ }
+ assert.deepEqual(errors,[]);console.log('PASS board-first choices, ambiguous kitten, rejected submission, keyboard line selection nine responsive widths and accepted single/triple transitions without replay');
 }finally{await b.close();}})().catch(e=>{console.error(e);process.exit(1)});

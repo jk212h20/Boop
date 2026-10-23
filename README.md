@@ -243,6 +243,8 @@ Promotion selection leaves the board visible. Eligible kittens have gold rings;
 line connectors select an entire three-piece group. Clicking a kitten/square
 with multiple eligible options opens a small local chooser. The side card emphasizes collecting a completed line, with single-kitten choices
 in a secondary disclosure. Keyboard focus previews its group; Enter selects.
+Promotion resolution animates only the chosen graduation, never replaying the
+preceding placement or boops even when state metadata retains them.
 Choices appear only after the renderer acknowledges the full visible move budget,
 reject duplicate submissions, and leave failures visible and retryable. Opponent
 choices display a waiting status. Browser regression:

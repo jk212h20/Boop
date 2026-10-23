@@ -93,6 +93,20 @@ export function Game({
   
   // Track previous board state to get piece data for ghosts
   const prevBoardRef = useRef(gameState.board);
+  const previousAnimationState = useRef<GameState | null>(null);
+  // A choice resolves the existing move, not another placement. Both local
+  // and network states can retain that move's lastMove/boopedPieces metadata.
+  const moveEffects = useMemo(() => {
+    const previous = previousAnimationState.current;
+    const promotionOnly = previous?.phase === 'selecting_graduation' &&
+      previous.board !== gameState.board &&
+      previous.lastMove?.row === gameState.lastMove?.row &&
+      previous.lastMove?.col === gameState.lastMove?.col;
+    return promotionOnly
+      ? { ...gameState, lastMove: null, boopedPieces: [] }
+      : gameState;
+  }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, gameState.phase]);
+
   
   // Track previous player states for history recording
   const prevPlayersRef = useRef({
@@ -267,6 +281,7 @@ export function Game({
   // Commit the new board and its effects before any frame can see the old
   // move's overlays attached to the new board.
   useLayoutEffect(() => {
+    previousAnimationState.current = gameState;
     // Retire every overlay belonging to the previous update, even when its
     // timer was cancelled by a fast reply, history navigation, or a reset.
     // Otherwise displayBoard restores already-graduated kittens indefinitely.
@@ -297,10 +312,10 @@ export function Game({
       return;
     }
     
-    const booped = gameState.boopedPieces || [];
+    const booped = moveEffects.boopedPieces || [];
     const graduated = gameState.graduatedPieces || [];
     
-    setAnimatedMove(gameState.lastMove);
+    setAnimatedMove(moveEffects.lastMove);
     // Increment animation key for new animations
     setAnimationKey(prev => prev + 1);
     
@@ -318,7 +333,7 @@ export function Game({
           // Use lastMove as the pusher position to get correct direction
           if (bp.to === null) {
             // Piece fell off - add to fallen, don't show ghost (the fallen piece animates)
-            const fp = calculateFallenPosition(bp.from, piece, gameState.lastMove || undefined);
+            const fp = calculateFallenPosition(bp.from, piece, moveEffects.lastMove || undefined);
             if (fp) newFallen.push(fp);
           } else {
             // Piece moved to new board position - show ghost at original position
@@ -359,7 +374,7 @@ export function Game({
       const graduationDelay = graduationDelayMs({
         graduatedPieces: graduated,
         boopedPieces: booped,
-        lastMove: gameState.lastMove,
+        lastMove: moveEffects.lastMove,
       });
       if (graduated.length > 0) {
         // The piece comes with the event. Reading it from prevBoardRef used to
@@ -389,7 +404,7 @@ export function Game({
       }
       
       // Play sounds with proper timing
-      if (gameState.lastMove) {
+      if (moveEffects.lastMove) {
         playSound('place');
       }
       
@@ -417,7 +432,7 @@ export function Game({
       prevBoardRef.current = gameState.board;
 
       return () => timers.forEach(clearTimeout);
-    } else if (gameState.lastMove) {
+    } else if (moveEffects.lastMove) {
       // Just a placement with no boops
       playSound('place');
       setGhostPieces([]);
@@ -427,7 +442,7 @@ export function Game({
 
     // Update previous board reference (no-boop / no-graduation path).
     prevBoardRef.current = gameState.board;
-  }, [gameState.board, gameState.lastMove, gameState.boopedPieces, gameState.graduatedPieces, playSound, gameHistory.isViewingHistory, pageVisible]);
+  }, [gameState.board, moveEffects, gameState.graduatedPieces, playSound, gameHistory.isViewingHistory, pageVisible]);
 
   useWinSound(gameOver?.winner, playSound);
 
@@ -629,7 +644,7 @@ export function Game({
               winningColor={gameOver && !gameHistory.isViewingHistory ? gameOver.winner : undefined}
               onCellClick={handleCellClick}
               isMyTurn={isMyTurn && gameState.phase !== 'selecting_graduation' && !gameHistory.isViewingHistory}
-              moveDuration={animationDurationMs(gameState)}
+              moveDuration={animationDurationMs(moveEffects)}
               onMoveSettled={() => {
                 setAnimatedMove(null);
                 setAnimatingBoops([]);

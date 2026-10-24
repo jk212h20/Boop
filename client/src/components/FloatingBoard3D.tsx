@@ -30,7 +30,7 @@ interface FloatingBoard3DProps {
   animationKey: number;
   winningColor?: PlayerColor;
   moveDuration?: number;
-  onMoveSettled?: () => void;
+  onMoveSettled?: (animationKey: number) => void;
   promotionOptions?: Cell[][];
   promotionEnabled?: boolean;
   promotionHighlight?: number | null;
@@ -696,11 +696,15 @@ export function QuiltCell({ row, col, enabled, active, hovered, colors, fabric, 
   const shade = quiltCellColor(colors, row, col);
   const color = quiltColor(shade, hovered && enabled, active);
   const threadColor = new THREE.Color(shade).multiplyScalar(.66);
+  useEffect(() => {
+    if (hovered) document.body.style.cursor = enabled ? 'pointer' : 'default';
+  }, [hovered, enabled]);
   return (
     <group position={[x, .36, z]}>
       <mesh geometry={fabric.patch}
         onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onClick(); }}
         onPointerEnter={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(true); document.body.style.cursor = enabled ? 'pointer' : 'default'; }}
+        onPointerMove={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(true); document.body.style.cursor = enabled ? 'pointer' : 'default'; }}
         onPointerLeave={() => { onHover(false); document.body.style.cursor = 'default'; }}
         castShadow receiveShadow>
         <meshStandardMaterial color={color} map={fabric.map} bumpMap={fabric.bumpMap}
@@ -1537,16 +1541,17 @@ export function Room({ fabric, quiltColors, onOpenBook, onOpenVideo }: {
 
 /** Only acknowledge after the move has had its full visible render budget.
  * No background timer may expose choices before the actors have landed. */
-function MoveSettlement({ animationKey, duration = 800, onSettled }: { animationKey: number; duration?: number; onSettled?: () => void }) {
+function MoveSettlement({ animationKey, duration = 800, onSettled }: { animationKey: number; duration?: number; onSettled?: (animationKey: number) => void }) {
   const remaining = useRef(duration / 1000);
+  const epoch = useRef(animationKey);
   const done = useRef(false);
   const callback = useRef(onSettled);
   callback.current = onSettled;
-  useLayoutEffect(() => { remaining.current = duration / 1000; done.current = false; }, [animationKey, duration]);
+  useLayoutEffect(() => { epoch.current = animationKey; remaining.current = duration / 1000; done.current = false; }, [animationKey, duration]);
   useFrame((_, delta) => {
     if (document.hidden || done.current) return;
     remaining.current -= Math.min(delta, .05);
-    if (remaining.current <= 0) { done.current = true; callback.current?.(); }
+    if (remaining.current <= 0) { done.current = true; callback.current?.(epoch.current); }
   });
   return null;
 }
@@ -1555,6 +1560,15 @@ function Scene(props: FloatingBoard3DProps & {
   quiltColors: QuiltColors; onOpenBook: () => void; onOpenVideo: () => void;
 }) {
   const [hover, setHover] = useState<Cell | null>(null);
+  const events = useThree(state => state.events);
+  // Raycasting normally runs only on mouse movement. Recheck the stationary
+  // pointer when a turn/animation handoff enables placement: cats may have
+  // moved out from under it, and the input guard must not strand the preview.
+  useEffect(() => {
+    if (!props.isMyTurn || props.isViewingHistory) return;
+    const frame = requestAnimationFrame(() => events.update?.());
+    return () => cancelAnimationFrame(frame);
+  }, [props.isMyTurn, props.isViewingHistory, props.selectedPieceType, events]);
   const fabric = useMemo(() => ({ ...createFabricTextures(), patch: createQuiltPatchGeometry(), stitches: createQuiltStitches() }), []);
   useEffect(() => () => {
     fabric.map.dispose(); fabric.bumpMap.dispose(); fabric.patch.dispose(); fabric.stitches.dispose();
@@ -1601,7 +1615,7 @@ function Scene(props: FloatingBoard3DProps & {
               active={(props.lastMove?.row === row && props.lastMove?.col === col) || (props.highlightedCell?.row === row && props.highlightedCell?.col === col)}
               hovered={hover?.row === row && hover?.col === col}
               colors={props.quiltColors} fabric={fabric}
-              onHover={value => setHover(previous => value ? { row, col } : previous?.row === row && previous?.col === col ? null : previous)}
+              onHover={value => setHover(previous => value ? (previous?.row === row && previous?.col === col ? previous : { row, col }) : previous?.row === row && previous?.col === col ? null : previous)}
               onClick={() => props.onCellClick(row, col)} />;
           }))}
           {(props.promotionOptions ?? []).map((cells, index) => {

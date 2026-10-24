@@ -46,7 +46,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.evaluate(()=>window.botCalls),0);
   await page.getByRole('button',{name:'Kitten E5',exact:true}).click();
   await page.waitForFunction(()=>window.choices.length===1);
-  await page.waitForTimeout(3400);
+  await page.waitForFunction(()=>!window.__catProbe().some(a=>a.cat==='orange-kitten-4-4'),{},{timeout:8000});
   const result=await page.evaluate(()=>({phase:window.state.phase,turn:window.state.currentTurn,cats:window.state.players.orange.catsInPool,kittens:window.state.players.orange.kittensInPool,actors:window.__catProbe()}));
   assert.equal(result.phase,'playing');assert.equal(result.turn,'gray');assert.equal(result.cats,1);assert.equal(result.kittens,0);
   assert.ok(!result.actors.some(a=>a.cat==='orange-kitten-4-4'));

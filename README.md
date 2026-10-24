@@ -196,7 +196,10 @@ initial benchmark. This demonstrates improvement, not unbeatable play. See the
 Logical turn ownership is not animation completion. `Game` keeps placement input
 closed until the renderer acknowledges the current board's move, so a quick click
 cannot replace the bot's drop/boops with the next human placement. The instruction
-line acknowledges the short wait. Hidden-tab moves settle without replay on return.
+line acknowledges the short wait. Completion signals carry an animation epoch so
+an old canvas frame cannot retire the incoming move. Placement unlock also
+refreshes raycasting under a stationary pointer, restoring the cat preview without
+requiring a mouse wiggle. Hidden-tab moves settle without replay on return.
 The 400ms bot minimum is unchanged and is not used as proof of visible completion.
 
 Browser regressions (against a devports-verified Vite server):
@@ -204,6 +207,7 @@ Browser regressions (against a devports-verified Vite server):
 ```bash
 BOOP_TEST_URL=http://127.0.0.1:5173 BOOP_FAST_INPUT=1 node client/tests/botAnimation.browser.cjs
 BOOP_TEST_URL=http://127.0.0.1:5173 node client/tests/eighthKitten.browser.cjs
+BOOP_TEST_URL=http://127.0.0.1:5173 node client/tests/previewHandoff.browser.cjs
 ```
 
 The first uses the real bot hook and rapid browser clicks, asserting every bot

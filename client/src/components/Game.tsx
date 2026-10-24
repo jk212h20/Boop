@@ -86,6 +86,8 @@ export function Game({
     fallenTimersRef.current = [];
   }, []);
   const [animationKey, setAnimationKey] = useState(0);
+  const animationBoard = useRef(gameState.board);
+  const animationEpoch = useRef(0);
   const [animatedMove, setAnimatedMove] = useState<Cell | null>(null);
   const pageVisible = usePageVisible();
   const hiddenBoard = useRef<GameState['board'] | null>(null);
@@ -320,6 +322,8 @@ export function Game({
     
     setAnimatedMove(moveEffects.lastMove);
     // Increment animation key for new animations
+    animationBoard.current = gameState.board;
+    animationEpoch.current = animationKey + 1;
     setAnimationKey(prev => prev + 1);
     
     // Only animate if there are new boops or graduations
@@ -648,7 +652,11 @@ export function Game({
               onCellClick={handleCellClick}
               isMyTurn={isMyTurn && !moveInProgress && gameState.phase !== 'selecting_graduation' && !gameHistory.isViewingHistory}
               moveDuration={animationDurationMs(moveEffects)}
-              onMoveSettled={() => {
+              onMoveSettled={completedEpoch => {
+                // An old canvas frame may finish between the new board commit
+                // and R3F receiving its new animation key. Never let that ack
+                // retire the incoming move's overlays or reopen its input.
+                if (completedEpoch !== animationEpoch.current || animationBoard.current !== gameState.board) return;
                 setSettledBoard(gameState.board);
                 setAnimatedMove(null);
                 setAnimatingBoops([]);

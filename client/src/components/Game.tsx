@@ -90,6 +90,11 @@ export function Game({
   const pageVisible = usePageVisible();
   const hiddenBoard = useRef<GameState['board'] | null>(null);
   const [settledAfterHide, setSettledAfterHide] = useState(!pageVisible);
+  // A turn changes logically before its placement/boops have finished drawing.
+  // In particular the bot gives the human the turn immediately on publication:
+  // accepting a click then replaces its actors before their first drop frame.
+  const [settledBoard, setSettledBoard] = useState(gameState.board);
+  const moveInProgress = pageVisible && settledBoard !== gameState.board;
   
   // Track previous board state to get piece data for ghosts
   const prevBoardRef = useRef(gameState.board);
@@ -297,6 +302,7 @@ export function Game({
       hiddenBoard.current = gameState.board;
       clearFallen();
       setSettledAfterHide(true);
+      setSettledBoard(gameState.board);
       prevBoardRef.current = gameState.board;
       return;
     }
@@ -495,7 +501,7 @@ export function Game({
       else if (choices.length > 1) setAmbiguousCell({row, col});
       return;
     }
-    if (!isMyTurn) return;
+    if (!isMyTurn || moveInProgress) return;
     
     setError(null);
     try {
@@ -640,9 +646,10 @@ export function Game({
               board={displayBoard}
               winningColor={gameOver && !gameHistory.isViewingHistory ? gameOver.winner : undefined}
               onCellClick={handleCellClick}
-              isMyTurn={isMyTurn && gameState.phase !== 'selecting_graduation' && !gameHistory.isViewingHistory}
+              isMyTurn={isMyTurn && !moveInProgress && gameState.phase !== 'selecting_graduation' && !gameHistory.isViewingHistory}
               moveDuration={animationDurationMs(moveEffects)}
               onMoveSettled={() => {
+                setSettledBoard(gameState.board);
                 setAnimatedMove(null);
                 setAnimatingBoops([]);
                 setAnimatingGraduations([]);
@@ -720,6 +727,8 @@ export function Game({
             <p>Game complete — start a rematch when you’re ready.</p>
           ) : gameState.phase === 'selecting_graduation' ? (
             <p>{isSelectingGraduation ? 'Choose on the board, or use the choice card beside it.' : 'Waiting for the opponent’s promotion choice.'}</p>
+          ) : moveInProgress && isMyTurn ? (
+            <p role="status">Finishing the move animation…</p>
           ) : isMyTurn ? (
             <p>
               Select a piece from your pool, then click an empty cell to place it.

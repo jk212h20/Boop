@@ -191,6 +191,27 @@ The new engine won **12/12 paired games against the previous Hard bot** in the
 initial benchmark. This demonstrates improvement, not unbeatable play. See the
 [implemented plan, measurements and test commands](docs/BOT_PLAN.md).
 
+### Live move input and animation handoff
+
+Logical turn ownership is not animation completion. `Game` keeps placement input
+closed until the renderer acknowledges the current board's move, so a quick click
+cannot replace the bot's drop/boops with the next human placement. The instruction
+line acknowledges the short wait. Hidden-tab moves settle without replay on return.
+The 400ms bot minimum is unchanged and is not used as proof of visible completion.
+
+Browser regressions (against a devports-verified Vite server):
+
+```bash
+BOOP_TEST_URL=http://127.0.0.1:5173 BOOP_FAST_INPUT=1 node client/tests/botAnimation.browser.cjs
+BOOP_TEST_URL=http://127.0.0.1:5173 node client/tests/eighthKitten.browser.cjs
+```
+
+The first uses the real bot hook and rapid browser clicks, asserting every bot
+placement has a full visible drop. `BOOP_UNGUARDED=1` removes the input guard only
+in the test browser as a negative control. The second checks that an eighth kitten
+with no cats automatically opens all eight promotion options without an extra
+click, blocks the bot until selection, and produces one cat in the pool.
+
 ## Implementation audit
 
 The [2026-10-15 audit](docs/AUDIT.md) documents reproduced rules, multiplayer,

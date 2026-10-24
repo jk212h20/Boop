@@ -62,6 +62,8 @@ function MainApp() {
     playerColor: botPlayerColor,
     gameOver: botGameOver,
     botThinking,
+    botError,
+    retryBot,
     startBotGame,
     placePiece: botPlacePiece,
     selectGraduation: botSelectGraduation,
@@ -138,7 +140,7 @@ function MainApp() {
 
   const handlePlayBot = useCallback(async (name: string, difficulty: BotDifficulty) => {
     // The 'alphazero' option takes the networked path (server-backed AZ
-    // service). Every other difficulty runs the deadline-bounded worker bot.
+    // service). Every other difficulty runs the fixed-work versioned worker bot.
     if (difficulty === 'alphazero') {
       setGameMode('online');
       setRejoinError(null);
@@ -253,6 +255,8 @@ function MainApp() {
           opponentDisconnected={false}
           isBotGame={true}
           botThinking={botThinking}
+          botError={botError}
+          onRetryBot={retryBot}
           onRematch={resetBotGame}
         />
       );

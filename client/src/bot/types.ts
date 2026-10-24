@@ -37,8 +37,9 @@ export interface ThreatAnalysis {
 
 export interface BotConfig {
   // Tree search settings
-  searchDepth: number;            // Iterative-deepening ceiling; deadline always wins
-  timeBudgetMs: number;           // Search budget, capped at 900ms
+  searchDepth: number;            // Deterministic iterative-deepening ceiling
+  nodeBudget?: number;            // Canonical transition attempts per decision
+  timeBudgetMs: number;           // Legacy compatibility only; NOT a stopping rule
   
   // Static board evaluation weights (for tree search)
   pieceInCenter: number;          // Bonus for pieces in center 4 squares
@@ -62,6 +63,7 @@ export const DEFAULT_BOT_CONFIG: BotConfig = {
   // Strongest adaptive setting; search stops at its deadline, not a fixed depth.
   searchDepth: 12,
   timeBudgetMs: 850,
+  nodeBudget: 30000,
   
   // Position values (per piece)
   pieceInCenter: 15,

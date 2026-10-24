@@ -1,0 +1,4027 @@
+{
+  "version": "v4",
+  "positions": [
+    {
+      "name": "empty-opening",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 8,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 8,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": null,
+        "boopedPieces": [],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 0,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      }
+    },
+    {
+      "name": "seeded-0-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 8,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 8,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": null,
+        "boopedPieces": [],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 0,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      }
+    },
+    {
+      "name": "seeded-5-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 6,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 6,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 1,
+          "col": 4
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 2,
+              "col": 4
+            },
+            "to": {
+              "row": 3,
+              "col": 4
+            },
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          }
+        ],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 2,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      }
+    },
+    {
+      "name": "seeded-10-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            }
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 4,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 3,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 0,
+          "col": 4
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 0,
+              "col": 3
+            },
+            "to": {
+              "row": 0,
+              "col": 2
+            },
+            "piece": {
+              "color": "gray",
+              "type": "kitten"
+            }
+          }
+        ],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 2,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      }
+    },
+    {
+      "name": "seeded-15-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null
+          ],
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 1,
+            "catsInPool": 3,
+            "kittensRetired": 3,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 3,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 3,
+          "col": 1
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 4,
+              "col": 1
+            },
+            "to": {
+              "row": 5,
+              "col": 1
+            },
+            "piece": {
+              "color": "gray",
+              "type": "kitten"
+            }
+          }
+        ],
+        "graduatedPieces": [
+          {
+            "row": 1,
+            "col": 3,
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          },
+          {
+            "row": 3,
+            "col": 1,
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "action": {
+          "row": 0,
+          "col": 2,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      }
+    },
+    {
+      "name": "seeded-20-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            }
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 2,
+            "kittensRetired": 3,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 1,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 4,
+          "col": 0
+        },
+        "boopedPieces": [],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 2,
+          "col": 4,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "seeded-22-selecting_graduation",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            }
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 1,
+            "catsInPool": 1,
+            "kittensRetired": 3,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 3,
+          "col": 0
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 2,
+              "col": 1
+            },
+            "to": {
+              "row": 1,
+              "col": 2
+            },
+            "piece": {
+              "color": "gray",
+              "type": "kitten"
+            }
+          },
+          {
+            "from": {
+              "row": 4,
+              "col": 0
+            },
+            "to": {
+              "row": 5,
+              "col": 0
+            },
+            "piece": {
+              "color": "gray",
+              "type": "kitten"
+            }
+          }
+        ],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 0,
+              "col": 3
+            }
+          ],
+          [
+            {
+              "row": 0,
+              "col": 4
+            }
+          ],
+          [
+            {
+              "row": 1,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 3,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 3
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 5
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "gray"
+      },
+      "expected": {
+        "action": 3,
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "seeded-25-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 1,
+            "kittensRetired": 3,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 1,
+            "catsInPool": 0,
+            "kittensRetired": 1,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 2,
+          "col": 0
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 3,
+              "col": 0
+            },
+            "to": {
+              "row": 4,
+              "col": 0
+            },
+            "piece": {
+              "color": "gray",
+              "type": "kitten"
+            }
+          }
+        ],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 5,
+          "col": 1,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "seeded-26-selecting_graduation",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 3,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 2,
+            "catsInPool": 0,
+            "kittensRetired": 1,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 1,
+          "col": 3
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 0,
+              "col": 4
+            },
+            "to": null,
+            "piece": {
+              "color": "gray",
+              "type": "kitten"
+            }
+          },
+          {
+            "from": {
+              "row": 1,
+              "col": 2
+            },
+            "to": {
+              "row": 1,
+              "col": 1
+            },
+            "piece": {
+              "color": "gray",
+              "type": "kitten"
+            }
+          }
+        ],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 0,
+              "col": 1
+            }
+          ],
+          [
+            {
+              "row": 1,
+              "col": 5
+            }
+          ],
+          [
+            {
+              "row": 3,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 4,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 4
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "orange"
+      },
+      "expected": {
+        "action": 2,
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "seeded-29-selecting_graduation",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 4,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 1,
+            "catsInPool": 0,
+            "kittensRetired": 1,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 2,
+          "col": 3
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 1,
+              "col": 3
+            },
+            "to": {
+              "row": 0,
+              "col": 3
+            },
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          },
+          {
+            "from": {
+              "row": 3,
+              "col": 4
+            },
+            "to": {
+              "row": 4,
+              "col": 5
+            },
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          }
+        ],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 2,
+              "col": 3
+            },
+            {
+              "row": 3,
+              "col": 2
+            },
+            {
+              "row": 4,
+              "col": 1
+            }
+          ],
+          [
+            {
+              "row": 1,
+              "col": 5
+            }
+          ],
+          [
+            {
+              "row": 3,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 4,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 4
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "orange"
+      },
+      "expected": {
+        "action": 2,
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "seeded-30-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 3,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 1,
+            "catsInPool": 0,
+            "kittensRetired": 1,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 2,
+          "col": 3
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 1,
+              "col": 3
+            },
+            "to": {
+              "row": 0,
+              "col": 3
+            },
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          },
+          {
+            "from": {
+              "row": 3,
+              "col": 4
+            },
+            "to": {
+              "row": 4,
+              "col": 5
+            },
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          }
+        ],
+        "graduatedPieces": [
+          {
+            "row": 2,
+            "col": 3,
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          },
+          {
+            "row": 3,
+            "col": 2,
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          },
+          {
+            "row": 4,
+            "col": 1,
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "action": {
+          "row": 3,
+          "col": 0,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "seeded-31-selecting_graduation",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 3,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 1,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 2,
+          "col": 2
+        },
+        "boopedPieces": [],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 2,
+              "col": 0
+            },
+            {
+              "row": 2,
+              "col": 1
+            },
+            {
+              "row": 2,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 0,
+              "col": 1
+            }
+          ],
+          [
+            {
+              "row": 2,
+              "col": 1
+            }
+          ],
+          [
+            {
+              "row": 2,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 4,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 3
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "gray"
+      },
+      "expected": {
+        "action": 6,
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "seeded-35-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            }
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 3,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 1,
+            "catsInPool": 2,
+            "kittensRetired": 3,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 2,
+          "col": 4
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 2,
+              "col": 5
+            },
+            "to": null,
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          }
+        ],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 5,
+          "col": 1,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      }
+    },
+    {
+      "name": "seeded-40-selecting_graduation",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "cat"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 2,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 3,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 3,
+          "col": 4
+        },
+        "boopedPieces": [],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 3,
+              "col": 4
+            }
+          ],
+          [
+            {
+              "row": 4,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 3
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "gray"
+      },
+      "expected": {
+        "action": 2,
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "seeded-43-selecting_graduation",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 3,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 4,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 1,
+          "col": 4
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 0,
+              "col": 4
+            },
+            "to": null,
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          },
+          {
+            "from": {
+              "row": 2,
+              "col": 5
+            },
+            "to": null,
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          }
+        ],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 4,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 3
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "gray"
+      },
+      "expected": {
+        "action": 2,
+        "nodes": 30000,
+        "depth": 4
+      }
+    },
+    {
+      "name": "seeded-45-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 1,
+            "catsInPool": 2,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 1,
+            "kittensRetired": 5,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 3,
+          "col": 1
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 2,
+              "col": 0
+            },
+            "to": null,
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          },
+          {
+            "from": {
+              "row": 2,
+              "col": 2
+            },
+            "to": {
+              "row": 1,
+              "col": 3
+            },
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          }
+        ],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 2,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 72,
+        "depth": 1
+      }
+    },
+    {
+      "name": "seeded-46-selecting_graduation",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            }
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 1,
+            "catsInPool": 2,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 5,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 1,
+          "col": 0
+        },
+        "boopedPieces": [],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 5,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 3
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "gray"
+      },
+      "expected": {
+        "action": 0,
+        "nodes": 30000,
+        "depth": 5
+      }
+    },
+    {
+      "name": "seeded-50-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            }
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 2,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 2,
+            "catsInPool": 0,
+            "kittensRetired": 6,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 5,
+          "col": 4
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 4,
+              "col": 4
+            },
+            "to": {
+              "row": 3,
+              "col": 4
+            },
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          }
+        ],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 3,
+          "col": 1,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      }
+    },
+    {
+      "name": "seeded-53-selecting_graduation",
+      "state": {
+        "board": [
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null
+          ],
+          [
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "gray",
+              "type": "cat"
+            }
+          ],
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            }
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 1,
+            "catsInPool": 1,
+            "kittensRetired": 5,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 6,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 5,
+          "col": 1
+        },
+        "boopedPieces": [
+          {
+            "from": {
+              "row": 4,
+              "col": 0
+            },
+            "to": null,
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          }
+        ],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 0,
+              "col": 1
+            }
+          ],
+          [
+            {
+              "row": 5,
+              "col": 1
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "gray"
+      },
+      "expected": {
+        "action": 1,
+        "nodes": 86,
+        "depth": 1
+      }
+    },
+    {
+      "name": "seeded-55-playing",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null
+          ],
+          [
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            }
+          ],
+          [
+            null,
+            {
+              "color": "gray",
+              "type": "kitten"
+            },
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 4,
+            "kittensRetired": 7,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 1,
+            "kittensRetired": 7,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "gray",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": {
+          "row": 3,
+          "col": 3
+        },
+        "boopedPieces": [],
+        "graduatedPieces": [
+          {
+            "row": 3,
+            "col": 3,
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          },
+          {
+            "row": 4,
+            "col": 4,
+            "piece": {
+              "color": "orange",
+              "type": "kitten"
+            }
+          },
+          {
+            "row": 5,
+            "col": 5,
+            "piece": {
+              "color": "orange",
+              "type": "cat"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "action": {
+          "row": 2,
+          "col": 1,
+          "pieceType": "cat"
+        },
+        "nodes": 27,
+        "depth": 1
+      }
+    },
+    {
+      "name": "eighth-kitten-choice",
+      "state": {
+        "board": [
+          [
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null,
+            null,
+            null,
+            {
+              "color": "orange",
+              "type": "kitten"
+            },
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 8,
+            "catsInPool": 0,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "selecting_graduation",
+        "winner": null,
+        "lastMove": {
+          "row": 4,
+          "col": 4
+        },
+        "boopedPieces": [],
+        "graduatedPieces": [],
+        "pendingGraduationOptions": [
+          [
+            {
+              "row": 0,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 0,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 0,
+              "col": 4
+            }
+          ],
+          [
+            {
+              "row": 2,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 2,
+              "col": 2
+            }
+          ],
+          [
+            {
+              "row": 2,
+              "col": 4
+            }
+          ],
+          [
+            {
+              "row": 4,
+              "col": 0
+            }
+          ],
+          [
+            {
+              "row": 4,
+              "col": 4
+            }
+          ]
+        ],
+        "pendingGraduationPlayer": "orange"
+      },
+      "expected": {
+        "action": 0,
+        "nodes": 30000,
+        "depth": 3
+      }
+    },
+    {
+      "name": "adult-tactical",
+      "state": {
+        "board": [
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null
+          ],
+          [
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null
+          ],
+          [
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            {
+              "color": "orange",
+              "type": "cat"
+            },
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            {
+              "color": "gray",
+              "type": "cat"
+            },
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "players": {
+          "orange": {
+            "color": "orange",
+            "kittensInPool": 0,
+            "catsInPool": 4,
+            "kittensRetired": 0,
+            "socketId": "local-player",
+            "name": "Player",
+            "connected": true
+          },
+          "gray": {
+            "color": "gray",
+            "kittensInPool": 0,
+            "catsInPool": 4,
+            "kittensRetired": 0,
+            "socketId": "local-bot",
+            "name": "Bot",
+            "connected": true
+          }
+        },
+        "currentTurn": "orange",
+        "phase": "playing",
+        "winner": null,
+        "lastMove": null,
+        "boopedPieces": [],
+        "graduatedPieces": []
+      },
+      "expected": {
+        "action": {
+          "row": 0,
+          "col": 0,
+          "pieceType": "cat"
+        },
+        "nodes": 28,
+        "depth": 1
+      }
+    }
+  ],
+  "replay": {
+    "actions": [
+      {
+        "action": {
+          "row": 0,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 4,
+          "col": 5,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 2,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 2,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 5,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 0,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 3,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 3,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 2,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 1,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 2,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 1,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 2,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 4,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 3,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 2,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 4,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 4,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 4,
+          "col": 1,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 4,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 4,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 3
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 5,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 3
+      },
+      {
+        "action": 5,
+        "nodes": 30000,
+        "depth": 3
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 4,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 0,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 4,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 1,
+          "pieceType": "kitten"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 4,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 4,
+          "col": 3,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 3,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 1,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 4,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 5,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 0,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 3,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 3,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 3,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 1,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 5
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 1,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 4,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 1,
+          "pieceType": "cat"
+        },
+        "nodes": 30000,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 3,
+          "col": 2,
+          "pieceType": "cat"
+        },
+        "nodes": 5988,
+        "depth": 4
+      },
+      {
+        "action": {
+          "row": 0,
+          "col": 0,
+          "pieceType": "cat"
+        },
+        "nodes": 2082,
+        "depth": 3
+      },
+      {
+        "action": {
+          "row": 2,
+          "col": 3,
+          "pieceType": "kitten"
+        },
+        "nodes": 187,
+        "depth": 2
+      },
+      {
+        "action": {
+          "row": 1,
+          "col": 0,
+          "pieceType": "cat"
+        },
+        "nodes": 56,
+        "depth": 1
+      }
+    ],
+    "finalState": {
+      "board": [
+        [
+          null,
+          null,
+          {
+            "color": "orange",
+            "type": "cat"
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "gray",
+            "type": "cat"
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "gray",
+            "type": "cat"
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "gray",
+            "type": "cat"
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "gray",
+            "type": "cat"
+          },
+          {
+            "color": "orange",
+            "type": "cat"
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "orange",
+            "type": "cat"
+          },
+          {
+            "color": "orange",
+            "type": "cat"
+          },
+          null,
+          null,
+          {
+            "color": "gray",
+            "type": "cat"
+          },
+          null
+        ]
+      ],
+      "players": {
+        "orange": {
+          "color": "orange",
+          "kittensInPool": 1,
+          "catsInPool": 3,
+          "kittensRetired": 7,
+          "socketId": "local-player",
+          "name": "Player",
+          "connected": true
+        },
+        "gray": {
+          "color": "gray",
+          "kittensInPool": 1,
+          "catsInPool": 2,
+          "kittensRetired": 7,
+          "socketId": "local-bot",
+          "name": "Bot",
+          "connected": true
+        }
+      },
+      "currentTurn": "gray",
+      "phase": "finished",
+      "winner": "gray",
+      "lastMove": {
+        "row": 1,
+        "col": 0
+      },
+      "boopedPieces": [
+        {
+          "from": {
+            "row": 0,
+            "col": 0
+          },
+          "to": null,
+          "piece": {
+            "color": "gray",
+            "type": "cat"
+          }
+        }
+      ],
+      "graduatedPieces": [
+        {
+          "row": 1,
+          "col": 4,
+          "piece": {
+            "color": "orange",
+            "type": "cat"
+          }
+        },
+        {
+          "row": 2,
+          "col": 3,
+          "piece": {
+            "color": "orange",
+            "type": "kitten"
+          }
+        },
+        {
+          "row": 3,
+          "col": 2,
+          "piece": {
+            "color": "orange",
+            "type": "cat"
+          }
+        }
+      ]
+    }
+  }
+}

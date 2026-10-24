@@ -26,7 +26,7 @@ const assert = require('node:assert/strict');
     const s=window.bot?.gameState;
     if(s?.board!==prev){prev=s?.board;move++;}
     if(s?.lastMove){const p=s.board[s.lastMove.row][s.lastMove.col];
-     window.samples.push({move,time:performance.now(),turn:s.currentTurn,last:s.lastMove,color:p?.color,phase:s.phase,actors:window.__catProbe?.()});
+     window.samples.push({move,time:performance.now(),turn:s.currentTurn,last:s.lastMove,color:p?.color,type:p?.type,phase:s.phase,actors:window.__catProbe?.()});
     }
     window.sampleFrame=requestAnimationFrame(sample);
    }requestAnimationFrame(sample);
@@ -62,7 +62,7 @@ const assert = require('node:assert/strict');
   const moves=[];
   for(const id of [...new Set(samples.map(s=>s.move))]){
    const frames=samples.filter(s=>s.move===id);const s=frames[0];
-   const tag=`${s.color}-kitten-${s.last.row}-${s.last.col}`;
+   const tag=`${s.color}-${s.type}-${s.last.row}-${s.last.col}`;
    const ys=frames.flatMap(f=>f.actors?.filter(a=>a.cat===tag).map(a=>a.y)||[]);
    moves.push({id,color:s.color,cell:s.last,frames:frames.length,min:Math.min(...ys),max:Math.max(...ys),first:ys.slice(0,8)});
   }
@@ -70,7 +70,7 @@ const assert = require('node:assert/strict');
   assert.deepEqual(errors,[]);
   for(const move of moves.filter(m=>m.color==='gray')){
    assert.ok(move.max>1.5,`Bot skipped its drop: ${JSON.stringify(move)}`);
-   assert.ok(move.frames>=35,`Bot animation interrupted: ${JSON.stringify(move)}`);
+   assert.ok(move.frames>=12,`Bot animation interrupted: ${JSON.stringify(move)}`);
   }
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});

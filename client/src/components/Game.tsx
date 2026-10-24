@@ -34,6 +34,8 @@ interface GameProps {
   // Bot game specific props
   isBotGame?: boolean;
   botThinking?: boolean;
+  botError?: string | null;
+  onRetryBot?: () => void;
   onRematch?: () => void;
 }
 
@@ -49,6 +51,8 @@ export function Game({
   opponentMayReconnect = false,
   isBotGame = false,
   botThinking = false,
+  botError = null,
+  onRetryBot,
   onRematch,
 }: GameProps) {
   const [selectedPieceType, setSelectedPieceType] = useState<PieceType>('kitten');
@@ -733,6 +737,8 @@ export function Game({
             <p className="text-blue-600">📜 Viewing move history - click board or "Return to game" to continue playing</p>
           ) : gameOver ? (
             <p>Game complete — start a rematch when you’re ready.</p>
+          ) : botError ? (
+            <div role="alert">{botError} <button type="button" onClick={onRetryBot}>Retry bot move</button></div>
           ) : gameState.phase === 'selecting_graduation' ? (
             <p>{isSelectingGraduation ? 'Choose on the board, or use the choice card beside it.' : 'Waiting for the opponent’s promotion choice.'}</p>
           ) : moveInProgress && isMyTurn ? (

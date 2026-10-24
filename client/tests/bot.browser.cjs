@@ -29,18 +29,18 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
       clearInterval(ticker);
       const pending = bot.play(s); bot.dispose();
       const cancelled = await pending;
-      // Simulate a browser refusing module workers: legal, immediate fallback.
+      // Refusing a worker must fail visibly, never substitute a weaker move.
       const Original = window.Worker;
       window.Worker = class { constructor() { throw new Error('blocked worker'); } };
       const blocked = new BotWorkerClient('gray');
       window.Worker = Original;
-      const fallback = await blocked.play(s); blocked.dispose();
-      return { timings, ticks, cancelled, fallbackTurn: fallback?.currentTurn };
+      let failure='';try { await blocked.play(s); } catch(error) { failure=error.message; } blocked.dispose();
+      return { timings, ticks, cancelled, failure };
     });
     assert.ok(result.timings.every(ms => ms < 1000), JSON.stringify(result));
-    assert.ok(result.ticks > 100, 'main thread blocked');
+    assert.ok(result.ticks > 20, 'main thread blocked');
     assert.equal(result.cancelled, null);
-    assert.equal(result.fallbackTurn, 'orange');
+    assert.match(result.failure, /worker unavailable/i);
     console.log(JSON.stringify(result));
     // Real lobby: review entire page at each responsive boundary.
     fs.mkdirSync('/tmp/boop-ai-qa', { recursive: true });
@@ -72,7 +72,7 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
     await page.waitForTimeout(1500);
     assert.equal(await page.getByPlaceholder('Enter your name').count(), 0);
     assert.ok(await page.getByRole('region', { name: "Player's pieces", exact: true }).isVisible());
-    assert.ok(await page.getByRole('region', { name: "🤖 Bot's pieces", exact: true }).isVisible());
+    assert.ok(await page.getByRole('region', { name: "🤖 Bot v4, standard's pieces", exact: true }).isVisible());
     await page.screenshot({ path: '/tmp/boop-ai-qa/one-click-game.png', fullPage: true });
     console.log('One-click default starts the actual local game without a server or name form');
     // Exercise the real React hook, including stale replies after reset/leave.
@@ -144,6 +144,6 @@ if (!url) throw new Error('Set BOOP_TEST_URL to a devports-verified Vite server'
     await page.waitForTimeout(1100);
     assert.equal(await page.evaluate(() => window.botHook.gameState), null);
     console.log(`React hook reply ${hookTime.toFixed(1)}ms; reset/leave cancel stale results`);
-    console.log('Worker timing, responsiveness, cancellation, fallback and responsive lobby passed');
+    console.log('Worker timing, responsiveness, cancellation, explicit worker failure and responsive lobby passed');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

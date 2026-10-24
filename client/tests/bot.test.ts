@@ -64,12 +64,12 @@ test('searches graduation options and accounts for their owner', () => {
   assert.equal(resolveGraduationChoice(s, choice).valid, true);
 });
 
-test('tiny deadline returns a legal move without incomplete iteration or state mutation', () => {
+test('tiny fixed work budget returns a legal move without incomplete iteration or state mutation', () => {
   const s = createInitialGameState(); s.currentTurn = 'gray';
-  const bot = createBot('gray', { searchDepth: 50, timeBudgetMs: 1 });
+  const bot = createBot('gray', { searchDepth: 50, nodeBudget: 1, timeBudgetMs: 1 });
   const move = bot.findBestMove(s)!;
   assert.equal(executeMove(s, move.row, move.col, move.pieceType, 'gray').valid, true);
-  assert.ok(bot.getStats().elapsedMs < 100);
+  assert.equal(bot.getStats().nodes, 1);
 });
 
 test('ignores finished positions and wrong turns', () => {

@@ -1,0 +1,27 @@
+{
+  "version": "v4",
+  "config": {
+    "searchDepth": 12,
+    "timeBudgetMs": 850,
+    "nodeBudget": 30000,
+    "pieceInCenter": 15,
+    "pieceInInnerRing": 8,
+    "pieceOnEdge": -5,
+    "pieceInCorner": -12,
+    "catMultiplier": 1.5,
+    "ownPieceBoopedOff": -20,
+    "oppPieceBoopedOff": 25,
+    "twoInRowCats": 30,
+    "twoInRowKittens": 12,
+    "thinkingDelayMs": 0,
+    "silent": false
+  },
+  "files": {
+    "src/bot/BotAI.ts": "986c39517cb5bfc09e0ff6f48411549a88dfe47caaa5cb55f709b28c17894386",
+    "src/bot/evaluation.ts": "e0754ee4cbb170816c06b46175266bd50a771557a34537e1ec525c36acc56f0d",
+    "src/bot/LocalGame.ts": "3b53c3024a694ae5d93fef2ec32eb50a325cf58dbf7ba209b81a87cd9c27fef5",
+    "src/bot/types.ts": "40c671f98c8da8d22f838680ae428addc470f9126847b6ea00aed78ec8079a19",
+    "src/bot/version.ts": "599f691b087019c5f770e0f780a035fe378ec3789b27d87e1e3f3277bc7c9617",
+    "src/bot/bot.worker.ts": "cf837adc17ab2a65be92719b8e604b300dcdb9b1d7af9242fc2ee229eb45de08"
+  }
+}

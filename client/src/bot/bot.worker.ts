@@ -3,12 +3,12 @@ import { executeMove, resolveGraduationChoice } from './LocalGame';
 import { BotRequest, BotReply } from './workerProtocol';
 
 self.onmessage = ({ data }: MessageEvent<BotRequest>) => {
-  const start = performance.now();
   const bot = createBot(data.color, data.config);
   let state = data.state;
+  // Each decision has the same frozen node allowance. A reply can include
+  // pending choices plus a placement; none is weakened by elapsed wall time.
   const settle = () => {
     while (state.phase === 'selecting_graduation' && state.pendingGraduationPlayer === data.color) {
-      bot.setConfig({ timeBudgetMs: Math.max(1, data.config.timeBudgetMs - (performance.now() - start)) });
       const choice = bot.findBestGraduation(state);
       const result = resolveGraduationChoice(state, choice);
       if (!result.valid) throw new Error(result.error);
@@ -18,7 +18,6 @@ self.onmessage = ({ data }: MessageEvent<BotRequest>) => {
   try {
     settle();
     if (state.phase === 'playing' && state.currentTurn === data.color) {
-      bot.setConfig({ timeBudgetMs: Math.max(1, data.config.timeBudgetMs - (performance.now() - start)) });
       const move = bot.findBestMove(state);
       if (!move) throw new Error('No legal bot move');
       const result = executeMove(state, move.row, move.col, move.pieceType, data.color);

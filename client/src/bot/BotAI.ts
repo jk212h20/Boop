@@ -1,17 +1,19 @@
-// Deadline-bounded alpha-beta over the SAME transitions used by live games.
-import { GameState, PlayerColor, Board } from '../types';
+// Deterministic work-bounded alpha-beta over canonical live-game transitions.
+import { pairValue } from './evaluation';
+import { GameState, PlayerColor } from '../types';
 import { Move, BotConfig, DEFAULT_BOT_CONFIG } from './types';
 import { executeMove, getAllValidMoves, getOpponentColor, resolveGraduationChoice } from './LocalGame';
 
 const WIN = 100000;
-const TIMEOUT = Symbol('search deadline');
+const WORK_LIMIT = Symbol('search work limit');
 interface Entry { depth: number; score: number; flag: 'exact' | 'lower' | 'upper'; action: number }
 interface Child { state: GameState; action: number; score: number }
 export interface SearchStats { nodes: number; ttHits: number; ttCutoffs: number; ttSize: number; completedDepth: number; elapsedMs: number }
 
 export class BotAI {
   private table = new Map<string, Entry>();
-  private deadline = Infinity;
+  private remaining = 0;
+  private history = new Float64Array(144);
   private stats: SearchStats = { nodes: 0, ttHits: 0, ttCutoffs: 0, ttSize: 0, completedDepth: 0, elapsedMs: 0 };
   constructor(private color: PlayerColor, private config: BotConfig = DEFAULT_BOT_CONFIG) {}
 
@@ -31,9 +33,9 @@ export class BotAI {
 
   private choose(state: GameState, moves?: Move[]): number {
     const start = performance.now();
-    const budget = Number.isFinite(this.config.timeBudgetMs) ? this.config.timeBudgetMs : 850;
-    this.deadline = start + Math.max(1, Math.min(900, budget));
+    this.remaining = Math.max(1, Math.floor(this.config.nodeBudget ?? 30000));
     this.table.clear(); // scores/depths never leak between games or config changes
+    this.history.fill(0);
     this.stats = { nodes: 0, ttHits: 0, ttCutoffs: 0, ttSize: 0, completedDepth: 0, elapsedMs: 0 };
     let best = 0;
     try {
@@ -48,8 +50,8 @@ export class BotAI {
         let alpha = -Infinity;
         children.sort((a, b) => Number(b.action === best) - Number(a.action === best) || b.score - a.score);
         for (const child of children) {
-          this.checkTime();
           const value = this.search(child.state, depth - (state.phase === 'playing' ? 1 : 0), alpha, Infinity);
+          child.score = value; // next iteration orders by searched value, not the old leaf score
           if (value > score) { score = value; candidate = child.action; }
           alpha = Math.max(alpha, score);
         }
@@ -58,18 +60,38 @@ export class BotAI {
         this.stats.completedDepth = depth;
         if (Math.abs(score) >= WIN) break;
       }
-    } catch (error) { if (error !== TIMEOUT) throw error; }
+    } catch (error) { if (error !== WORK_LIMIT) throw error; }
     this.stats.elapsedMs = performance.now() - start;
     this.stats.ttSize = this.table.size;
     return best;
   }
 
-  private checkTime() { if (performance.now() >= this.deadline) throw TIMEOUT; }
+  /** One node = one attempted canonical placement or graduation transition.
+   * Root ordering attempts count, repeated iterative-deepening attempts count,
+   * invalid attempts count. Cache probes/evaluations do not create nodes.
+   * Charge BEFORE applying the transition; never exceed the fixed allowance. */
+  private spendNode() {
+    if (this.remaining <= 0) throw WORK_LIMIT;
+    this.remaining--; this.stats.nodes++;
+  }
   private actor(state: GameState): PlayerColor { return state.pendingGraduationPlayer ?? state.currentTurn; }
   private key(state: GameState): string {
-    return state.board.flat().map(p => p ? (p.color === 'orange' ? (p.type === 'cat' ? 'C' : 'K') : (p.type === 'cat' ? 'c' : 'k')) : '.').join('') +
-      JSON.stringify([state.currentTurn, state.phase, state.pendingGraduationPlayer, state.pendingGraduationOptions,
-        ...(['orange', 'gray'] as const).flatMap(c => { const p = state.players[c]; return [p?.kittensInPool, p?.catsInPool, p?.kittensRetired]; })]);
+    let key = '';
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) {
+      const p = state.board[r][c];
+      key += !p ? '.' : p.color === 'orange' ? (p.type === 'cat' ? 'C' : 'K') : (p.type === 'cat' ? 'c' : 'k');
+    }
+    key += state.currentTurn + state.phase + state.pendingGraduationPlayer;
+    for (const color of ['orange', 'gray'] as const) {
+      const p = state.players[color];
+      key += `/${p?.kittensInPool},${p?.catsInPool},${p?.kittensRetired}`;
+    }
+    // Options can differ for identical boards depending on the unresolved
+    // choice sequence. Keep their ordering because TT actions are indices.
+    if (state.pendingGraduationOptions) for (const option of state.pendingGraduationOptions) {
+      key += '/'; for (const cell of option) key += String.fromCharCode(65 + cell.row * 6 + cell.col);
+    }
+    return key;
   }
 
   private children(state: GameState, moves = getAllValidMoves(state, state.currentTurn)): Child[] {
@@ -78,7 +100,7 @@ export class BotAI {
     const children: Child[] = [];
     const maximize = this.actor(state) === this.color;
     for (let action = 0; action < count; action++) {
-      this.checkTime();
+      this.spendNode();
       const move = moves[action];
       const result = selecting ? resolveGraduationChoice(state, action) : executeMove(state, move.row, move.col, move.pieceType, state.currentTurn);
       if (result.valid) children.push({ action, state: result.newState, score: this.evaluate(result.newState) });
@@ -88,8 +110,6 @@ export class BotAI {
   }
 
   private search(state: GameState, depth: number, alpha: number, beta: number): number {
-    this.checkTime();
-    this.stats.nodes++;
     if (state.phase === 'finished') return this.evaluate(state);
     // Always settle pending choices, even at the horizon (they don't consume a turn).
     if (depth <= 0 && state.phase !== 'selecting_graduation') return this.evaluate(state);
@@ -103,17 +123,34 @@ export class BotAI {
       else beta = Math.min(beta, entry.score);
       if (alpha >= beta) { this.stats.ttCutoffs++; return entry.score; }
     }
-    const children = this.children(state);
-    if (!children.length) return this.evaluate(state);
-    if (entry) children.sort((a, b) => Number(b.action === entry.action) - Number(a.action === entry.action));
+    const selecting = state.phase === 'selecting_graduation';
+    const moves = selecting ? [] : getAllValidMoves(state, state.currentTurn);
+    const count = selecting ? state.pendingGraduationOptions?.length ?? 0 : moves.length;
+    if (!count) return this.evaluate(state);
     const maximize = this.actor(state) === this.color;
-    let best = maximize ? -Infinity : Infinity, action = children[0].action;
-    const nextDepth = depth - (state.phase === 'playing' ? 1 : 0);
-    for (const child of children) {
-      const score = this.search(child.state, nextDepth, alpha, beta);
-      if (maximize ? score > best : score < best) { best = score; action = child.action; }
+    const offset = state.currentTurn === 'orange' ? 0 : 72;
+    const historyIndex = (move: Move) => offset + (move.pieceType === 'cat' ? 36 : 0) + move.row * 6 + move.col;
+    const order = Array.from({ length: count }, (_, action) => action);
+    // Search the prior principal move first, then moves that actually caused
+    // cutoffs. Generate/apply a child only when visited: a TT-first cutoff no
+    // longer clones and evaluates every sibling that will be discarded.
+    order.sort((a, b) => Number(b === entry?.action) - Number(a === entry?.action) ||
+      (selecting ? 0 : this.history[historyIndex(moves[b])] - this.history[historyIndex(moves[a])]) ||
+      (selecting ? 0 : Math.abs(moves[a].row - 2.5) + Math.abs(moves[a].col - 2.5) - Math.abs(moves[b].row - 2.5) - Math.abs(moves[b].col - 2.5)));
+    let best = maximize ? -Infinity : Infinity, action = order[0];
+    const nextDepth = depth - (selecting ? 0 : 1);
+    for (const candidate of order) {
+      this.spendNode();
+      const move = moves[candidate];
+      const result = selecting ? resolveGraduationChoice(state, candidate) : executeMove(state, move.row, move.col, move.pieceType, state.currentTurn);
+      if (!result.valid) continue;
+      const score = this.search(result.newState, nextDepth, alpha, beta);
+      if (maximize ? score > best : score < best) { best = score; action = candidate; }
       if (maximize) alpha = Math.max(alpha, best); else beta = Math.min(beta, best);
-      if (alpha >= beta) break;
+      if (alpha >= beta) {
+        if (!selecting) this.history[historyIndex(move)] += Math.max(1, depth * depth);
+        break;
+      }
     }
     if (this.table.size < 30000) this.table.set(key, { depth, score: best, action,
       flag: best <= originalAlpha ? 'upper' : best >= originalBeta ? 'lower' : 'exact' });
@@ -138,28 +175,10 @@ export class BotAI {
     }
     // Permanent promotion matters more than easily-booped positional gains.
     value += cats * 65;
-    value += this.lineValue(state.board, color);
+    value += pairValue(state, color, this.config).score;
     return value;
   }
 
-  private lineValue(board: Board, color: PlayerColor): number {
-    let value = 0;
-    for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
-      const endR = r + dr * 2, endC = c + dc * 2;
-      if (endR < 0 || endR > 5 || endC < 0 || endC > 5) continue;
-      let cats = 0, kittens = 0, blocked = false;
-      for (let i = 0; i < 3; i++) {
-        const p = board[r + dr * i][c + dc * i];
-        if (p && p.color !== color) { blocked = true; break; }
-        if (p?.type === 'cat') cats++; else if (p) kittens++;
-      }
-      if (blocked) continue;
-      if (cats === 2) value += this.config.twoInRowCats;
-      else if (cats + kittens === 2) value += this.config.twoInRowKittens;
-      else if (cats === 1) value += 3;
-    }
-    return value;
-  }
   getConfig(): BotConfig { return { ...this.config }; }
   setConfig(config: Partial<BotConfig>) { this.config = { ...this.config, ...config }; this.clearCache(); }
   clearCache() { this.table.clear(); }

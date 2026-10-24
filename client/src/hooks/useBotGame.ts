@@ -5,7 +5,8 @@ import { GameState, PlayerColor, PieceType, GameOverInfo } from '../types';
 import { checkWinCondition, createInitialGameState, executeMove, resolveGraduationChoice } from '../bot/LocalGame';
 import { BotWorkerClient } from '../bot/BotWorkerClient';
 import { createBot } from '../bot/BotAI';
-import { BotConfig } from '../bot/types';
+import { BotConfig, DEFAULT_BOT_CONFIG } from '../bot/types';
+import { botIdentity } from '../bot/version';
 import { botReplyDelayMs } from '../animationTiming';
 
 // Synchronous rules/test entry point. Live play resolves choices in the worker.
@@ -27,6 +28,8 @@ interface UseBotGameReturn {
   botColor: PlayerColor;
   gameOver: GameOverInfo | null;
   botThinking: boolean;
+  botError: string | null;
+  retryBot: () => void;
   
   startBotGame: (playerName?: string, botConfig?: Partial<BotConfig>) => void;
   placePiece: (row: number, col: number, pieceType: PieceType) => Promise<boolean>;
@@ -41,6 +44,7 @@ export function useBotGame(): UseBotGameReturn {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [gameOver, setGameOver] = useState<GameOverInfo | null>(null);
   const [botThinking, setBotThinking] = useState(false);
+  const [botError, setBotError] = useState<string | null>(null);
   const [gameId, setGameId] = useState(0);
   
   // Player is always orange, bot is always gray
@@ -71,7 +75,15 @@ export function useBotGame(): UseBotGameReturn {
     const generation = generationRef.current;
     const publishAfter = performance.now() + botReplyDelayMs(state);
     setBotThinking(true);
-    const resultingState = await bot.play(state);
+    setBotError(null);
+    let resultingState: GameState | null;
+    try { resultingState = await bot.play(state); }
+    catch (error) {
+      if (generation !== generationRef.current) return;
+      setBotThinking(false);
+      setBotError(error instanceof Error ? error.message : String(error));
+      return;
+    }
     if (generation !== generationRef.current || !resultingState) return;
     await wait(publishAfter - performance.now());
     if (generation !== generationRef.current) return;
@@ -92,9 +104,10 @@ export function useBotGame(): UseBotGameReturn {
     generationRef.current++;
     cancelWaits();
     botRef.current?.dispose();
-    const newState = createInitialGameState(playerName, '🤖 Bot');
+    const newState = createInitialGameState(playerName, `🤖 ${botIdentity({ ...DEFAULT_BOT_CONFIG, ...botConfig })}`);
     setGameState(newState);
     setGameOver(null);
+    setBotError(null);
     setBotThinking(false);
     // New game identity: App uses this as the Game component's key so the
     // whole subtree (history, review index, animation overlays) remounts
@@ -229,6 +242,13 @@ export function useBotGame(): UseBotGameReturn {
     botColor,
     gameOver,
     botThinking,
+    botError,
+    retryBot: () => {
+      if (!gameState || botThinking) return;
+      botRef.current?.dispose();
+      botRef.current = new BotWorkerClient(botColor, botConfigRef.current);
+      void executeBotMove(gameState);
+    },
     startBotGame,
     placePiece,
     selectGraduation,

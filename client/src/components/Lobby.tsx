@@ -5,7 +5,7 @@ import { WaitingPlayer, PlayerColor } from '../types';
 // Bot difficulty options.
 //
 // Most entries run entirely client-side: a minimax engine (see
-// src/bot/BotAI.ts) in a worker with a deadline and depth ceiling. The special 'alphazero'
+// src/bot/BotAI.ts) in a worker with a fixed work budget and depth ceiling. The special 'alphazero'
 // entry is server-backed: the client creates a networked room against
 // a Python AZ service via the server's `create_az_game` socket event,
 // rather than instantiating a local bot. Callers should handle that
@@ -13,10 +13,10 @@ import { WaitingPlayer, PlayerColor } from '../types';
 export const BOT_DIFFICULTIES = [
   { id: 'easy', name: 'Easy', description: 'Quick search, beginner friendly', depth: 1 },
   { id: 'normal', name: 'Normal', description: 'Fast and balanced', depth: 2 },
-  { id: 'hard', name: 'Hard', description: 'Deeper tactical search, 850ms search', depth: 3 },
-  { id: 'expert', name: 'Expert', description: 'Advanced search, 850ms search', depth: 4 },
-  { id: 'master', name: 'Master', description: 'Deep search, 850ms search', depth: 5 },
-  { id: 'grandmaster', name: 'Grandmaster', description: 'Strongest adaptive search, 850ms search', depth: 12 },
+  { id: 'hard', name: 'Hard', description: 'Bot v4, hard — fixed work', depth: 3 },
+  { id: 'expert', name: 'Expert', description: 'Bot v4, expert — fixed work', depth: 4 },
+  { id: 'master', name: 'Master', description: 'Bot v4, master — fixed work', depth: 5 },
+  { id: 'grandmaster', name: 'Bot v4, standard', description: 'Fixed 30,000-node search; identical decisions on every device', depth: 12 },
   { id: 'alphazero', name: 'AlphaZero (experimental)', description: 'Neural net — online only', depth: 0 },
 ] as const;
 

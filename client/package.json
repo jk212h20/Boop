@@ -8,8 +8,10 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test:appearance": "tsx --tsconfig tests/tsconfig.json --test tests/boardAppearance.test.ts tests/playerPool.test.tsx",
-    "test": "tsx --tsconfig tests/tsconfig.json --test tests/rules.test.ts tests/bot.test.ts tests/botTiming.test.ts",
+    "test": "tsx --tsconfig tests/tsconfig.json --test tests/rules.test.ts tests/bot.test.ts tests/botTiming.test.ts tests/pairEvaluation.test.ts tests/pairRules.test.ts tests/botVersion.test.ts",
     "test:bot:browser": "node tests/bot.browser.cjs",
+    "test:bot:repro": "tsx --tsconfig tests/tsconfig.json --test tests/reproducibility.test.ts",
+    "test:bot:repro:browser": "node tests/reproducibility.browser.cjs",
     "bench:bot": "tsx tools/benchmarkBot.ts",
     "test:appearance:browser": "node tests/boardAppearance.browser.cjs",
     "test:rules-film": "tsx --tsconfig tests/tsconfig.json --test tests/rulesFilm.test.ts"

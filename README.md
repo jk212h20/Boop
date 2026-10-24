@@ -173,7 +173,18 @@ boop-game/
 └── README.md
 ```
 
-## One-second AI
+## Versioned fixed-work AI
+
+The default local opponent is now **Bot v4, standard**: a deterministic
+30,000-transition-attempt search, not a wall-clock-limited opponent. Slower
+machines finish the same work, even when that takes longer. Worker failure is
+visible/retryable and never silently substitutes a weaker move. Source hashes,
+weights, work definition, pair evaluation, golden replays, calibration and match
+results are owned by [the v4 specification](docs/BOT_V4.md).
+
+The earlier timed-engine description below is historical, not v4's contract.
+
+### Previous one-second AI (historical)
 
 The home screen's primary **Play vs Bot** button starts a game in one click,
 using your saved name or “Player”; no server connection or setup form is needed.

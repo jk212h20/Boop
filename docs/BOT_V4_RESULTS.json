@@ -1,0 +1,53 @@
+{
+  "version": "v4",
+  "status": "validated",
+  "nodeBudget": 30000,
+  "baseline": "tests/baselines/BotAI.before.ts from 130d26f",
+  "baselineTimeBudgetMs": 850,
+  "calibration": {
+    "machine": "M4 Max arm64 macOS",
+    "goldenPositions": 22,
+    "fullReplayDecisions": 57,
+    "chrome": {
+      "maxDecisionMs": 311.8,
+      "maxWorkerReplyMs": 873.2
+    },
+    "webkit": {
+      "maxDecisionMs": 381,
+      "maxWorkerReplyMs": 709
+    },
+    "firefox": {
+      "maxDecisionMs": 782,
+      "maxWorkerReplyMs": 1328
+    },
+    "chrome4xCpu": {
+      "maxDecisionMs": 2184.7,
+      "identicalDecisions": true
+    },
+    "note": "Concurrent validation load. Worker reply includes startup and potentially several decisions. No hard one-second guarantee. No physical second device tested."
+  },
+  "match": {
+    "games": 24,
+    "wins": 15,
+    "losses": 6,
+    "draws": 3,
+    "scorePercent": 68.75,
+    "seedStart": 500,
+    "pairs": 12,
+    "openingPlies": 4,
+    "placementCap": 180,
+    "decisionSamples": 745,
+    "p50Ms": 281.730209,
+    "p95Ms": 515.309625,
+    "maxMs": 808.969708,
+    "medianDepth": 4,
+    "maxDepth": 5,
+    "baseline": {
+      "decisionSamples": 743,
+      "p50Ms": 850.017708,
+      "p95Ms": 850.03625,
+      "maxMs": 850.283959,
+      "medianDepth": 4
+    }
+  }
+}

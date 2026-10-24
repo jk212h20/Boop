@@ -1,58 +1,36 @@
 import { GameState, PlayerColor } from '../types';
 import { BotConfig, DEFAULT_BOT_CONFIG } from './types';
 import { BotReply, BotRequest } from './workerProtocol';
-import { executeMove, getAllValidMoves, resolveGraduationChoice } from './LocalGame';
 
-// Warm the worker when the game starts, not during the first timed turn.
+/** A slow worker is still the same opponent. No time watchdog may substitute
+ * a weaker move. Failure is visible/retryable, cancellation is explicit. */
 export class BotWorkerClient {
-  private worker: Worker | null;
+  private worker: Worker | null = null;
   private cancelPending: (() => void) | null = null;
   readonly config: BotConfig;
   constructor(private color: PlayerColor, config: Partial<BotConfig> = {}) {
     this.config = { ...DEFAULT_BOT_CONFIG, ...config };
     try { this.worker = new Worker(new URL('./bot.worker.ts', import.meta.url), { type: 'module' }); }
-    catch { this.worker = null; }
+    catch { /* report concretely on submission, never silently weaken */ }
   }
   dispose() { this.cancelPending?.(); this.worker?.terminate(); this.worker = null; }
   play(state: GameState): Promise<GameState | null> {
-    return new Promise(resolve => {
+    if (!this.worker) return Promise.reject(new Error('Bot worker unavailable. Reload to retry; no substitute move was played.'));
+    return new Promise((resolve, reject) => {
       let done = false;
-      const finish = (result: GameState | null) => {
+      const finish = (result: GameState | null, error?: Error) => {
         if (done) return;
-        done = true;
-        clearTimeout(timer);
-        this.cancelPending = null;
+        done = true; this.cancelPending = null;
         if (this.worker) { this.worker.onmessage = null; this.worker.onerror = null; }
-        resolve(result);
+        if (error) reject(error); else resolve(result);
       };
-      const fallback = (reason: string) => {
-        console.warn('[Bot] Worker unavailable; using legal fallback:', reason);
-        this.worker?.terminate(); this.worker = null;
-        let result = state;
-        const settle = () => {
-          while (result.phase === 'selecting_graduation' && result.pendingGraduationPlayer === this.color) {
-            const resolved = resolveGraduationChoice(result, 0);
-            if (!resolved.valid) break;
-            result = resolved.newState;
-          }
-        };
-        settle();
-        if (result.phase === 'playing' && result.currentTurn === this.color) {
-          const move = getAllValidMoves(result, this.color)[0];
-          if (move) result = executeMove(result, move.row, move.col, move.pieceType, this.color).newState;
-          settle();
-        }
-        finish(result);
-      };
-      const timer = setTimeout(() => fallback('one-second deadline exceeded'), 950);
       this.cancelPending = () => finish(null);
-      if (!this.worker) { fallback('worker could not start'); return; }
-      this.worker.onmessage = ({ data }: MessageEvent<BotReply>) => {
-        if ('error' in data) fallback(data.error); else finish(data.state);
+      this.worker!.onmessage = ({ data }: MessageEvent<BotReply>) => {
+        if ('error' in data) finish(null, new Error(data.error)); else finish(data.state);
       };
-      this.worker.onerror = event => { event.preventDefault(); fallback(event.message); };
-      try { this.worker.postMessage({ state, color: this.color, config: this.config } satisfies BotRequest); }
-      catch (error) { fallback(String(error)); }
+      this.worker!.onerror = event => { event.preventDefault(); finish(null, new Error(event.message || 'Bot worker failed; no move was played.')); };
+      try { this.worker!.postMessage({ state, color: this.color, config: this.config } satisfies BotRequest); }
+      catch (error) { finish(null, error instanceof Error ? error : new Error(String(error))); }
     });
   }
 }

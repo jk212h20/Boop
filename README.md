@@ -186,7 +186,9 @@ Post-v4 experiments and unfavorable results are recorded in
 The [compact numeric backend](docs/BOT_COMPACT_ENGINE.md) reproduces v4 decisions
 and enables measured larger-work experiments without changing the released bot.
 [Capped-game analysis](docs/BOT_CAPPED_GAME_AUDIT.md) investigates exact loops and
-experimental eight-cat progress valuation.
+experimental eight-cat progress valuation. The follow-up [durable progress plan](docs/BOT_PROGRESS_PLAN.md)
+and [results](docs/BOT_PROGRESS_RESULTS.md) add an independent search oracle and
+equal-work development/retention ablations.
 
 The earlier timed-engine description below is historical, not the current contract.
 

@@ -19,3 +19,10 @@ All use canonical LocalGame transitions and 30,000 attempted transitions, includ
 re-search work. No timing-dependent choices. Run `npm run test:bot:candidates`.
 Protocol, raw evidence, source hashes and outcome interpretation live in
 `docs/BOT_SEARCH_EXPERIMENTS.md` and `docs/bot-experiments/` at repository root.
+
+## Durable progress follow-up
+
+`DevelopmentBot.ts` and `RetentionBot.ts` reuse the compact search's evaluator hook;
+no additional search architecture or hidden history. Owner plan/results:
+`docs/BOT_PROGRESS_PLAN.md`, `docs/BOT_PROGRESS_RESULTS.md`. Selection and held-out
+confirmation are distinct. Frozen v4 stays the default regardless of screening.

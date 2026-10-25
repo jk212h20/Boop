@@ -156,3 +156,7 @@ do not robustly solve all loops without costs. A production successor needs a
 stronger progress model (including kitten promotion and defense), explicit
 history semantics if used, and equal-work fresh confirmation. This audit delivers
 reproductions, targeted tests and measured ablations, not a stronger release.
+
+Follow-up: `BOT_PROGRESS_PLAN.md` and `BOT_PROGRESS_RESULTS.md` investigate
+the search-horizon mechanism with an independent canonical oracle, then test
+kitten development and retention ablations at equal work.

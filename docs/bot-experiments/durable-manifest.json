@@ -1,0 +1,16 @@
+{
+  "status": "experimental, development selected for held-out confirmation; no release",
+  "selection": "development 16-6-2, 70.83% in both six-pair halves; retention 10-9-5 below 60% threshold",
+  "work": 30000,
+  "confirmationSeeds": [
+    2100,
+    2123
+  ],
+  "files": {
+    "client/src/bot/compact/CompactBot.ts": "bfc2e884d55d186b516fb623163dc4cd10e1aa158691f0fc91b421fbeeb616b1",
+    "client/src/bot/compact/developmentValue.ts": "e579d29c6c9cb426e66d47319c5cd6674df917b67c00216fcb9368263c949b5e",
+    "client/src/bot/compact/eightCatValue.ts": "620cd0f0f01c8afc88356c2b889797f4c1c8b9f64abfdefda575296b1d36cf78",
+    "client/src/bot/experimental/DevelopmentBot.ts": "57984c7c169d60b2334d3e8e33b70dfc9a930ea7fbc3ee927ad210819ae33e8a",
+    "client/src/bot/experimental/RetentionBot.ts": "869b8d102bf36053b6fc7b663671b85ab6f6795709ccbe473481848d55ba39a7"
+  }
+}

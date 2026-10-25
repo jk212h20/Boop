@@ -14,9 +14,12 @@ export interface SearchStats { nodes: number; ttHits: number; ttCutoffs: number;
 export class BotAI {
   private table = new Map<string, Entry>();
   private remaining = 0;
+  private path = new Set<string>();
   private history = new Float64Array(144);
   private stats: SearchStats = { nodes: 0, ttHits: 0, ttCutoffs: 0, ttSize: 0, completedDepth: 0, elapsedMs: 0 };
-  constructor(private color: PlayerColor, private config: BotConfig = DEFAULT_BOT_CONFIG) {}
+  constructor(private color: PlayerColor, private config: BotConfig = DEFAULT_BOT_CONFIG,
+    private extraValue?: (state: CompactState, color: number) => number,
+    private repetitionAware = false) {}
 
   findBestMove(state: GameState): Move | null {
     if (state.phase !== 'playing' || state.currentTurn !== this.color) return null;
@@ -38,6 +41,8 @@ export class BotAI {
     this.remaining = Math.max(1, Math.floor(this.config.nodeBudget ?? 30000));
     this.table.clear(); // scores/depths never leak between games or config changes
     this.history.fill(0);
+    this.path.clear();
+    if (this.repetitionAware) this.path.add(this.key(state));
     this.stats = { nodes: 0, ttHits: 0, ttCutoffs: 0, ttSize: 0, completedDepth: 0, elapsedMs: 0 };
     let best = 0;
     try {
@@ -100,12 +105,23 @@ export class BotAI {
   }
 
   private search(state: CompactState, depth: number, alpha: number, beta: number): number {
+    if (!this.repetitionAware || state.phase === 2) return this.searchBody(state, depth, alpha, beta);
+    const key = this.key(state);
+    // Search policy, NOT a Boop draw rule: an exact path cycle is no progress.
+    if (this.path.has(key)) return 0;
+    this.path.add(key);
+    try { return this.searchBody(state, depth, alpha, beta); }
+    finally { this.path.delete(key); }
+  }
+
+  private searchBody(state: CompactState, depth: number, alpha: number, beta: number): number {
     if (state.phase === 2) return this.evaluate(state);
     // Always settle pending choices, even at the horizon (they don't consume a turn).
     if (depth <= 0 && state.phase !== 1) return this.evaluate(state);
     const key = this.key(state);
     const originalAlpha = alpha, originalBeta = beta;
-    const entry = this.table.get(key);
+    // Cycle scores depend on ancestors; ordinary board-only TT bounds are unsafe.
+    const entry = this.repetitionAware ? undefined : this.table.get(key);
     if (entry && entry.depth >= depth) {
       this.stats.ttHits++;
       if (entry.flag === 'exact') { this.stats.ttCutoffs++; return entry.score; }
@@ -142,7 +158,7 @@ export class BotAI {
         break;
       }
     }
-    if (this.table.size < 30000) this.table.set(key, { depth, score: best, action,
+    if (!this.repetitionAware && this.table.size < 30000) this.table.set(key, { depth, score: best, action,
       flag: best <= originalAlpha ? 'upper' : best >= originalBeta ? 'lower' : 'exact' });
     return best;
   }
@@ -166,6 +182,7 @@ export class BotAI {
     // Permanent promotion matters more than easily-booped positional gains.
     value += cats * 65;
     value += pairValue(state, color, this.config).score;
+    if (this.extraValue) value += this.extraValue(state, color);
     return value;
   }
 

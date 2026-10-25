@@ -1,0 +1,415 @@
+{
+  "seed": 1408,
+  "newColor": "gray",
+  "placements": 240,
+  "winner": null,
+  "inventoryAt180": [
+    {
+      "color": "orange",
+      "cats": 0,
+      "kittens": 2,
+      "catPool": 0,
+      "kittenPool": 6,
+      "retired": 0
+    },
+    {
+      "color": "gray",
+      "cats": 0,
+      "kittens": 2,
+      "catPool": 0,
+      "kittenPool": 6,
+      "retired": 0
+    }
+  ],
+  "finalInventory": [
+    {
+      "color": "orange",
+      "cats": 0,
+      "kittens": 2,
+      "catPool": 0,
+      "kittenPool": 6,
+      "retired": 0
+    },
+    {
+      "color": "gray",
+      "cats": 0,
+      "kittens": 2,
+      "catPool": 0,
+      "kittenPool": 6,
+      "retired": 0
+    }
+  ],
+  "firstRepeat": {
+    "decision": 6,
+    "ply": 6,
+    "previous": [
+      4
+    ]
+  },
+  "repeatedDecisions": 234,
+  "uniqueStates": 6,
+  "lateSamples": [
+    {
+      "ply": 120,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 130,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 140,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 150,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 160,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 170,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 180,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 190,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 200,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 210,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 220,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    },
+    {
+      "ply": 230,
+      "inventory": [
+        {
+          "color": "orange",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        },
+        {
+          "color": "gray",
+          "cats": 0,
+          "kittens": 2,
+          "catPool": 0,
+          "kittenPool": 6,
+          "retired": 0
+        }
+      ],
+      "action": {
+        "row": 1,
+        "col": 2,
+        "pieceType": "kitten"
+      }
+    }
+  ],
+  "repeatedSample": [
+    {
+      "decision": 6,
+      "ply": 6,
+      "previous": [
+        4
+      ]
+    },
+    {
+      "decision": 7,
+      "ply": 7,
+      "previous": [
+        5
+      ]
+    },
+    {
+      "decision": 8,
+      "ply": 8,
+      "previous": [
+        4,
+        6
+      ]
+    },
+    {
+      "decision": 9,
+      "ply": 9,
+      "previous": [
+        5,
+        7
+      ]
+    },
+    {
+      "decision": 10,
+      "ply": 10,
+      "previous": [
+        4,
+        6,
+        8
+      ]
+    },
+    {
+      "decision": 11,
+      "ply": 11,
+      "previous": [
+        5,
+        7,
+        9
+      ]
+    }
+  ]
+}

@@ -131,3 +131,12 @@ to improve every move. Full paired outcomes/timings are retained in
 This establishes the engineering milestone: more deterministic work for less
 measured time, with a favorable but small pilot. It does **not** establish a
 reliably stronger released opponent. No extra candidate sweeps or silent promotion.
+
+## Subsequent audit hooks
+
+The shared experimental adapter now accepts an optional extra evaluator and
+search-path repetition flag. Neither is enabled by its factory, so default
+compact decisions still match frozen v4. Source hash changes for these additive
+hooks are recorded in `compact-manifest.json`; original timing evidence remains
+from the first compact milestone. See `BOT_CAPPED_GAME_AUDIT.md` for the later
+long-horizon diagnosis and unpromoted ablations.

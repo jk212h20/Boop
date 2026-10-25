@@ -18,7 +18,8 @@
     "test:bot:candidates": "tsx --tsconfig tests/tsconfig.json --test tests/pvs.test.ts tests/lmr.test.ts tests/PromotionBot.test.ts tests/GrowthBot.test.ts tests/ThreatBot.test.ts tests/candidateEvaluation.test.ts",
     "test:bot:compact": "tsx --tsconfig tests/tsconfig.json --test tests/compactRules.test.ts tests/compactSearch.test.ts",
     "test:bot:compact:browser": "node tests/compact.browser.cjs",
-    "bench:bot:compact": "tsx tools/benchmarkCompact.ts"
+    "bench:bot:compact": "tsx tools/benchmarkCompact.ts",
+    "test:bot:progress": "tsx --tsconfig tests/tsconfig.json --test tests/eightCatValue.test.ts tests/cappedAudit.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

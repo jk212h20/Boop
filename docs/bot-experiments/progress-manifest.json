@@ -1,0 +1,15 @@
+{
+  "status": "experimental; no candidate promoted",
+  "adultDeploymentBase": 22,
+  "nearEightCoefficient": 4,
+  "historyPenalty": 40,
+  "historyPenaltyCap": 120,
+  "historyWindow": 128,
+  "files": {
+    "client/src/bot/experimental/EightCatBot.ts": "c543916ebd3bb4fc6cbf80ae9e6f1c6e670327965b4279e3c0f1cac69bc8fc43",
+    "client/src/bot/experimental/ProgressBot.ts": "dc1ebf6d94e92a13fd0fa007022cb28db91fe9c4f7a058cc0500542bcbceca6c",
+    "client/src/bot/experimental/HistoryProgressBot.ts": "869646f287cfa591cbbc1c3e7c86d9e5977d76f2fd80feff69e5ddacc8d045e6",
+    "client/src/bot/compact/eightCatValue.ts": "620cd0f0f01c8afc88356c2b889797f4c1c8b9f64abfdefda575296b1d36cf78",
+    "client/src/bot/compact/CompactBot.ts": "bfc2e884d55d186b516fb623163dc4cd10e1aa158691f0fc91b421fbeeb616b1"
+  }
+}

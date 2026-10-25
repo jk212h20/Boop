@@ -185,6 +185,8 @@ Post-v4 experiments and unfavorable results are recorded in
 [search experiments](docs/BOT_SEARCH_EXPERIMENTS.md); candidates are not the default.
 The [compact numeric backend](docs/BOT_COMPACT_ENGINE.md) reproduces v4 decisions
 and enables measured larger-work experiments without changing the released bot.
+[Capped-game analysis](docs/BOT_CAPPED_GAME_AUDIT.md) investigates exact loops and
+experimental eight-cat progress valuation.
 
 The earlier timed-engine description below is historical, not the current contract.
 

@@ -1,0 +1,25 @@
+{"seed":1700,"newColor":"orange","winner":"gray","ply":42,"wins":0,"losses":1,"draws":0}
+{"seed":1700,"newColor":"gray","winner":"orange","ply":51,"wins":0,"losses":2,"draws":0}
+{"seed":1701,"newColor":"orange","winner":null,"ply":180,"wins":0,"losses":2,"draws":1}
+{"seed":1701,"newColor":"gray","winner":null,"ply":180,"wins":0,"losses":2,"draws":2}
+{"seed":1702,"newColor":"orange","winner":"gray","ply":38,"wins":0,"losses":3,"draws":2}
+{"seed":1702,"newColor":"gray","winner":"orange","ply":45,"wins":0,"losses":4,"draws":2}
+{"seed":1703,"newColor":"orange","winner":"gray","ply":48,"wins":0,"losses":5,"draws":2}
+{"seed":1703,"newColor":"gray","winner":null,"ply":180,"wins":0,"losses":5,"draws":3}
+{"seed":1704,"newColor":"orange","winner":"orange","ply":51,"wins":1,"losses":5,"draws":3}
+{"seed":1704,"newColor":"gray","winner":"gray","ply":46,"wins":2,"losses":5,"draws":3}
+{"seed":1705,"newColor":"orange","winner":"orange","ply":51,"wins":3,"losses":5,"draws":3}
+{"seed":1705,"newColor":"gray","winner":"gray","ply":60,"wins":4,"losses":5,"draws":3}
+{"seed":1706,"newColor":"orange","winner":"gray","ply":50,"wins":4,"losses":6,"draws":3}
+{"seed":1706,"newColor":"gray","winner":"orange","ply":39,"wins":4,"losses":7,"draws":3}
+{"seed":1707,"newColor":"orange","winner":"gray","ply":62,"wins":4,"losses":8,"draws":3}
+{"seed":1707,"newColor":"gray","winner":"gray","ply":46,"wins":5,"losses":8,"draws":3}
+{"seed":1708,"newColor":"orange","winner":"orange","ply":45,"wins":6,"losses":8,"draws":3}
+{"seed":1708,"newColor":"gray","winner":"orange","ply":51,"wins":6,"losses":9,"draws":3}
+{"seed":1709,"newColor":"orange","winner":"orange","ply":43,"wins":7,"losses":9,"draws":3}
+{"seed":1709,"newColor":"gray","winner":"orange","ply":39,"wins":7,"losses":10,"draws":3}
+{"seed":1710,"newColor":"orange","winner":"gray","ply":34,"wins":7,"losses":11,"draws":3}
+{"seed":1710,"newColor":"gray","winner":"gray","ply":40,"wins":8,"losses":11,"draws":3}
+{"seed":1711,"newColor":"orange","winner":"gray","ply":58,"wins":8,"losses":12,"draws":3}
+{"seed":1711,"newColor":"gray","winner":"orange","ply":35,"wins":8,"losses":13,"draws":3}
+{"wins":8,"losses":13,"draws":3,"samples":721,"budget":850,"seedStart":1700,"pairs":12,"candidateModule":"/Users/nick/ActiveProjects/Boop/client/src/bot/experimental/ProgressBot.ts","baselineModule":"src/bot/BotAI.ts (v4)","candidateNodeBudget":60000,"baselineDepth":12,"baseline":{"samples":717,"p50Ms":245.40937499998836,"p95Ms":287.83387500000003,"maxMs":434.3314170000085,"medianDepth":4},"p50Ms":210.635540999996,"p95Ms":256.95600000000013,"maxMs":384.64387500000885,"medianDepth":4,"maxDepth":6}

@@ -5,8 +5,10 @@
     60000
   ],
   "files": {
-    "client/src/bot/compact/CompactBot.ts": "98ba3cf5fa5d339a983cedddfdeef04ff6bf7d09e37e67165d6959588ef76fa9",
+    "client/src/bot/compact/CompactBot.ts": "bfc2e884d55d186b516fb623163dc4cd10e1aa158691f0fc91b421fbeeb616b1",
     "client/src/bot/compact/CompactGame.ts": "54a7ffd3ceb83681417ab1db41c6c7050fe7cd43c0100afebf0d5944eb705eb1",
+    "client/src/bot/compact/eightCatValue.ts": "620cd0f0f01c8afc88356c2b889797f4c1c8b9f64abfdefda575296b1d36cf78",
     "client/src/bot/compact/evaluation.ts": "c8120d4a3d391ac48111a57f515086daf3a84b0f9ef5969b237f741563dbe03e"
-  }
+  },
+  "revisionNote": "Add optional experimental evaluator/path-cycle hooks; default factory remains v4-equivalent. Original timing evidence predates hooks."
 }

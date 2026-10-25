@@ -1,0 +1,13 @@
+{"seed":720,"newColor":"orange","winner":"orange","ply":47,"wins":1,"losses":0,"draws":0}
+{"seed":720,"newColor":"gray","winner":"gray","ply":52,"wins":2,"losses":0,"draws":0}
+{"seed":721,"newColor":"orange","winner":null,"ply":180,"wins":2,"losses":0,"draws":1}
+{"seed":721,"newColor":"gray","winner":"orange","ply":43,"wins":2,"losses":1,"draws":1}
+{"seed":722,"newColor":"orange","winner":null,"ply":180,"wins":2,"losses":1,"draws":2}
+{"seed":722,"newColor":"gray","winner":null,"ply":180,"wins":2,"losses":1,"draws":3}
+{"seed":723,"newColor":"orange","winner":"gray","ply":58,"wins":2,"losses":2,"draws":3}
+{"seed":723,"newColor":"gray","winner":"gray","ply":52,"wins":3,"losses":2,"draws":3}
+{"seed":724,"newColor":"orange","winner":"gray","ply":68,"wins":3,"losses":3,"draws":3}
+{"seed":724,"newColor":"gray","winner":"orange","ply":65,"wins":3,"losses":4,"draws":3}
+{"seed":725,"newColor":"orange","winner":"orange","ply":35,"wins":4,"losses":4,"draws":3}
+{"seed":725,"newColor":"gray","winner":"orange","ply":51,"wins":4,"losses":5,"draws":3}
+{"wins":4,"losses":5,"draws":3,"samples":488,"budget":850,"seedStart":720,"pairs":6,"baseline":{"samples":482,"p50Ms":239.71879199999967,"p95Ms":257.3458329999994,"maxMs":270.29879199998686,"medianDepth":4},"p50Ms":245.86604100000113,"p95Ms":260.20770800000173,"maxMs":286.82904199999996,"medianDepth":4,"maxDepth":6}

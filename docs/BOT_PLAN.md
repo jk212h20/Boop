@@ -1,6 +1,7 @@
 # Local bot history
 
-**Current owner:** [Bot v4 fixed-work specification](BOT_V4.md). The deadline,
+**Current owner:** [Bot v4 fixed-work specification](BOT_V4.md).
+Post-v4 candidates remain experimental; see [search experiments](BOT_SEARCH_EXPERIMENTS.md). The deadline,
 watchdog fallback and timing claims below describe the previous unversioned
 engine, preserved for historical comparison, not the current opponent.
 

@@ -5,6 +5,8 @@ import { createInitialGameState, executeMove, getAllValidMoves, resolveGraduatio
 import { PlayerColor } from '../src/types';
 import { pathToFileURL } from 'node:url';
 
+const candidateModule = process.env.BOOP_CANDIDATE_MODULE;
+const candidateFactory = candidateModule ? (await import(pathToFileURL(candidateModule).href)).createBot : createBot;
 const baselineModule = process.env.BOOP_LEGACY_MODULE;
 const baselineFactory = baselineModule ? (await import(pathToFileURL(baselineModule).href)).createBot : createBot;
 const pairs = Number(process.env.BOOP_BENCH_PAIRS ?? 6);
@@ -18,7 +20,7 @@ for (let seed = seedStart; seed < seedStart + pairs; seed++) for (const newColor
   let rng = seed + 123;
   const random = () => { rng = (Math.imul(rng, 1664525) + 1013904223) >>> 0; return rng / 4294967296; };
   const bots = Object.fromEntries((['orange','gray'] as const).map(c => [c,
-    c === newColor ? createBot(c, { timeBudgetMs: budget, nodeBudget: Number(process.env.BOOP_NODE_BUDGET ?? 30000), searchDepth: 12, silent: true }) :
+    c === newColor ? candidateFactory(c, { timeBudgetMs: budget, nodeBudget: Number(process.env.BOOP_NODE_BUDGET ?? 30000), searchDepth: 12, silent: true }) :
       baselineFactory(c, { searchDepth: Number(process.env.BOOP_BASELINE_DEPTH ?? 12), silent: true, timeBudgetMs: budget })]));
   let ply = 0;
   while (s.phase !== 'finished' && ply < 180) {
@@ -53,6 +55,9 @@ for (let seed = seedStart; seed < seedStart + pairs; seed++) for (const newColor
 timings.sort((a,b) => a-b); depths.sort((a,b) => a-b);
 baselineTimings.sort((a,b) => a-b); baselineDepths.sort((a,b) => a-b);
 console.log(JSON.stringify({ wins, losses, draws, samples: timings.length, budget, seedStart, pairs,
+  candidateModule: candidateModule ?? 'src/bot/BotAI.ts (v4)',
+  baselineModule: baselineModule ?? 'src/bot/BotAI.ts (v4)',
+  candidateNodeBudget: Number(process.env.BOOP_NODE_BUDGET ?? 30000), baselineDepth: Number(process.env.BOOP_BASELINE_DEPTH ?? 12),
   baseline: { samples: baselineTimings.length, p50Ms: baselineTimings[Math.floor(baselineTimings.length * .5)],
     p95Ms: baselineTimings[Math.floor(baselineTimings.length * .95)], maxMs: baselineTimings.at(-1),
     medianDepth: baselineDepths[Math.floor(baselineDepths.length * .5)] },

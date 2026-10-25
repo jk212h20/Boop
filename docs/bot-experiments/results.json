@@ -1,0 +1,153 @@
+{
+  "status": "No candidate promoted; v4 unchanged",
+  "games": 144,
+  "batches": {
+    "lmr-confirmation": {
+      "wins": 7,
+      "losses": 13,
+      "draws": 4,
+      "samples": 820,
+      "budget": 850,
+      "seedStart": 900,
+      "pairs": 12,
+      "baseline": {
+        "samples": 824,
+        "p50Ms": 247.731958999997,
+        "p95Ms": 263.50808400000096,
+        "maxMs": 285.4699169999999,
+        "medianDepth": 4
+      },
+      "p50Ms": 251.28870800000732,
+      "p95Ms": 268.0734999999986,
+      "maxMs": 314.2834580000001,
+      "medianDepth": 4,
+      "maxDepth": 6
+    },
+    "promotion-pilot": {
+      "wins": 11,
+      "losses": 10,
+      "draws": 3,
+      "samples": 776,
+      "budget": 850,
+      "seedStart": 1000,
+      "pairs": 12,
+      "baseline": {
+        "samples": 778,
+        "p50Ms": 240.75612500001444,
+        "p95Ms": 261.90133299999434,
+        "maxMs": 307.6905419999998,
+        "medianDepth": 4
+      },
+      "p50Ms": 237.1219170000113,
+      "p95Ms": 261.63387499999953,
+      "maxMs": 283.409584,
+      "medianDepth": 4,
+      "maxDepth": 6
+    },
+    "pvs-pilot": {
+      "wins": 4,
+      "losses": 5,
+      "draws": 3,
+      "samples": 448,
+      "budget": 850,
+      "seedStart": 700,
+      "pairs": 6,
+      "baseline": {
+        "samples": 454,
+        "p50Ms": 243.11220800000592,
+        "p95Ms": 258.1840830000001,
+        "maxMs": 269.5607500000042,
+        "medianDepth": 4
+      },
+      "p50Ms": 244.04658299999937,
+      "p95Ms": 258.1232919999893,
+      "maxMs": 272.71716699999524,
+      "medianDepth": 4,
+      "maxDepth": 5
+    },
+    "lmr-heldout": {
+      "wins": 15,
+      "losses": 8,
+      "draws": 1,
+      "samples": 646,
+      "budget": 850,
+      "seedStart": 800,
+      "pairs": 12,
+      "baseline": {
+        "samples": 643,
+        "p50Ms": 240.62683300000208,
+        "p95Ms": 265.47179199999664,
+        "maxMs": 275.10604199999943,
+        "medianDepth": 4
+      },
+      "p50Ms": 248.19941600001766,
+      "p95Ms": 265.3600829999923,
+      "maxMs": 291.58970800000003,
+      "medianDepth": 4,
+      "maxDepth": 6
+    },
+    "lmr-pilot": {
+      "wins": 4,
+      "losses": 5,
+      "draws": 3,
+      "samples": 488,
+      "budget": 850,
+      "seedStart": 720,
+      "pairs": 6,
+      "baseline": {
+        "samples": 482,
+        "p50Ms": 239.71879199999967,
+        "p95Ms": 257.3458329999994,
+        "maxMs": 270.29879199998686,
+        "medianDepth": 4
+      },
+      "p50Ms": 245.86604100000113,
+      "p95Ms": 260.20770800000173,
+      "maxMs": 286.82904199999996,
+      "medianDepth": 4,
+      "maxDepth": 6
+    },
+    "growth-pilot": {
+      "wins": 9,
+      "losses": 11,
+      "draws": 4,
+      "samples": 775,
+      "budget": 850,
+      "seedStart": 1100,
+      "pairs": 12,
+      "baseline": {
+        "samples": 773,
+        "p50Ms": 244.93841699999757,
+        "p95Ms": 261.9108750000014,
+        "maxMs": 273.1881670000148,
+        "medianDepth": 4
+      },
+      "p50Ms": 245.26100000000588,
+      "p95Ms": 259.5636250000098,
+      "maxMs": 292.314584,
+      "medianDepth": 4,
+      "maxDepth": 5
+    },
+    "threat-pilot": {
+      "wins": 7,
+      "losses": 15,
+      "draws": 2,
+      "samples": 600,
+      "budget": 850,
+      "seedStart": 1200,
+      "pairs": 12,
+      "baseline": {
+        "samples": 612,
+        "p50Ms": 241.1835420000134,
+        "p95Ms": 258.3188750000045,
+        "maxMs": 275.1476670000002,
+        "medianDepth": 4
+      },
+      "p50Ms": 278.81012499995995,
+      "p95Ms": 299.84741600000416,
+      "maxMs": 338.00475,
+      "medianDepth": 4,
+      "maxDepth": 6
+    }
+  }
+}

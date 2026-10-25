@@ -14,7 +14,8 @@
     "test:bot:repro:browser": "node tests/reproducibility.browser.cjs",
     "bench:bot": "tsx tools/benchmarkBot.ts",
     "test:appearance:browser": "node tests/boardAppearance.browser.cjs",
-    "test:rules-film": "tsx --tsconfig tests/tsconfig.json --test tests/rulesFilm.test.ts"
+    "test:rules-film": "tsx --tsconfig tests/tsconfig.json --test tests/rulesFilm.test.ts",
+    "test:bot:candidates": "tsx --tsconfig tests/tsconfig.json --test tests/pvs.test.ts tests/lmr.test.ts tests/PromotionBot.test.ts tests/GrowthBot.test.ts tests/ThreatBot.test.ts tests/candidateEvaluation.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

@@ -16,3 +16,9 @@ initial, unreleased candidate only, `tools/freezeBot.ts` requires explicit
 original version's source/config when adding successors.
 
 Full contract and evidence: `docs/BOT_V4.md` at repository root.
+
+## Rejected search candidate
+
+`lmr-candidate.json` preserves 22 saved actions and a complete 61-decision replay
+for experimental LmrBot, not a released opponent. Both fresh match batches netted
+22–21–5 against v4, insufficient improvement to promote. Live source is unchanged.

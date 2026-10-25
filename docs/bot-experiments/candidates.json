@@ -1,0 +1,25 @@
+{
+  "baseline": "Bot v4 standard, 30000 transition attempts, depth ceiling 12",
+  "candidates": {
+    "PvsBot.ts": {
+      "sha256": "4188eeb10a2864fd8ac479f8999a15569c916d4cedc239a1d849f7c3d976878d",
+      "status": "experimental, not shipped"
+    },
+    "PromotionBot.ts": {
+      "sha256": "08f659a5a6755d788bc7d67d38a48dbbeb6c1046e26c5d9494fcfe1f396e56ce",
+      "status": "experimental, not shipped"
+    },
+    "GrowthBot.ts": {
+      "sha256": "f9d8bb31aabd137b02765985941c60001aeaee2f2a0f0440eb305996dc151409",
+      "status": "experimental, not shipped"
+    },
+    "LmrBot.ts": {
+      "sha256": "6bfeffd9c976b311acfdfd1d90072564ea6b7c1b825f21296166bfee919e55af",
+      "status": "experimental, not shipped"
+    },
+    "ThreatBot.ts": {
+      "sha256": "289323d108e65f9d45c69d90dfb8443c8f01d71896f772a06f5b530673882271",
+      "status": "experimental, not shipped"
+    }
+  }
+}

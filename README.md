@@ -183,6 +183,8 @@ weights, work definition, pair evaluation, golden replays, calibration and match
 results are owned by [the v4 specification](docs/BOT_V4.md).
 Post-v4 experiments and unfavorable results are recorded in
 [search experiments](docs/BOT_SEARCH_EXPERIMENTS.md); candidates are not the default.
+The [compact numeric backend](docs/BOT_COMPACT_ENGINE.md) reproduces v4 decisions
+and enables measured larger-work experiments without changing the released bot.
 
 The earlier timed-engine description below is historical, not the current contract.
 

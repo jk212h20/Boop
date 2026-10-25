@@ -1,0 +1,19 @@
+{
+  "contract": "exact frozen v4 22 positions and 57-decision replay",
+  "physicalDevices": 1,
+  "workerStartupMeasured": false,
+  "results": [
+    {
+      "browser": "chrome",
+      "maxDecisionMs": 88.7
+    },
+    {
+      "browser": "webkit",
+      "maxDecisionMs": 71
+    },
+    {
+      "browser": "firefox",
+      "maxDecisionMs": 173
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "status": "experimental, v4 default unchanged",
+  "workAllowances": [
+    30000,
+    60000
+  ],
+  "files": {
+    "client/src/bot/compact/CompactBot.ts": "98ba3cf5fa5d339a983cedddfdeef04ff6bf7d09e37e67165d6959588ef76fa9",
+    "client/src/bot/compact/CompactGame.ts": "54a7ffd3ceb83681417ab1db41c6c7050fe7cd43c0100afebf0d5944eb705eb1",
+    "client/src/bot/compact/evaluation.ts": "c8120d4a3d391ac48111a57f515086daf3a84b0f9ef5969b237f741563dbe03e"
+  }
+}

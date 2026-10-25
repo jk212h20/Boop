@@ -16,3 +16,11 @@ Origin: the previous 896px page retained a 760px canvas and two shrinking player
 pools. The selectors and player names were visibly squashed, but isolated element
 checks were incorrectly reported as a successful UI review. Nick called it out:
 "You can't do UI design without looking. Make it right."
+
+## Animation/input handoff validation
+
+Measure perceived handoff latency from actual rendered actor landing/settling to
+the visible ghost and an accepted click, with the pointer stationary. Do not
+start timing from input unlock or status disappearance: that hides stale timing
+allowances. Include on-board boops and off-board cosmetic returns; preserve a
+negative control that restores the old timing.

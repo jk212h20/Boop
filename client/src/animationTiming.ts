@@ -15,7 +15,8 @@ export const BOOP_DELAY_MS = DROP_DURATION_MS + 100;
 // detected the moment the last piece lands on its square — not after the whole
 // move budget has elapsed.
 export const BOOP_LAND_MS = BOOP_DELAY_MS + 800;
-export const BOOP_DURATION_MS = 2900;
+// The visible in-board hop lasts 800ms, not the legacy 2900ms allowance.
+export const BOOP_DURATION_MS = 800;
 // A cat pushed off the bed lands, trots to the box it belongs in, leaps out of
 // frame and drops back into the box from above. That trip is purely cosmetic:
 // it runs on its own timer and never extends the move budget. The allowance
@@ -67,6 +68,6 @@ export function animationDurationMs(effects: TimingEffects): number {
     return graduationDelayMs(effects) + GRADUATION_HIGHLIGHT_MS + GRADUATION_REMOVAL_MS + 100;
   }
   // A returned-to-box trip deliberately adds nothing here.
-  if (effects.boopedPieces?.length) return BOOP_DELAY_MS + BOOP_DURATION_MS + 200;
-  return PLACEMENT_DROP_MS + 100;
+  if (effects.boopedPieces?.some(effect => effect.to !== null)) return BOOP_LAND_MS;
+  return PLACEMENT_DROP_MS;
 }

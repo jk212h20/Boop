@@ -173,6 +173,16 @@ boop-game/
 └── README.md
 ```
 
+### Visible landing-to-input timing
+
+`animationTiming.ts` gates on-board boops for the actual 500ms delay plus 800ms
+hop, not the obsolete 2900ms boop allowance. Off-board-only cosmetic return trips
+do not extend the 700ms placement drop. Graduation keeps its separate schedule.
+`client/tests/previewLanding.browser.cjs` measures final rendered landing to ghost
+with a stationary pointer, checks an accepted click, and covers on-/off-board
+boops at desktop/tablet/phone sizes. `BOOP_OLD_TIMING=1` restores the obsolete
+allowance as a failing negative control. Timing must not begin at lock release.
+
 ### Stationary placement preview recovery
 
 The board refreshes R3F hover while placement is enabled (at most ten times per

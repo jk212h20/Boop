@@ -50,6 +50,26 @@ npm run dev
 
 Open http://localhost:5173 in your browser!
 
+## Release verification
+
+Publish the committed local app, including one-click **Play vs Bot** against
+**Bot v4, standard**. Experimental bots are not promoted defaults. Keep unfinished
+worktree graphics experiments out of deployment snapshots.
+
+Build from a clean commit with `npm run build`, then run client/server unit tests.
+Serve that production build with its compiled server on a devports-verified port.
+Run `client/tests/multiplayer.browser.cjs` with `BOOP_TEST_URL` set to that server.
+It uses isolated browser sessions and real sockets to verify the one-click bot
+actually replies, room creation/joining, two-way moves, board agreement, reload
+rejoin, opponent-leave feedback, and Quick Match. It does not mock the renderer,
+network or worker. This is a local production-build smoke, not proof of live
+Railway deployment or exhaustive multiplayer rules coverage.
+
+The configured production source is GitHub `jk212h20/Boop`, branch `main`.
+Use its configured auto-deploy after an authenticated push; do not upload a dirty
+worktree. Verify the public assets and repeat the user-facing smoke before calling
+it live. GitHub and Railway authentication are separate.
+
 ## 🌐 Deployment to Railway.app
 
 ### 1. Push to GitHub

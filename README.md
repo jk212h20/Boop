@@ -173,6 +173,17 @@ boop-game/
 └── README.md
 ```
 
+### Stationary placement preview recovery
+
+The board refreshes R3F hover while placement is enabled (at most ten times per
+second), in addition to the immediate turn handoff refresh. A missed first
+raycast or a departing actor must not leave the ghost absent until mouse movement.
+This does not shorten the animation/input guard. Regression:
+`client/tests/previewRecovery.browser.cjs`, with `BOOP_TEST_URL` set to the running
+Vite origin; `BOOP_UNGUARDED=1` disables the recovery as a negative control.
+It drops the first handoff refresh, holds the mouse still, checks recovery within
+700 ms, persistence and clearing on exit across desktop/tablet/phone viewports.
+
 ## Versioned fixed-work AI
 
 The default local opponent is now **Bot v4, standard**: a deterministic

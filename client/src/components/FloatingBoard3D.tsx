@@ -1561,14 +1561,41 @@ function Scene(props: FloatingBoard3DProps & {
 }) {
   const [hover, setHover] = useState<Cell | null>(null);
   const events = useThree(state => state.events);
+  const canvas = useThree(state => state.gl.domElement);
+  const pointerInside = useRef(false);
+  useEffect(() => {
+    const enter = () => { pointerInside.current = true; };
+    const leave = () => { pointerInside.current = false; setHover(null); document.body.style.cursor = ''; };
+    canvas.addEventListener('pointerenter', enter);
+    canvas.addEventListener('pointermove', enter);
+    canvas.addEventListener('pointerleave', leave);
+    return () => {
+      canvas.removeEventListener('pointerenter', enter);
+      canvas.removeEventListener('pointermove', enter);
+      canvas.removeEventListener('pointerleave', leave);
+    };
+  }, [canvas]);
   // Raycasting normally runs only on mouse movement. Recheck the stationary
   // pointer when a turn/animation handoff enables placement: cats may have
   // moved out from under it, and the input guard must not strand the preview.
   useEffect(() => {
     if (!props.isMyTurn || props.isViewingHistory) return;
-    const frame = requestAnimationFrame(() => events.update?.());
+    const frame = requestAnimationFrame(() => { if (pointerInside.current) events.update?.(); });
     return () => cancelAnimationFrame(frame);
   }, [props.isMyTurn, props.isViewingHistory, props.selectedPieceType, events]);
+  // The first handoff raycast can still see the previous rendered transforms
+  // (or a departing actor can uncover the quilt on a later frame). A one-shot
+  // update then strands a stationary pointer until its next physical movement.
+  // Keep hover fresh while placement is enabled, bounded to ten raycasts/second.
+  // No synthetic DOM events: R3F reuses the real last pointer coordinates.
+  const hoverRefresh = useRef(0);
+  useFrame((_, delta) => {
+    if (!pointerInside.current || !props.isMyTurn || props.isViewingHistory) { hoverRefresh.current = 0; return; }
+    hoverRefresh.current += delta;
+    if (hoverRefresh.current < .1) return;
+    hoverRefresh.current = 0;
+    events.update?.();
+  });
   const fabric = useMemo(() => ({ ...createFabricTextures(), patch: createQuiltPatchGeometry(), stitches: createQuiltStitches() }), []);
   useEffect(() => () => {
     fabric.map.dispose(); fabric.bumpMap.dispose(); fabric.patch.dispose(); fabric.stitches.dispose();

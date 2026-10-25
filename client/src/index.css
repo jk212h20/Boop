@@ -44,6 +44,9 @@ body {
   background: transparent;
 }
 .floating-board-shell canvas { touch-action: none; }
+.board-camera-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.board-camera-controls button { min-height: 44px; padding: .4rem .65rem; border: 1px solid #657a8e; border-radius: .65rem; background: #223344; color: #e6edf3; font-size: .75rem; }
+.board-camera-controls button:hover, .board-camera-controls button:focus-visible { background: #36516a; outline: 2px solid #a8d9ed; }
 @keyframes board-shake {
   0%, 100% { transform: translate3d(0, 0, 0); }
   18% { transform: translate3d(-2px, 1px, 0); }
@@ -244,25 +247,30 @@ body {
   .player-pool { max-width: 240px; margin: 0 auto; }
 }
 @media (max-width: 600px) {
-  .game-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'opponent' 'board' 'self'; gap: 12px; }
-  .player-pool { max-width: 360px; }
-  .player-pool-name { min-height: 0; padding: .6rem .75rem; margin-bottom: .65rem; }
-  .player-pool-name h3 { font-size: 1rem; }
-  .player-pool-selectors { gap: 12px; max-width: none; }
+  .game-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: 'opponent self' 'board board'; gap: 10px; }
+  .player-pool { max-width: none; }
+  .player-pool-name { min-height: 2.25rem; padding: .35rem .45rem; margin-bottom: .4rem; gap: .2rem; }
+  .player-pool-name h3 { font-size: .8rem; }
+  .player-pool-turn { font-size: .55rem; padding: .12rem .25rem; }
+  .player-pool-selectors { gap: 6px; max-width: none; }
   .pool-piece-button {
     display: grid; grid-template-columns: minmax(0, 1fr);
     grid-template-areas: 'head' 'icon';
     justify-items: center; row-gap: .3rem; padding: .5rem .5rem .55rem;
   }
-  .pool-piece-button .animated-piece-icon { grid-area: icon; width: 84px; height: 96px; }
-  .pool-piece-head { grid-area: head; }
-  .pool-piece-count { font-size: 2rem; }
+  .pool-piece-button .animated-piece-icon { grid-area: icon; width: 48px; height: 54px; }
+  .pool-piece-head { grid-area: head; gap: .2rem; }
+  .pool-piece-label { font-size: .65rem; }
+  .pool-piece-count { font-size: 1.25rem; }
+  .pool-piece-button { padding: .35rem .1rem; border-radius: .7rem; }
+  .pool-piece-selected { outline-offset: 1px; }
   .bedroom-palette { margin-top: 0; margin-bottom: .25rem; }
   .board-hint { display: none; }
 }
 @media (max-width: 359px) {
   .pool-piece-button { grid-template-areas: 'head' 'icon'; }
-  .pool-piece-button .animated-piece-icon { width: 72px; height: 82px; }
+  .pool-piece-button .animated-piece-icon { width: 40px; height: 46px; }
+  .player-pool-turn { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .pool-cat-icon, .turn-active, .animated-piece-icon img { animation: none; } }
 

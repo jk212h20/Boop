@@ -50,6 +50,23 @@ npm run dev
 
 Open http://localhost:5173 in your browser!
 
+## Mobile board and camera
+
+On phones, both players' kitten/cat reserves share a compact row above the board,
+so all four boxes remain visible without scrolling past the board. Stock labels
+remain readable and each box exceeds the minimum 44px touch target.
+
+**Top down** gives a true overhead view; **Angled** restores the room view.
+Pinch/wheel and the zoom buttons adjust distance, bounded by the projected quilt
+corners at the current angle and aspect ratio. Maximum zoom fills the available
+board viewport without cropping playable cells. The chosen angle/distance persists.
+
+`client/tests/mobileLayout.browser.cjs` checks nine widths (320–1440px), including
+both sides of layout breakpoints, actual pool/label bounds, overflow, overhead
+projection, button zoom and wheel zoom. `client/tests/cameraFraming.test.ts`
+checks the projection limit across 36 angle/aspect combinations. Browser tests use
+`BOOP_TEST_URL` pointing at the devports-verified test server.
+
 ## Release verification
 
 Publish the committed local app, including one-click **Play vs Bot** against

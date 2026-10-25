@@ -13,6 +13,7 @@ import { createCatScene, createContactShadowTexture, createRadialAlphaTexture, c
 import { BOOP_DELAY_MS, GRADUATION_HIGHLIGHT_MS, PLACEMENT_DROP_MS } from '../animationTiming';
 import { optionsAt, promotionLabel } from '../graduationChoices';
 import { prefersReducedMotion } from '../rendering/motion';
+import { quiltFitDistance, VIEW_TARGET } from '../rendering/cameraFraming';
 
 interface FloatingBoard3DProps {
   board: BoardType;
@@ -1053,9 +1054,7 @@ export function BedShell({ quiltColors, fabric }: { quiltColors: QuiltColors; fa
   );
 }
 
-// Fixed viewing direction and a distance that fills the shell. The board is a
-// fixed-size object in a fixed shell; letting the camera drift made it look
-// small and dim, so zoom is gone and framing is derived from the aspect ratio.
+// Default room view; user zoom is bounded by the projected quilt corners.
 const BOARD_VIEW_DIR = new THREE.Vector3(9.2, 10.8, 12).normalize();
 const BOARD_DISTANCE = 12.6;
 
@@ -1105,7 +1104,7 @@ function FrameBoard() {
   const camera = useThree(state => state.camera);
   const size = useThree(state => state.size);
   const controls = useThree(state => state.controls) as
-    | { update?: () => void; target?: THREE.Vector3; addEventListener?: (t: string, f: () => void) => void; removeEventListener?: (t: string, f: () => void) => void }
+    | { minDistance: number; maxDistance: number; enableDamping: boolean; update?: () => void; target?: THREE.Vector3; addEventListener?: (t: string, f: () => void) => void; removeEventListener?: (t: string, f: () => void) => void }
     | null;
   // Read through a ref: a re-created controls instance (Suspense re-entry when
   // a new model loads mid-game) must not re-run the framing effect and snap the
@@ -1113,6 +1112,40 @@ function FrameBoard() {
   const controlsRef = useRef(controls);
   controlsRef.current = controls;
   const applied = useRef(0);
+
+  const constrain = useCallback(() => {
+    const active = controlsRef.current;
+    if (!active || !(camera instanceof THREE.PerspectiveCamera)) return;
+    const target = active.target ?? VIEW_TARGET;
+    const minimum = quiltFitDistance(camera, target);
+    active.minDistance = minimum;
+    active.maxDistance = Math.max(BOARD_DISTANCE, minimum);
+    const offset = camera.position.clone().sub(target);
+    const radius = THREE.MathUtils.clamp(offset.length(), minimum, active.maxDistance);
+    camera.position.copy(target).add(offset.setLength(radius));
+    camera.lookAt(target);
+  }, [camera]);
+  useFrame(constrain);
+
+  useEffect(() => {
+    const command = (event: Event) => {
+      const action = (event as CustomEvent<string>).detail;
+      const active = controlsRef.current;
+      if (!active) return;
+      // Drain a previous finger drag's damping before applying an exact preset.
+      const damping = active.enableDamping;
+      active.enableDamping = false; active.update?.();
+      const target = active.target ?? VIEW_TARGET;
+      const offset = camera.position.clone().sub(target);
+      if (action === 'top') offset.setFromSphericalCoords(offset.length(), .000001, 0);
+      else if (action === 'room') offset.copy(BOARD_VIEW_DIR).multiplyScalar(BOARD_DISTANCE);
+      else offset.multiplyScalar(action === 'in' ? .85 : 1 / .85);
+      camera.position.copy(target).add(offset);
+      constrain(); active.update?.(); active.enableDamping = damping;
+    };
+    window.addEventListener('boop-camera', command);
+    return () => window.removeEventListener('boop-camera', command);
+  }, [camera, constrain]);
 
   // Remember the orbit the player settles on. Orbit controls keep easing after
   // the pointer is released, so the settled value is read from 'change' (and the
@@ -1163,11 +1196,12 @@ function FrameBoard() {
       : camera.position.clone().sub(target);
     // Keep whatever orbit the player has chosen; only the radius is ours.
     if (direction.lengthSq() < 1e-6) direction.copy(BOARD_VIEW_DIR);
-    camera.position.copy(target).addScaledVector(direction.normalize(), distance);
+    camera.position.copy(target).addScaledVector(direction.normalize(), saved?.distance ?? distance);
+    constrain();
     camera.lookAt(target);
     camera.updateProjectionMatrix();
     active?.update?.();
-  }, [camera, size.width, size.height]);
+  }, [camera, size.width, size.height, constrain]);
   return null;
 }
 
@@ -1722,10 +1756,10 @@ function Scene(props: FloatingBoard3DProps & {
         <Lightformer intensity={1.1} position={[-8, 3, 2]} scale={[8, 4, 1]} rotation={[0, Math.PI / 2, 0]} color="#ffe6c9" />
         <Lightformer intensity={.8} position={[8, 2, -3]} scale={[8, 4, 1]} rotation={[0, -Math.PI / 2, 0]} color="#d6e6ff" />
       </Environment>
-      {/* Zoom stays off: the board is framed to its shell, so there is nothing
-          to discover by scrolling and no way to end up small and fogged out. */}
-      <OrbitControls makeDefault enablePan={false} enableZoom={false}
-        minPolarAngle={.52} maxPolarAngle={1.16} minAzimuthAngle={-.75} maxAzimuthAngle={.75}
+      {/* Pinch/wheel zoom stops at the quilt edges; a zero polar angle allows
+          a genuinely overhead board rather than stopping at an oblique view. */}
+      <OrbitControls makeDefault enablePan={false} enableZoom={true}
+        minPolarAngle={0} maxPolarAngle={1.16} minAzimuthAngle={-.75} maxAzimuthAngle={.75}
         target={[0, .18, 0]} />
     </>
   );
@@ -1803,6 +1837,10 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
   useEffect(() => () => { timers.current.forEach(clearTimeout); timers.current = []; }, []);
   return (
     <div className="floating-board-area">
+    <div className="board-camera-controls" role="group" aria-label="Board view">
+      {([['top', 'Top down'], ['room', 'Angled'], ['in', 'Zoom in'], ['out', 'Zoom out']] as const).map(([action, label]) =>
+        <button key={action} type="button" onClick={() => window.dispatchEvent(new CustomEvent('boop-camera', { detail: action }))}>{label}</button>)}
+    </div>
     <div className="floating-board-shell" ref={shellRef}>
       <BoardErrorBoundary>
       <Canvas frameloop={pageVisible ? 'always' : 'never'} shadows dpr={[1, 1.7]} camera={BOARD_CAMERA} gl={BOARD_GL}>

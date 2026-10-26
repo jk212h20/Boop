@@ -14,6 +14,7 @@ import { BOOP_DELAY_MS, GRADUATION_HIGHLIGHT_MS, PLACEMENT_DROP_MS } from '../an
 import { optionsAt, promotionLabel } from '../graduationChoices';
 import { prefersReducedMotion } from '../rendering/motion';
 import { quiltFitDistance, VIEW_TARGET } from '../rendering/cameraFraming';
+import { ResolutionBudget } from '../rendering/performance';
 
 interface FloatingBoard3DProps {
   board: BoardType;
@@ -82,36 +83,51 @@ export function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpe
     // The mixer is created once; clip changes crossfade below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cloned, ghost]);
-  const { gl: maskRenderer, scene: worldScene, camera: maskCamera } = useThree();
+  const { gl: maskRenderer, camera: maskCamera } = useThree();
   const silhouetteTarget = useMemo(() => ghost ? new THREE.WebGLRenderTarget(1, 1, {
     minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter,
   }) : null, [ghost]);
   const silhouetteMaterial = useMemo(() => ghost ? new THREE.MeshBasicMaterial({color: 'white'}) : null, [ghost]);
+  // Render only the preview into its union mask, not the entire room with
+  // hundreds of objects temporarily hidden. The preview is unanimated, so a
+  // camera/transform/size cache also avoids repeating this pass while at rest.
+  const maskCache = useMemo(() => {
+    const scene = new THREE.Scene();
+    const root = cloned.clone(true); // shares geometry/materials; no extra GPU assets
+    root.matrixAutoUpdate = false;
+    scene.add(root);
+    scene.overrideMaterial = silhouetteMaterial;
+    return { scene, root, size: new THREE.Vector2(), camera: new THREE.Matrix4(),
+      projection: new THREE.Matrix4(), world: new THREE.Matrix4(), valid: false,
+      clear: new THREE.Color() };
+  }, [cloned, silhouetteMaterial]);
   useEffect(() => () => { silhouetteTarget?.dispose(); silhouetteMaterial?.dispose(); }, [silhouetteTarget, silhouetteMaterial]);
   useFrame(() => {
     if (!silhouetteTarget || !silhouetteMaterial) return;
-    const size = maskRenderer.getDrawingBufferSize(new THREE.Vector2());
-    if (silhouetteTarget.width !== size.x || silhouetteTarget.height !== size.y) silhouetteTarget.setSize(size.x, size.y);
-    const hidden: THREE.Object3D[] = [];
-    const members = new Set<THREE.Object3D>();
-    cloned.traverse(node => members.add(node));
-    worldScene.traverse(node => {
-      if ((node instanceof THREE.Mesh || node instanceof THREE.Sprite || node instanceof THREE.Line || node instanceof THREE.Points) && !members.has(node) && node.visible) { node.visible = false; hidden.push(node); }
-    });
+    const size = maskRenderer.getDrawingBufferSize(maskCache.size);
+    cloned.updateWorldMatrix(true, false);
+    const resized = silhouetteTarget.width !== size.x || silhouetteTarget.height !== size.y;
+    if (maskCache.valid && !resized && maskCache.world.equals(cloned.matrixWorld)
+      && maskCache.camera.equals(maskCamera.matrixWorldInverse)
+      && maskCache.projection.equals(maskCamera.projectionMatrix)) return;
+    if (resized) silhouetteTarget.setSize(size.x, size.y);
+    maskCache.root.matrix.copy(cloned.matrixWorld);
+    maskCache.world.copy(cloned.matrixWorld);
+    maskCache.camera.copy(maskCamera.matrixWorldInverse);
+    maskCache.projection.copy(maskCamera.projectionMatrix);
+    maskCache.valid = true;
     const oldTarget = maskRenderer.getRenderTarget();
-    const oldOverride = worldScene.overrideMaterial;
-    const oldBackground = worldScene.background;
-    const oldClear = maskRenderer.getClearColor(new THREE.Color());
+    const oldShadows = maskRenderer.shadowMap.enabled;
+    const oldClear = maskRenderer.getClearColor(maskCache.clear);
     const oldAlpha = maskRenderer.getClearAlpha();
     const oldAutoClear = maskRenderer.autoClear;
     try {
-      worldScene.overrideMaterial = silhouetteMaterial; worldScene.background = null;
+      maskRenderer.shadowMap.enabled = false;
       maskRenderer.setRenderTarget(silhouetteTarget); maskRenderer.setClearColor(0, 0); maskRenderer.autoClear = true;
-      maskRenderer.clear(); maskRenderer.render(worldScene, maskCamera);
+      maskRenderer.clear(); maskRenderer.render(maskCache.scene, maskCamera);
     } finally {
       maskRenderer.setRenderTarget(oldTarget); maskRenderer.setClearColor(oldClear, oldAlpha); maskRenderer.autoClear = oldAutoClear;
-      worldScene.overrideMaterial = oldOverride; worldScene.background = oldBackground;
-      hidden.forEach(node => { node.visible = true; });
+      maskRenderer.shadowMap.enabled = oldShadows;
     }
     cloned.traverse(node => {
       if (!(node instanceof THREE.Mesh)) return;
@@ -157,6 +173,7 @@ export function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpe
   }), [cloned]);
   const applied = useRef({ head: new THREE.Vector3(), tail: 0, earL: 0, earR: 0 });
   const idleTime = useRef(0);
+  const mixerDelta = useRef(0);
 
   useFrame((_, delta) => {
     if (!mixer) return;
@@ -169,7 +186,16 @@ export function CatModel({ piece, ghost = false, clip = 'Sit', seed = 0, gaitSpe
     if (rig.earR) rig.earR.rotation.z -= a.earR;
     mixer.timeScale = clip === 'Walk' ? gaitSpeed?.current ?? 1 : 1;
     if (filmTime !== undefined) mixer.setTime(filmTime);
-    else mixer.update(Math.min(delta, .05));
+    else {
+      mixerDelta.current += Math.min(delta, .05);
+      // Slow breathing/blinks do not need 60 skeleton evaluations per second.
+      // Walking, jumping, landing and celebration retain every-frame updates.
+      const idle = ['Sit', 'Stand', 'Curious', 'Sleepy'].includes(clip);
+      if (!idle || mixerDelta.current >= 1 / 30) {
+        mixer.update(mixerDelta.current);
+        mixerDelta.current = 0;
+      }
+    }
 
     // Idle motion advances by rendered time, not hidden-tab wall time.
     idleTime.current += Math.min(delta, .05);
@@ -346,6 +372,10 @@ export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, 
   }, [isGraduating, animationKey]);
 
   const [clip, setClip] = useState('Sit');
+  const actorClip = useRef('Sit');
+  const updateClip = (next: string) => {
+    if (actorClip.current !== next) { actorClip.current = next; setClip(next); }
+  };
   const gaitSpeed = useRef(1);
   const requestFlight = useContext(InventoryFlightContext);
   const flightSent = useRef(false);
@@ -361,7 +391,7 @@ export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, 
       g.position.set(target[0], target[1], target[2]);
       g.scale.setScalar(scaleBase);
       g.visible = !offBoard && !(removing && removalStarted.current !== null);
-      setClip('Sit');
+      updateClip('Sit');
       return;
     }
     // Animation time is visible rendered time, not time spent stalled on JS,
@@ -505,10 +535,11 @@ export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, 
       nextClip = part < 5 ? 'Curious' : part > 18 ? 'Sleepy' : 'Sit';
     }
 
-    setClip(previous => (previous === nextClip ? previous : nextClip));
+    updateClip(nextClip);
 
     // Ease the heading; never snap.
-    heading.current += shortestTurn(heading.current, desiredHeading) * (1 - Math.exp(-12 * Math.min(delta, .05)));
+    if (isGhost) heading.current = desiredHeading;
+    else heading.current += shortestTurn(heading.current, desiredHeading) * (1 - Math.exp(-12 * Math.min(delta, .05)));
     g.position.set(x, y, z);
     g.rotation.y = heading.current;
     g.rotation.z = roll;
@@ -523,7 +554,7 @@ export function CatActor({ piece, row, col, boop, isNew, isGhost, isGraduating, 
     const rise = removing && removalStarted.current !== null
       ? Math.min(1, (now - removalStarted.current) / RISE_MS)
       : 0;
-    const breathe = 1 + Math.sin(now / 900 + seed * 20) * .006;
+    const breathe = isGhost ? 1 : 1 + Math.sin(now / 900 + seed * 20) * .006;
     const squashY = 1 - squash + stretch * .18;
     const squashXZ = 1 + squash - stretch * .12;
     let scale = scaleBase;
@@ -845,6 +876,11 @@ function CatProbe() {
   const size = useThree(state => state.size);
   const gl = useThree(state => state.gl);
   useEffect(() => {
+    (window as unknown as { __renderProbe?: () => unknown }).__renderProbe = () => ({
+      calls: gl.info.render.calls, triangles: gl.info.render.triangles,
+      geometries: gl.info.memory.geometries, textures: gl.info.memory.textures,
+      dpr: gl.getPixelRatio(), width: gl.domElement.width, height: gl.domElement.height,
+    });
     (window as unknown as { __catProbe?: () => { cat: string; x: number; y: number; z: number; ry: number; pxPerUnit: number; visible: boolean }[] }).__catProbe = () => {
       const out: { cat: string; x: number; y: number; z: number; ry: number; pxPerUnit: number; visible: boolean }[] = [];
       const rect = gl.domElement.getBoundingClientRect();
@@ -914,6 +950,7 @@ function CatProbe() {
     };
     return () => {
       const w = window as unknown as { __catProbe?: unknown; __cellScreen?: unknown; __boardView?: unknown; __cordProbe?: unknown };
+      delete (window as unknown as { __renderProbe?: unknown }).__renderProbe;
       delete w.__catProbe; delete w.__cellScreen; delete w.__boardView; delete w.__cordProbe;
     };
   }, [scene, camera, size, gl]);
@@ -1085,6 +1122,31 @@ function readBoardView(): BoardView | null {
 function writeBoardView(view: BoardView) {
   savedBoardView = view;
   try { localStorage.setItem(BOARD_VIEW_STORAGE_KEY, JSON.stringify(view)); } catch { /* keep it in memory */ }
+}
+
+/** Keep animation at display refresh rate, but spend fewer pixels when the
+ * browser cannot sustain it. Shadows need only 30 Hz; the lit scene stays 60 Hz. */
+function RenderBudget({ pageVisible }: { pageVisible: boolean }) {
+  const gl = useThree(state => state.gl);
+  const setDpr = useThree(state => state.setDpr);
+  const budget = useMemo(() => new ResolutionBudget(window.devicePixelRatio), []);
+  const shadowTime = useRef(0);
+  useEffect(() => {
+    budget.reset();
+    gl.shadowMap.autoUpdate = false;
+    gl.shadowMap.needsUpdate = true;
+    return () => { gl.shadowMap.autoUpdate = true; };
+  }, [budget, gl, pageVisible]);
+  useFrame((_, delta) => {
+    shadowTime.current += delta;
+    if (shadowTime.current >= 1 / 30) {
+      gl.shadowMap.needsUpdate = true;
+      shadowTime.current %= 1 / 30;
+    }
+    const ratio = budget.sample(delta);
+    if (ratio !== null) setDpr(ratio);
+  });
+  return null;
 }
 
 /** Warm the shader cache before the first piece is placed, so the first
@@ -1660,7 +1722,7 @@ function Scene(props: FloatingBoard3DProps & {
       <ambientLight intensity={1.5} />
       {/* One shadow-casting key light, scoped to the bed so the map stays crisp. */}
       <directionalLight position={[-5, 9, 4]} intensity={2.1} color="#fff6e8" castShadow
-        shadow-mapSize={[2048, 2048]} shadow-bias={-.0006} shadow-normalBias={.02}
+        shadow-mapSize={[1024, 1024]} shadow-bias={-.0006} shadow-normalBias={.02}
         shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7}
         shadow-camera-bottom={-7} shadow-camera-near={.5} shadow-camera-far={34} />
       <directionalLight position={[6, 4, -5]} intensity={1.5} color="#eef4ff" />
@@ -1843,10 +1905,11 @@ export function FloatingBoard3D(props: FloatingBoard3DProps) {
     </div>
     <div className="floating-board-shell" ref={shellRef}>
       <BoardErrorBoundary>
-      <Canvas frameloop={pageVisible ? 'always' : 'never'} shadows dpr={[1, 1.7]} camera={BOARD_CAMERA} gl={BOARD_GL}>
+      <Canvas frameloop={pageVisible ? 'always' : 'never'} shadows dpr={[1, 1.25]} camera={BOARD_CAMERA} gl={BOARD_GL}>
         <Suspense fallback={null}>
           <CatProbe />
           <Precompile />
+          <RenderBudget pageVisible={pageVisible} />
           <InventoryFlightContext.Provider value={requestFlight}>
             <Scene {...props} quiltColors={quiltColors} onOpenBook={() => setBookOpen(true)}
               onOpenVideo={() => setVideoOpen(true)} />

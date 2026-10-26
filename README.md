@@ -248,6 +248,13 @@ experimental eight-cat progress valuation. The follow-up [durable progress plan]
 and [results](docs/BOT_PROGRESS_RESULTS.md) add an independent search oracle and
 equal-work development/retention ablations.
 
+Current-rule learning work is owned by **MLFactory**, not the released worker.
+Its [canonical pipeline](../MLFactory/docs/BOOP_CANONICAL_PIPELINE.md) uses Boop's
+explicit `client/tools/trainingBridge.ts` for immutable rule transitions and a
+black-box frozen-v4 evaluation opponent. The old Python rule port has drifted;
+its old checkpoint is not current-v4 strength evidence. Pipeline proof, held-out
+strength confirmation and browser release are separate gates. No default changes.
+
 The earlier timed-engine description below is historical, not the current contract.
 
 ### Previous one-second AI (historical)

@@ -147,7 +147,7 @@ export function Lobby({
         </div>
 
         {/* Error display */}
-        {displayError && (localError || (mode !== 'menu' && mode !== 'bot')) && (
+        {displayError && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -207,7 +207,7 @@ export function Lobby({
               🤖 Play vs Bot
             </button>
             <p className="text-center text-sm text-gray-600">
-              You vs our strongest bot · Fast search, animation-safe turns · No connection needed
+              You vs Boop AZ64 · Learned search · Connection required
             </p>
             <button
               onClick={() => setMode('bot')}

@@ -427,6 +427,7 @@ export function useSocket(): UseSocketReturn {
 
               resolve(info);
             } else {
+              setError(response.error || 'Failed to create AZ game');
               reject(new Error(response.error || 'Failed to create AZ game'));
             }
           }

@@ -738,7 +738,7 @@ export function Game({
           ) : gameOver ? (
             <p>Game complete — start a rematch when you’re ready.</p>
           ) : botError ? (
-            <div role="alert">{botError} <button type="button" onClick={onRetryBot}>Retry bot move</button></div>
+            <div role="alert">{botError} {onRetryBot && <button type="button" onClick={onRetryBot}>Retry bot move</button>}</div>
           ) : gameState.phase === 'selecting_graduation' ? (
             <p>{isSelectingGraduation ? 'Choose on the board, or use the choice card beside it.' : 'Waiting for the opponent’s promotion choice.'}</p>
           ) : moveInProgress && isMyTurn ? (

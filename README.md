@@ -69,8 +69,14 @@ checks the projection limit across 36 angle/aspect combinations. Browser tests u
 
 ## Release verification
 
-Publish the committed local app, including one-click **Play vs Bot** against
-**Bot v4, standard**. Experimental bots are not promoted defaults. Keep unfinished
+One-click **Play vs Bot** uses **Boop AZ64**, the frozen current-rule neural-search
+model served by MLFactory with PUCT1024 and tactical root screening. Release is
+conditional on its 100-pair confirmation gate and public feature verification.
+**Bot v4, standard** remains an explicit offline profile; it is not silently used
+when the online model fails. Service failures are visible and retain the last move.
+MLFactory owns canonical inference and release packaging (`docs/BOOP_CANONICAL_RELEASE.md`
+in that repository); this repository owns sockets, UI and browser checks.
+Experimental checkpoints are not promoted automatically. Keep unfinished
 worktree graphics experiments out of deployment snapshots.
 
 Build from a clean commit with `npm run build`, then run client/server unit tests.

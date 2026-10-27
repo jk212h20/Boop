@@ -17,7 +17,7 @@ export const BOT_DIFFICULTIES = [
   { id: 'expert', name: 'Expert', description: 'Bot v4, expert — fixed work', depth: 4 },
   { id: 'master', name: 'Master', description: 'Bot v4, master — fixed work', depth: 5 },
   { id: 'grandmaster', name: 'Bot v4, standard', description: 'Fixed 30,000-node search; identical decisions on every device', depth: 12 },
-  { id: 'alphazero', name: 'AlphaZero (experimental)', description: 'Neural net — online only', depth: 0 },
+  { id: 'alphazero', name: 'Boop AZ64', description: 'Learned search bot — online only', depth: 0 },
 ] as const;
 
 export type BotDifficulty = typeof BOT_DIFFICULTIES[number]['id'];
@@ -201,7 +201,7 @@ export function Lobby({
             )}
 
             <button
-              onClick={() => onPlayBot(playerName.trim() || 'Player', 'grandmaster')}
+              onClick={() => onPlayBot(playerName.trim() || 'Player', 'alphazero')}
               className="btn-primary w-full text-xl"
             >
               🤖 Play vs Bot

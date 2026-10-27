@@ -14,7 +14,7 @@ if(!url)throw Error('Set BOOP_TEST_URL to a verified production-build server');
   await Promise.all([a.goto(url),b.goto(url)]);
   // Real one-click default; no difficulty form or name required.
   await a.getByRole('button',{name:'🤖 Play vs Bot',exact:true}).click();
-  await a.getByRole('region',{name:"🤖 Bot v4, standard's pieces",exact:true}).waitFor();
+  await a.getByRole('region',{name:"🤖 Boop AZ64's pieces",exact:true}).waitFor();
   assert.equal(await a.locator('select').count(),0);
   await a.waitForFunction(()=>window.__cellScreen);
   await a.waitForTimeout(1000);
@@ -72,6 +72,6 @@ if(!url)throw Error('Set BOOP_TEST_URL to a verified production-build server');
    await p.getByRole('region',{name:"Quick Gray's pieces",exact:true}).waitFor();
   }
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({oneClickBot:'v4 standard',room:code,createJoin:true,twoWayMoves:true,reloadRejoin:true,leaveNotice:true,quickMatch:true,pageErrors:errors}));
+  console.log(JSON.stringify({oneClickBot:'Boop AZ64',room:code,createJoin:true,twoWayMoves:true,reloadRejoin:true,leaveNotice:true,quickMatch:true,pageErrors:errors}));
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});

@@ -76,6 +76,7 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
       },
       callback
     ) => {
+      void (async () => {
       try {
         const azClient = getAzClient();
         if (!azClient) {
@@ -83,6 +84,12 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
           return;
         }
 
+        const health = await azClient.health();
+        if (health.status !== 'ok' || !('checkpoint_sha256' in health) ||
+            health.checkpoint_sha256 !== '2974abd1f1c6496968c0684cb7ca6c62df69e861b44759e7018e6cf6cf259a32') {
+          callback({ success: false, error: 'Current Boop AZ64 model is not ready; no game was created. Please retry later.' });
+          return;
+        }
         const humanColor: PlayerColor = data.humanColor === 'gray' ? 'gray' : 'orange';
         const azColor: PlayerColor = humanColor === 'orange' ? 'gray' : 'orange';
 
@@ -96,9 +103,9 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
         let second: { socketId: string; name: string; token?: string };
         if (humanColor === 'orange') {
           first = { socketId: socket.id, name: data.playerName, token: data.playerToken };
-          second = { socketId: azSocketId(room.id), name: '🤖 AlphaZero' };
+          second = { socketId: azSocketId(room.id), name: '🤖 Boop AZ64' };
         } else {
-          first = { socketId: azSocketId(room.id), name: '🤖 AlphaZero' };
+          first = { socketId: azSocketId(room.id), name: '🤖 Boop AZ64' };
           second = { socketId: socket.id, name: data.playerName, token: data.playerToken };
         }
 
@@ -132,8 +139,9 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager, lobbyM
         }
       } catch (error) {
         console.error('Error creating AZ game:', error);
-        callback({ success: false, error: 'Failed to create AZ game' });
+        callback({ success: false, error: 'Boop AZ64 is unavailable; no game was started. Please retry later.' });
       }
+      })();
     });
 
     // Join an existing room

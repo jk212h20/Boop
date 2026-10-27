@@ -240,6 +240,10 @@ export function useSocket(): UseSocketReturn {
       enqueueGameUpdate(data);
     });
 
+    socket.on('az_error', (data: { error: string }) => {
+      setError(`Bot move failed: ${data.error}. Leave the game and retry; your last move was retained.`);
+    });
+
     socket.on('game_over', (data: GameOverInfo) => {
       // Delay the game-over overlay until after all queued animations finish.
       // Otherwise the "You won/lost" banner covers the very move that ended

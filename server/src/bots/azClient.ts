@@ -114,8 +114,8 @@ export class AzClient {
   private validateMoveResponse(json: AzMoveResponse): void {
     if (json.kind === 'place') {
       if (
-        typeof json.row !== 'number' ||
-        typeof json.col !== 'number' ||
+        !Number.isInteger(json.row) || json.row! < 0 || json.row! > 5 ||
+        !Number.isInteger(json.col) || json.col! < 0 || json.col! > 5 ||
         (json.pieceType !== 'kitten' && json.pieceType !== 'cat')
       ) {
         throw new AzServiceBadRequest('AZ returned malformed place move');
@@ -123,7 +123,7 @@ export class AzClient {
       return;
     }
     if (json.kind === 'graduation') {
-      if (typeof json.optionIndex !== 'number' || json.optionIndex < 0) {
+      if (!Number.isInteger(json.optionIndex) || json.optionIndex! < 0 || json.optionIndex! >= 32) {
         throw new AzServiceBadRequest('AZ returned malformed graduation move');
       }
       return;

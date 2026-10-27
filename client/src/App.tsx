@@ -300,6 +300,7 @@ function MainApp() {
             gameOver={onlineGameOver}
             opponentDisconnected={opponentDisconnected}
             opponentMayReconnect={opponentMayReconnect}
+            botError={error}
           />
         );
       }
